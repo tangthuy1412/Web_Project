@@ -4,7 +4,7 @@ import { AuthLayout } from './layouts/AuthLayout'
 
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
-import { LandingPage } from './pages/LandingPage'
+import { LandingPage } from './pages/landing/LandingPage'
 import { HomePage } from './pages/home/HomePage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { GitHubConnectPage } from './pages/github/GitHubConnectPage'

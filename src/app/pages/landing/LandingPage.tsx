@@ -36,11 +36,11 @@ import {
   Users,
   X
 } from 'lucide-react'
-import { Button } from '../components/ui/Button'
-import { Badge } from '../components/ui/Badge'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../components/ui/accordion'
-import { useTheme } from '../hooks/useTheme'
-import { cn } from '../lib/utils'
+import { Button } from '../../components/ui/Button'
+import { Badge } from '../../components/ui/Badge'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../../components/ui/accordion'
+import { useTheme } from '../../hooks/useTheme'
+import { cn } from '../../lib/utils'
 
 type IconType = ComponentType<{ className?: string }>
 

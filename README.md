@@ -1,16 +1,57 @@
-# React + Vite
+# GitAnalyzer AI
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Ứng dụng React + TypeScript dùng Vite, TailwindCSS và React Router để xây dựng nền tảng phân tích repository GitHub, AI Mentor và lộ trình học cá nhân hóa.
 
-Currently, two official plugins are available:
+## Scripts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm run dev
+npm run build
+```
 
-## React Compiler
+## Cấu trúc chính
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```text
+src/
+  app/
+    App.tsx              # Router provider
+    routes.tsx           # Khai báo route toàn ứng dụng
+    components/
+      layout/            # Sidebar, topbar cho app dashboard
+      ui/                # Component UI dùng chung
+    hooks/               # Hook dùng chung
+    layouts/             # Layout auth và dashboard
+    lib/                 # Helper dùng chung
+    mock/                # Dữ liệu mẫu cho app chính
+    pages/               # Các màn hình chính
+      landing/           # Landing page public
+      auth/
+      dashboard/
+      repositories/
+      analysis/
+      chat/
+      github/
+      progress/
+      settings/
+    stores/              # Zustand stores
+    types/               # Type dùng chung
+  features/
+    roadmaps/            # Feature module cho learning roadmap
+      components/
+      hooks/
+      mock/
+      pages/
+      services/
+      stores/
+      types/
+      utils/
+  styles/                # Tailwind và theme tokens
+  main.tsx               # Entry point
+```
 
-## Expanding the ESLint configuration
+## Quy ước
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- `app/` chứa shell, route, layout, page và logic dùng chung.
+- `features/` chứa các domain module có đủ component, store, service, type và mock riêng.
+- Không đặt file template Vite hoặc asset không dùng ở root `src/`.
+- Dữ liệu mock chỉ dùng cho demo UI, không trộn vào component nếu có thể tách ra store/service.
