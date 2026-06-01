@@ -61,7 +61,7 @@ export const RepositoriesPage = () => {
       },
       {
         accessorKey: 'language',
-        header: 'Language',
+        header: 'Ngôn ngữ',
         cell: ({ row }) => (
           <Badge variant="default">{row.original.language}</Badge>
         )
@@ -74,7 +74,7 @@ export const RepositoriesPage = () => {
               className="flex items-center gap-2 hover:text-slate-900 dark:hover:text-slate-100"
               onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
             >
-              Stars
+              Sao
               <ArrowUpDown className="h-4 w-4" />
             </button>
           )
@@ -88,7 +88,7 @@ export const RepositoriesPage = () => {
       },
       {
         accessorKey: 'forks',
-        header: 'Forks',
+        header: 'Fork',
         cell: ({ row }) => (
           <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
             <GitFork className="h-4 w-4" />
@@ -109,12 +109,12 @@ export const RepositoriesPage = () => {
       },
       {
         accessorKey: 'analyzed',
-        header: 'Status',
+        header: 'Trạng thái',
         cell: ({ row }) => (
           row.original.analyzed ? (
-            <Badge variant="success">Analyzed</Badge>
+            <Badge variant="success">Đã phân tích</Badge>
           ) : (
-            <Badge variant="default">Not Analyzed</Badge>
+            <Badge variant="default">Chưa phân tích</Badge>
           )
         )
       },
@@ -126,7 +126,7 @@ export const RepositoriesPage = () => {
               className="flex items-center gap-2 hover:text-slate-900 dark:hover:text-slate-100"
               onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
             >
-              Updated
+              Cập nhật
               <ArrowUpDown className="h-4 w-4" />
             </button>
           )
@@ -135,7 +135,7 @@ export const RepositoriesPage = () => {
       },
       {
         id: 'actions',
-        header: 'Actions',
+        header: 'Thao tác',
         cell: ({ row }) => {
           const repo = row.original
           return (
@@ -193,15 +193,15 @@ export const RepositoriesPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-            Repositories
+            Kho mã nguồn
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Manage and analyze your GitHub repositories
+            Quản lý và phân tích repository GitHub của bạn
           </p>
         </div>
         <Button>
           <Play className="mr-2 h-4 w-4" />
-          Analyze All
+          Phân tích tất cả
         </Button>
       </div>
 
@@ -211,7 +211,7 @@ export const RepositoriesPage = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search repositories..."
+              placeholder="Tìm repository..."
               value={globalFilter ?? ''}
               onChange={(e) => setGlobalFilter(e.target.value)}
               className="w-full h-10 pl-10 pr-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -219,16 +219,16 @@ export const RepositoriesPage = () => {
           </div>
           <div className="flex items-center gap-2">
             <select className="h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="">All Languages</option>
+              <option value="">Tất cả ngôn ngữ</option>
               <option value="typescript">TypeScript</option>
               <option value="javascript">JavaScript</option>
               <option value="python">Python</option>
               <option value="go">Go</option>
             </select>
             <select className="h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="">All Status</option>
-              <option value="analyzed">Analyzed</option>
-              <option value="not-analyzed">Not Analyzed</option>
+              <option value="">Tất cả trạng thái</option>
+              <option value="analyzed">Đã phân tích</option>
+              <option value="not-analyzed">Chưa phân tích</option>
             </select>
           </div>
         </div>
@@ -270,9 +270,9 @@ export const RepositoriesPage = () => {
 
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{' '}
-            {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, repositories.length)} of{' '}
-            {repositories.length} repositories
+            Hiển thị {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} đến{' '}
+            {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, repositories.length)} trong{' '}
+            {repositories.length} repository
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -281,7 +281,7 @@ export const RepositoriesPage = () => {
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
             >
-              Previous
+              Trước
             </Button>
             <Button
               variant="outline"
@@ -289,7 +289,7 @@ export const RepositoriesPage = () => {
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
             >
-              Next
+              Tiếp
             </Button>
           </div>
         </div>

@@ -55,7 +55,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const aiMessage: ChatMessage = {
       id: `msg-${Date.now() + 1}`,
       role: 'assistant',
-      content: 'This is a mock AI response. In production, this would connect to a real AI backend to provide personalized coding advice, answer questions about your repositories, and help you improve your development skills.',
+      content: 'Đây là phản hồi AI mẫu. Khi triển khai production, phần này sẽ kết nối tới backend AI thật để đưa ra lời khuyên cá nhân hóa, trả lời câu hỏi về repository và giúp bạn cải thiện kỹ năng phát triển phần mềm.',
       timestamp: new Date().toISOString()
     }
 

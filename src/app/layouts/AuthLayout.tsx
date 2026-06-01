@@ -3,18 +3,18 @@ import { BarChart3, Github, MessageSquare, ShieldCheck, Sparkles, TrendingUp } f
 
 const highlights = [
   {
-    title: 'AI-powered analysis',
-    description: 'Score architecture, documentation, conventions, commits, and portfolio readiness.',
+    title: 'Phân tích bằng AI',
+    description: 'Chấm điểm kiến trúc, tài liệu, quy ước code, commit và mức độ sẵn sàng portfolio.',
     icon: Sparkles
   },
   {
-    title: 'Career guidance',
-    description: 'Convert repository gaps into a focused skill roadmap for your next role.',
+    title: 'Định hướng nghề nghiệp',
+    description: 'Chuyển khoảng trống kỹ năng trong repository thành roadmap tập trung cho vai trò tiếp theo.',
     icon: TrendingUp
   },
   {
-    title: 'Secure GitHub flow',
-    description: 'Connect repositories for analysis while keeping project ownership clear.',
+    title: 'Kết nối GitHub an toàn',
+    description: 'Kết nối repository để phân tích với luồng quyền minh bạch và rõ ràng.',
     icon: ShieldCheck
   }
 ]
@@ -30,17 +30,17 @@ export const AuthLayout = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold">GitAnalyzer AI</h1>
-              <p className="text-sm text-slate-400">Developer analytics dashboard</p>
+              <p className="text-sm text-slate-400">Bảng phân tích dành cho lập trình viên</p>
             </div>
           </div>
 
           <div>
-            <p className="text-sm font-medium uppercase tracking-wider text-cyan-300">Portfolio intelligence</p>
+            <p className="text-sm font-medium uppercase tracking-wider text-cyan-300">Phân tích portfolio</p>
             <h2 className="mt-3 max-w-lg text-4xl font-bold leading-tight">
-              Understand your repositories before recruiters do.
+              Hiểu rõ repository của bạn trước khi nhà tuyển dụng xem tới.
             </h2>
             <p className="mt-4 text-base leading-7 text-slate-300">
-              Review technical quality, missing skills, and concrete improvements with the same visual system used across the app.
+              Xem chất lượng kỹ thuật, kỹ năng còn thiếu và các cải thiện cụ thể trong cùng hệ thống giao diện của ứng dụng.
             </p>
           </div>
 
@@ -63,17 +63,17 @@ export const AuthLayout = () => {
           <div className="hover-lift rounded-lg border border-white/10 bg-white/5 p-4">
             <BarChart3 className="mb-3 h-5 w-5 text-cyan-300" />
             <p className="text-2xl font-bold">82</p>
-            <p className="text-xs text-slate-400">Sample score</p>
+            <p className="text-xs text-slate-400">Điểm mẫu</p>
           </div>
           <div className="hover-lift rounded-lg border border-white/10 bg-white/5 p-4">
             <Github className="mb-3 h-5 w-5 text-cyan-300" />
             <p className="text-2xl font-bold">5</p>
-            <p className="text-xs text-slate-400">Repositories</p>
+            <p className="text-xs text-slate-400">Repository</p>
           </div>
           <div className="hover-lift rounded-lg border border-white/10 bg-white/5 p-4">
             <MessageSquare className="mb-3 h-5 w-5 text-cyan-300" />
             <p className="text-2xl font-bold">AI</p>
-            <p className="text-xs text-slate-400">Mentor chat</p>
+            <p className="text-xs text-slate-400">Chat mentor</p>
           </div>
         </div>
       </div>

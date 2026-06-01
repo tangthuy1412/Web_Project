@@ -20,10 +20,10 @@ export const ContinueLearningCard = ({ roadmap }: ContinueLearningCardProps) => 
             <BookOpenCheck className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm text-slate-500 dark:text-slate-400">Continue learning</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Tiếp tục học</p>
             <h3 className="mt-1 font-semibold text-slate-950 dark:text-slate-50">{roadmap.title}</h3>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Next: {nextNode?.title ?? 'Review completed roadmap'} · {getRoadmapHoursRemaining(roadmap)}h remaining
+              Tiếp theo: {nextNode?.title ?? 'Ôn lại roadmap đã hoàn thành'} - còn {getRoadmapHoursRemaining(roadmap)} giờ
             </p>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
               <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500" style={{ width: `${roadmap.progress}%` }} />
@@ -32,7 +32,7 @@ export const ContinueLearningCard = ({ roadmap }: ContinueLearningCardProps) => 
         </div>
         <Link to={`/roadmaps/${roadmap.slug}`} className="mt-4 block">
           <Button variant="outline" className="w-full">
-            Resume
+            Tiếp tục
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </Link>

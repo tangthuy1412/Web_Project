@@ -10,6 +10,7 @@ import { Badge } from '../../../app/components/ui/Badge'
 import { Button } from '../../../app/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../app/components/ui/Card'
 import { useRoadmapStore } from '../stores/roadmapStore'
+import { formatRoadmapDifficulty, formatSkillGapPriority } from '../utils/roadmapUtils'
 
 export const AIRoadmapPage = () => {
   const { aiRecommendation, isGenerating, generateAIRoadmap, updateNodeStatus, toggleBookmark } = useRoadmapStore()
@@ -26,7 +27,7 @@ export const AIRoadmapPage = () => {
         <Card>
           <CardContent className="p-10 text-center">
             <BrainCircuit className="mx-auto h-10 w-10 animate-pulse text-indigo-500" />
-            <p className="mt-4 font-medium text-slate-900 dark:text-slate-100">Generating your AI roadmap</p>
+            <p className="mt-4 font-medium text-slate-900 dark:text-slate-100">Đang tạo roadmap AI của bạn</p>
           </CardContent>
         </Card>
       </div>
@@ -41,12 +42,12 @@ export const AIRoadmapPage = () => {
         <Link to="/roadmaps">
           <Button variant="ghost">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to roadmaps
+            Quay lại roadmap
           </Button>
         </Link>
         <Badge variant="info">
           <Sparkles className="mr-1 h-3 w-3" />
-          Generated from GitHub analysis
+          Được tạo từ phân tích GitHub
         </Badge>
       </div>
 
@@ -59,7 +60,7 @@ export const AIRoadmapPage = () => {
           <div>
             <div className="mb-3 flex flex-wrap gap-2">
               <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium">{roadmap.category}</span>
-              <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium">{roadmap.difficulty}</span>
+              <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium">{formatRoadmapDifficulty(roadmap.difficulty)}</span>
               <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium">{roadmap.careerOutcome}</span>
             </div>
             <h1 className="text-3xl font-bold">{roadmap.title}</h1>
@@ -68,13 +69,13 @@ export const AIRoadmapPage = () => {
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg bg-white/10 p-4">
               <Clock className="mb-2 h-5 w-5 text-cyan-200" />
-              <p className="text-2xl font-bold">{aiRecommendation.estimatedCompletionWeeks}w</p>
-              <p className="text-xs text-white/70">Estimated time</p>
+              <p className="text-2xl font-bold">{aiRecommendation.estimatedCompletionWeeks} tuần</p>
+              <p className="text-xs text-white/70">Thời gian dự kiến</p>
             </div>
             <div className="rounded-lg bg-white/10 p-4">
               <Route className="mb-2 h-5 w-5 text-emerald-200" />
               <p className="text-2xl font-bold">{roadmap.progress}%</p>
-              <p className="text-xs text-white/70">Current progress</p>
+              <p className="text-xs text-white/70">Tiến độ hiện tại</p>
             </div>
           </div>
         </div>
@@ -90,8 +91,8 @@ export const AIRoadmapPage = () => {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Recommended Learning Path</CardTitle>
-              <CardDescription>Expandable nodes include prerequisites, resources, mini projects, notes and progress actions.</CardDescription>
+              <CardTitle>Lộ trình học đề xuất</CardTitle>
+              <CardDescription>Các node có thể mở rộng gồm điều kiện tiên quyết, tài nguyên, mini project, ghi chú và thao tác tiến độ.</CardDescription>
             </CardHeader>
             <CardContent>
               <RoadmapTree
@@ -107,8 +108,8 @@ export const AIRoadmapPage = () => {
           <LearningTimeline roadmap={roadmap} />
           <Card>
             <CardHeader>
-              <CardTitle>Missing Skills</CardTitle>
-              <CardDescription>Prioritized from repo weaknesses and analysis scores</CardDescription>
+              <CardTitle>Kỹ năng còn thiếu</CardTitle>
+              <CardDescription>Được ưu tiên từ điểm yếu repository và điểm phân tích</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {aiRecommendation.skillGaps.map((gap) => (
@@ -116,7 +117,7 @@ export const AIRoadmapPage = () => {
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-medium text-slate-900 dark:text-slate-100">{gap.skill}</p>
                     <Badge variant={gap.priority === 'Critical' ? 'danger' : gap.priority === 'High' ? 'warning' : 'default'}>
-                      {gap.priority}
+                      {formatSkillGapPriority(gap.priority)}
                     </Badge>
                   </div>
                   <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{gap.evidence}</p>

@@ -25,7 +25,7 @@ const resource = (id: string, title: string, type: 'article' | 'video' | 'docs' 
   title,
   type,
   url: '#',
-  provider: type === 'docs' ? 'Official Docs' : type === 'repo' ? 'GitHub' : 'GitAnalyzer Academy',
+  provider: type === 'docs' ? 'Tài liệu chính thức' : type === 'repo' ? 'GitHub' : 'GitAnalyzer Academy',
   estimatedMinutes: type === 'exercise' ? 75 : 30
 })
 
@@ -33,10 +33,10 @@ export const mockRoadmaps: Roadmap[] = [
   {
     id: 'roadmap-fullstack-production',
     slug: 'fullstack-production-engineer',
-    title: 'Production Full-Stack Engineer',
-    subtitle: 'Backend, testing, Docker, CI/CD and deployment discipline for frontend-heavy developers.',
+    title: 'Full-Stack Engineer hướng production',
+    subtitle: 'Backend, testing, Docker, CI/CD và kỷ luật triển khai cho developer mạnh frontend.',
     description:
-      'A practical path from polished React apps to reliable production systems with APIs, persistence, automated tests, containers and delivery pipelines.',
+      'Lộ trình thực tế từ ứng dụng React chỉn chu tới hệ thống production đáng tin cậy với API, persistence, automated tests, container và delivery pipeline.',
     category: 'Fullstack',
     difficulty: 'Intermediate',
     estimatedWeeks: 10,
@@ -60,15 +60,15 @@ export const mockRoadmaps: Roadmap[] = [
     modules: [
       {
         id: 'module-api-foundations',
-        title: 'API Foundations',
-        description: 'Build maintainable service boundaries, controllers, validation and API documentation.',
+        title: 'Nền tảng API',
+        description: 'Xây dựng ranh giới service, controller, validation và tài liệu API dễ bảo trì.',
         order: 1,
         estimatedHours: 22,
         milestones: [
           {
             id: 'mile-api-contract',
-            title: 'Portfolio-grade API contract',
-            description: 'Ship documented endpoints with validation and consistent error responses.',
+            title: 'API contract đạt chuẩn portfolio',
+            description: 'Hoàn thiện endpoint có tài liệu, validation và phản hồi lỗi nhất quán.',
             targetWeek: 2,
             nodeIds: ['node-node-runtime', 'node-rest-api', 'node-validation'],
             rewardXp: 450,
@@ -78,8 +78,8 @@ export const mockRoadmaps: Roadmap[] = [
         nodes: [
           {
             id: 'node-node-runtime',
-            title: 'Node.js Runtime and Service Structure',
-            description: 'Understand event loop basics, environment configuration, folder boundaries and production-ready scripts.',
+            title: 'Node.js Runtime và cấu trúc service',
+            description: 'Hiểu event loop cơ bản, cấu hình môi trường, ranh giới thư mục và script sẵn sàng production.',
             estimatedHours: 5,
             difficulty: 'Beginner',
             dependencies: [],
@@ -89,14 +89,14 @@ export const mockRoadmaps: Roadmap[] = [
               resource('res-node-docs', 'Node.js runtime essentials', 'docs'),
               resource('res-service-layout', 'Service folder structure patterns', 'article')
             ],
-            project: 'Create a health-check service with structured config.',
+            project: 'Tạo health-check service với cấu hình có cấu trúc.',
             quiz: { questions: 8, passingScore: 80 },
             xp: 160
           },
           {
             id: 'node-rest-api',
-            title: 'REST API Design',
-            description: 'Model resources, status codes, pagination, filtering and request lifecycle decisions.',
+            title: 'Thiết kế REST API',
+            description: 'Mô hình hóa resource, status code, phân trang, lọc và vòng đời request.',
             estimatedHours: 7,
             difficulty: 'Intermediate',
             dependencies: ['node-node-runtime'],
@@ -106,14 +106,14 @@ export const mockRoadmaps: Roadmap[] = [
               resource('res-rest-course', 'REST design workshop', 'course'),
               resource('res-api-exercise', 'Design a repository analytics API', 'exercise')
             ],
-            project: 'Build repository, analysis and progress endpoints.',
+            project: 'Xây dựng endpoint repository, phân tích và tiến độ.',
             quiz: { questions: 12, passingScore: 85 },
             xp: 220
           },
           {
             id: 'node-validation',
-            title: 'Validation and Error Contracts',
-            description: 'Use schema validation, safe parsing and typed error responses to protect API boundaries.',
+            title: 'Validation và error contract',
+            description: 'Dùng schema validation, safe parsing và phản hồi lỗi có kiểu để bảo vệ ranh giới API.',
             estimatedHours: 4,
             difficulty: 'Intermediate',
             dependencies: ['node-rest-api'],
@@ -123,16 +123,16 @@ export const mockRoadmaps: Roadmap[] = [
               resource('res-zod-docs', 'Schema validation with Zod', 'docs'),
               resource('res-errors', 'Error contract examples', 'repo')
             ],
-            project: 'Add validation to repository analysis submission.',
+            project: 'Thêm validation cho luồng gửi phân tích repository.',
             quiz: { questions: 6, passingScore: 80 },
             bookmarked: true,
-            notes: 'Focus on reusable parse middleware and response shape.',
+            notes: 'Tập trung vào parse middleware tái sử dụng và cấu trúc response.',
             xp: 180
           },
           {
             id: 'node-auth-rate-limit',
-            title: 'Auth and Rate Limiting',
-            description: 'Protect APIs with token verification, ownership checks and request throttling.',
+            title: 'Xác thực và giới hạn tần suất',
+            description: 'Bảo vệ API bằng xác minh token, kiểm tra quyền sở hữu và throttling request.',
             estimatedHours: 6,
             difficulty: 'Advanced',
             dependencies: ['node-validation'],
@@ -142,7 +142,7 @@ export const mockRoadmaps: Roadmap[] = [
               resource('res-auth-video', 'JWT and session tradeoffs', 'video'),
               resource('res-rate-limit', 'Implement API rate limits', 'exercise')
             ],
-            project: 'Secure private repository analysis endpoints.',
+            project: 'Bảo mật endpoint phân tích repository riêng tư.',
             quiz: { questions: 10, passingScore: 85 },
             xp: 260
           }
@@ -321,10 +321,10 @@ export const mockRoadmaps: Roadmap[] = [
   {
     id: 'roadmap-frontend-architecture',
     slug: 'frontend-architecture-systems',
-    title: 'Frontend Architecture Systems',
-    subtitle: 'Scale React applications with design systems, state boundaries, performance and testability.',
+    title: 'Hệ thống kiến trúc Frontend',
+    subtitle: 'Mở rộng ứng dụng React với design system, ranh giới state, hiệu năng và khả năng test.',
     description:
-      'A senior frontend path focused on maintainable React architecture, component contracts, accessibility, performance and high-signal UI quality.',
+      'Lộ trình frontend senior tập trung vào kiến trúc React dễ bảo trì, component contract, accessibility, hiệu năng và chất lượng UI rõ tín hiệu.',
     category: 'Frontend',
     difficulty: 'Advanced',
     estimatedWeeks: 8,
@@ -369,7 +369,7 @@ export const mockRoadmaps: Roadmap[] = [
           },
           {
             id: 'node-accessibility',
-            title: 'Dashboard Accessibility',
+            title: 'Accessibility cho dashboard',
             description: 'Keyboard navigation, semantic landmarks, focus states and chart alternatives.',
             estimatedHours: 6,
             difficulty: 'Intermediate',
@@ -400,10 +400,10 @@ export const mockRoadmaps: Roadmap[] = [
   {
     id: 'roadmap-cloud-devops',
     slug: 'cloud-devops-foundations',
-    title: 'Cloud DevOps Foundations',
-    subtitle: 'Cloud deployment, infrastructure fundamentals, containers and reliability workflows.',
+    title: 'Nền tảng Cloud DevOps',
+    subtitle: 'Triển khai cloud, nền tảng hạ tầng, container và workflow reliability.',
     description:
-      'A focused DevOps path for application developers who need deployment confidence and operational literacy.',
+      'Lộ trình DevOps tập trung cho application developer cần tự tin triển khai và hiểu vận hành.',
     category: 'DevOps',
     difficulty: 'Intermediate',
     estimatedWeeks: 7,
@@ -418,7 +418,7 @@ export const mockRoadmaps: Roadmap[] = [
     isAIRecommended: true,
     progress: 0,
     createdFrom: 'manual',
-    careerOutcome: 'Platform-aware Application Engineer',
+    careerOutcome: 'Application Engineer hiểu platform',
     modules: [
       {
         id: 'module-cloud-start',
@@ -460,8 +460,8 @@ export const mockRoadmaps: Roadmap[] = [
     id: 'roadmap-testing-engineer',
     slug: 'testing-quality-engineer',
     title: 'Testing Quality Engineer',
-    subtitle: 'Build confidence with unit, integration, E2E, contract and regression testing.',
-    description: 'A quality-focused roadmap for developers who want better coverage decisions and release confidence.',
+    subtitle: 'Tạo sự tự tin với unit, integration, E2E, contract và regression testing.',
+    description: 'Roadmap tập trung vào chất lượng cho developer muốn quyết định coverage tốt hơn và release tự tin hơn.',
     category: 'Testing',
     difficulty: 'Intermediate',
     estimatedWeeks: 6,
@@ -476,7 +476,7 @@ export const mockRoadmaps: Roadmap[] = [
     isAIRecommended: true,
     progress: 0,
     createdFrom: 'manual',
-    careerOutcome: 'Quality-focused Software Engineer',
+    careerOutcome: 'Software Engineer tập trung chất lượng',
     modules: [
       {
         id: 'module-test-start',
@@ -579,8 +579,8 @@ export const mockLearningStats: UserLearningStats = {
   achievements: [
     {
       id: 'ach-first-roadmap',
-      title: 'Roadmap Started',
-      description: 'Started your first AI-guided learning path.',
+      title: 'Đã bắt đầu roadmap',
+      description: 'Bắt đầu lộ trình học đầu tiên được AI hướng dẫn.',
       icon: 'Sparkles',
       unlockedAt: '2026-05-20T09:00:00Z',
       progress: 1,
@@ -589,8 +589,8 @@ export const mockLearningStats: UserLearningStats = {
     },
     {
       id: 'ach-ci-ready',
-      title: 'CI/CD Ready',
-      description: 'Complete Docker and GitHub Actions learning nodes.',
+      title: 'Sẵn sàng CI/CD',
+      description: 'Hoàn thành các node học Docker và GitHub Actions.',
       icon: 'Rocket',
       progress: 1,
       target: 2,
@@ -598,8 +598,8 @@ export const mockLearningStats: UserLearningStats = {
     },
     {
       id: 'ach-seven-day',
-      title: '7-Day Streak',
-      description: 'Maintain a learning streak for seven days.',
+      title: 'Chuỗi 7 ngày',
+      description: 'Duy trì chuỗi học tập trong bảy ngày.',
       icon: 'Flame',
       unlockedAt: '2026-05-26T09:00:00Z',
       progress: 7,
@@ -613,27 +613,27 @@ export const mockAIRecommendation: AIRecommendation = {
   id: 'ai-rec-1',
   generatedAt: '2026-05-27T09:30:00Z',
   summary:
-    'Your repositories show strong React and TypeScript execution, but backend consistency, CI/CD automation and testing depth are limiting portfolio readiness.',
+    'Repository của bạn cho thấy năng lực React và TypeScript tốt, nhưng tính nhất quán backend, tự động hóa CI/CD và chiều sâu testing đang giới hạn mức sẵn sàng portfolio.',
   confidence: 89,
   sourceRepositories: ['ecommerce-platform', 'task-manager-app', 'portfolio-website'],
   strengths: [
-    'Strong frontend component structure and TypeScript adoption',
-    'Good product sense across dashboard and collaboration projects',
-    'Solid Git usage with steady commits on active repositories'
+    'Cấu trúc component frontend tốt và áp dụng TypeScript ổn',
+    'Tư duy sản phẩm tốt trong các dự án dashboard và cộng tác',
+    'Sử dụng Git ổn định với commit đều ở repository đang hoạt động'
   ],
   weaknesses: [
-    'Backend validation and error contracts are inconsistent',
-    'Testing coverage is shallow for critical user flows',
-    'No repeatable CI/CD pipeline detected in analyzed repositories',
-    'Monitoring and release-readiness signals are missing'
+    'Validation backend và error contract chưa nhất quán',
+    'Độ phủ testing còn nông ở các luồng người dùng quan trọng',
+    'Chưa phát hiện CI/CD pipeline có thể lặp lại trong repository đã phân tích',
+    'Thiếu tín hiệu monitoring và mức sẵn sàng release'
   ],
   missingSkills: ['Node.js API depth', 'PostgreSQL modeling', 'Docker', 'GitHub Actions', 'E2E testing'],
   commitPatternInsight:
-    'Commits are frequent near UI milestones but quality checks appear manual. Add automated gates before merge to reduce regression risk.',
+    'Commit xuất hiện dày gần các mốc UI nhưng quality check có vẻ còn thủ công. Hãy thêm automated gate trước khi merge để giảm rủi ro regression.',
   complexityInsight:
-    'Project complexity is moving from single-app frontend work toward production full-stack systems. The next leverage point is reliable backend delivery.',
+    'Độ phức tạp dự án đang chuyển từ frontend đơn lẻ sang hệ thống full-stack hướng production. Điểm đòn bẩy tiếp theo là delivery backend đáng tin cậy.',
   careerSuggestion:
-    'Best-fit trajectory: Full-Stack Engineer with strong frontend specialization. Strengthen DevOps and testing to reach senior readiness faster.',
+    'Hướng phù hợp nhất: Full-Stack Engineer với thế mạnh frontend. Củng cố DevOps và testing để tiến tới mức senior nhanh hơn.',
   estimatedCompletionWeeks: 10,
   skillGaps: [
     {
@@ -642,7 +642,7 @@ export const mockAIRecommendation: AIRecommendation = {
       currentScore: 34,
       targetScore: 78,
       priority: 'Critical',
-      evidence: 'No workflow files found in analyzed repositories and deployment appears manual.',
+      evidence: 'Không tìm thấy workflow file trong repository đã phân tích và deployment có vẻ còn thủ công.',
       recommendedNodeIds: ['node-docker', 'node-github-actions']
     },
     {
@@ -651,7 +651,7 @@ export const mockAIRecommendation: AIRecommendation = {
       currentScore: 58,
       targetScore: 82,
       priority: 'High',
-      evidence: 'API recommendations repeatedly mention validation and consistent errors.',
+      evidence: 'Các đề xuất API nhiều lần nhắc tới validation và lỗi nhất quán.',
       recommendedNodeIds: ['node-rest-api', 'node-validation']
     },
     {
@@ -660,7 +660,7 @@ export const mockAIRecommendation: AIRecommendation = {
       currentScore: 45,
       targetScore: 80,
       priority: 'High',
-      evidence: 'Critical portfolio flows do not have automated E2E coverage.',
+      evidence: 'Các luồng portfolio quan trọng chưa có E2E coverage tự động.',
       recommendedNodeIds: ['node-integration-tests', 'node-e2e-tests']
     },
     {
@@ -669,7 +669,7 @@ export const mockAIRecommendation: AIRecommendation = {
       currentScore: 28,
       targetScore: 68,
       priority: 'Medium',
-      evidence: 'No monitoring, structured logging or error tracking detected.',
+      evidence: 'Chưa phát hiện monitoring, structured logging hoặc error tracking.',
       recommendedNodeIds: ['node-observability']
     }
   ],

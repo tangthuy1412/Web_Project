@@ -24,10 +24,10 @@ export const ChatPage = () => {
   }
 
   const suggestedPrompts = [
-    'How can I improve my repository structure?',
-    'What skills should I focus on next?',
-    'Review my latest analysis results',
-    'Help me write better commit messages'
+    'Tôi có thể cải thiện cấu trúc repository như thế nào?',
+    'Tôi nên tập trung kỹ năng nào tiếp theo?',
+    'Đánh giá kết quả phân tích mới nhất của tôi',
+    'Giúp tôi viết commit message tốt hơn'
   ]
 
   return (
@@ -37,10 +37,10 @@ export const ChatPage = () => {
           <div className="p-4 border-b border-slate-200 dark:border-slate-800">
             <Button
               className="w-full"
-              onClick={() => createSession('New Chat', undefined)}
+              onClick={() => createSession('Cuộc trò chuyện mới', undefined)}
             >
               <Plus className="mr-2 h-4 w-4" />
-              New Chat
+              Chat mới
             </Button>
           </div>
           <div className="flex-1 overflow-y-auto p-2">
@@ -76,7 +76,7 @@ export const ChatPage = () => {
                     </h2>
                     {currentSession.repositoryContext && (
                       <Badge variant="info" className="mt-1">
-                        Context: {currentSession.repositoryContext}
+                        Ngữ cảnh: {currentSession.repositoryContext}
                       </Badge>
                     )}
                   </div>
@@ -93,10 +93,10 @@ export const ChatPage = () => {
                       <Sparkles className="h-8 w-8 text-white" />
                     </div>
                     <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                      Start a conversation
+                      Bắt đầu cuộc trò chuyện
                     </h3>
                     <p className="text-slate-500 dark:text-slate-400 mb-6">
-                      Ask me anything about your code, career, or development skills
+                      Hỏi bất cứ điều gì về code, nghề nghiệp hoặc kỹ năng phát triển phần mềm
                     </p>
                     <div className="grid grid-cols-2 gap-3 max-w-2xl mx-auto">
                       {suggestedPrompts.map((prompt) => (
@@ -144,7 +144,7 @@ export const ChatPage = () => {
                         </div>
                         {message.role === 'user' && (
                           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-300 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 text-sm font-medium">
-                            You
+                            Bạn
                           </div>
                         )}
                       </div>
@@ -174,7 +174,7 @@ export const ChatPage = () => {
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask anything..."
+                    placeholder="Nhập câu hỏi..."
                     disabled={isLoading}
                     className="flex-1 h-12 px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
                   />
@@ -186,7 +186,7 @@ export const ChatPage = () => {
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-slate-500">
-              Select a chat or create a new one
+              Chọn một cuộc trò chuyện hoặc tạo cuộc trò chuyện mới
             </div>
           )}
         </Card>

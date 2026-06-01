@@ -11,21 +11,21 @@ import { useRoadmapStore } from '../../../features/roadmaps/stores/roadmapStore'
 export const ProgressPage = () => {
   const { learningStats, skillProgress } = useRoadmapStore()
   const skillTrends = [
-    { month: 'Jan', Frontend: 75, Backend: 68, DevOps: 35, Testing: 55 },
-    { month: 'Feb', Frontend: 78, Backend: 70, DevOps: 38, Testing: 58 },
-    { month: 'Mar', Frontend: 80, Backend: 73, DevOps: 40, Testing: 60 },
-    { month: 'Apr', Frontend: 83, Backend: 76, DevOps: 43, Testing: 63 },
-    { month: 'May', Frontend: 85, Backend: 78, DevOps: 45, Testing: 65 }
+    { month: 'T1', Frontend: 75, Backend: 68, DevOps: 35, Testing: 55 },
+    { month: 'T2', Frontend: 78, Backend: 70, DevOps: 38, Testing: 58 },
+    { month: 'T3', Frontend: 80, Backend: 73, DevOps: 40, Testing: 60 },
+    { month: 'T4', Frontend: 83, Backend: 76, DevOps: 43, Testing: 63 },
+    { month: 'T5', Frontend: 85, Backend: 78, DevOps: 45, Testing: 65 }
   ]
 
   return (
     <div className="max-w-7xl space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-          Progress & Insights
+          Tiến độ & Insight
         </h1>
         <p className="text-slate-500 dark:text-slate-400 mt-1">
-          Track your development journey over time
+          Theo dõi hành trình phát triển kỹ năng theo thời gian
         </p>
       </div>
 
@@ -37,7 +37,7 @@ export const ProgressPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  Overall Growth
+                  Tăng trưởng tổng quan
                 </p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">
                   +27%
@@ -48,7 +48,7 @@ export const ProgressPage = () => {
               </div>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-              Since last month
+              So với tháng trước
             </p>
           </CardContent>
         </Card>
@@ -58,7 +58,7 @@ export const ProgressPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  Completed Goals
+                  Mục tiêu hoàn thành
                 </p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">
                   12/15
@@ -69,7 +69,7 @@ export const ProgressPage = () => {
               </div>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-              80% completion rate
+              Tỷ lệ hoàn thành 80%
             </p>
           </CardContent>
         </Card>
@@ -79,7 +79,7 @@ export const ProgressPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  Skills Improved
+                  Kỹ năng đã cải thiện
                 </p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">
                   8
@@ -90,7 +90,7 @@ export const ProgressPage = () => {
               </div>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-              This quarter
+              Trong quý này
             </p>
           </CardContent>
         </Card>
@@ -100,7 +100,7 @@ export const ProgressPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  Learning Hours
+                  Giờ học
                 </p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">
                   124
@@ -111,7 +111,7 @@ export const ProgressPage = () => {
               </div>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-              Last 30 days
+              30 ngày gần nhất
             </p>
           </CardContent>
         </Card>
@@ -124,8 +124,8 @@ export const ProgressPage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Overall Score Trend</CardTitle>
-          <CardDescription>Your improvement over the last 5 months</CardDescription>
+          <CardTitle>Xu hướng điểm tổng quan</CardTitle>
+          <CardDescription>Mức cải thiện của bạn trong 5 tháng gần nhất</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
@@ -155,8 +155,8 @@ export const ProgressPage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Skill Development Trends</CardTitle>
-          <CardDescription>Track your progress across different skill areas</CardDescription>
+          <CardTitle>Xu hướng phát triển kỹ năng</CardTitle>
+          <CardDescription>Theo dõi tiến độ theo từng nhóm kỹ năng</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={350}>
@@ -178,8 +178,8 @@ export const ProgressPage = () => {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Current Skill Levels</CardTitle>
-            <CardDescription>Your proficiency across different areas</CardDescription>
+            <CardTitle>Cấp độ kỹ năng hiện tại</CardTitle>
+            <CardDescription>Mức độ thành thạo ở từng mảng</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -201,8 +201,8 @@ export const ProgressPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Milestones</CardTitle>
-            <CardDescription>Your latest achievements</CardDescription>
+            <CardTitle>Cột mốc gần đây</CardTitle>
+            <CardDescription>Thành tựu mới nhất của bạn</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -212,12 +212,12 @@ export const ProgressPage = () => {
                 </div>
                 <div className="flex-1">
                   <p className="font-medium text-slate-900 dark:text-slate-100">
-                    Frontend Mastery
+                    Thành thạo Frontend
                   </p>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Reached 85% proficiency in Frontend Development
+                    Đạt 85% mức độ thành thạo Frontend Development
                   </p>
-                  <Badge variant="success" className="mt-2">Achieved</Badge>
+                  <Badge variant="success" className="mt-2">Đã đạt</Badge>
                 </div>
               </div>
 
@@ -227,12 +227,12 @@ export const ProgressPage = () => {
                 </div>
                 <div className="flex-1">
                   <p className="font-medium text-slate-900 dark:text-slate-100">
-                    First Project Analysis
+                    Phân tích dự án đầu tiên
                   </p>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Completed your first repository analysis
+                    Hoàn thành phân tích repository đầu tiên
                   </p>
-                  <Badge variant="success" className="mt-2">Achieved</Badge>
+                  <Badge variant="success" className="mt-2">Đã đạt</Badge>
                 </div>
               </div>
 
@@ -242,12 +242,12 @@ export const ProgressPage = () => {
                 </div>
                 <div className="flex-1">
                   <p className="font-medium text-slate-900 dark:text-slate-100">
-                    Consistent Improvement
+                    Cải thiện đều đặn
                   </p>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Improved scores for 3 consecutive months
+                    Cải thiện điểm số trong 3 tháng liên tiếp
                   </p>
-                  <Badge variant="success" className="mt-2">Achieved</Badge>
+                  <Badge variant="success" className="mt-2">Đã đạt</Badge>
                 </div>
               </div>
             </div>

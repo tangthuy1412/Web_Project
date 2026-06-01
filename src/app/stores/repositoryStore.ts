@@ -34,7 +34,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       repositoryId: id,
       repositoryName: get().repositories.find(r => r.id === id)?.name || '',
       createdAt: new Date().toISOString(),
-      projectType: 'Web Application',
+      projectType: 'Ứng dụng web',
       techStack: ['React', 'TypeScript'],
       scores: {
         architecture: 75,
@@ -44,15 +44,15 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         codeConvention: 80,
         overall: 73
       },
-      strengths: ['Good code structure', 'Clean commits'],
-      weaknesses: ['Missing tests', 'Incomplete documentation'],
+      strengths: ['Cấu trúc code tốt', 'Commit rõ ràng'],
+      weaknesses: ['Thiếu test', 'Tài liệu chưa hoàn thiện'],
       recommendations: [],
       missingSkills: [],
       careerDirection: {
         primary: 'Frontend Developer',
         secondary: ['Full-Stack Engineer'],
         confidence: 75,
-        reasoning: 'Based on current skill set and project type'
+        reasoning: 'Dựa trên bộ kỹ năng hiện tại và loại dự án'
       },
       portfolioReadiness: {
         overallReadiness: 65,

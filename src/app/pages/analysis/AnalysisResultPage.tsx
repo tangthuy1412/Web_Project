@@ -5,7 +5,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import * as Progress from '@radix-ui/react-progress'
 import { useRepositoryStore } from '../../stores/repositoryStore'
-import { formatDate, getScoreColor, getScoreBgColor, getPriorityColor } from '../../lib/utils'
+import { formatDate, formatPortfolioImportance, formatPriority, getScoreColor, getScoreBgColor, getPriorityColor } from '../../lib/utils'
 
 export const AnalysisResultPage = () => {
   const { id } = useParams()
@@ -15,7 +15,7 @@ export const AnalysisResultPage = () => {
   if (!analysis) {
     return (
       <div className="max-w-6xl">
-        <p className="text-slate-500">Analysis not found</p>
+        <p className="text-slate-500">Không tìm thấy kết quả phân tích</p>
       </div>
     )
   }
@@ -25,7 +25,7 @@ export const AnalysisResultPage = () => {
       <div>
         <Link to="/repositories" className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 mb-4">
           <ArrowLeft className="h-4 w-4" />
-          Back to Repositories
+          Quay lại danh sách repository
         </Link>
         <div className="flex items-start justify-between">
           <div>
@@ -33,14 +33,14 @@ export const AnalysisResultPage = () => {
               {analysis.repositoryName}
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-2">
-              Analysis completed on {formatDate(analysis.createdAt)}
+              Hoàn tất phân tích vào {formatDate(analysis.createdAt)}
             </p>
           </div>
           <div className="text-right">
             <div className={`text-4xl font-bold ${getScoreColor(analysis.scores.overall)}`}>
               {analysis.scores.overall}
             </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Overall Score</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Điểm tổng quan</p>
           </div>
         </div>
       </div>
@@ -58,7 +58,7 @@ export const AnalysisResultPage = () => {
             <div className="flex items-center gap-2 mb-3">
               <Code2 className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Architecture
+                Kiến trúc
               </p>
             </div>
             <div className={`text-3xl font-bold ${getScoreColor(analysis.scores.architecture)}`}>
@@ -81,7 +81,7 @@ export const AnalysisResultPage = () => {
             <div className="flex items-center gap-2 mb-3">
               <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Completeness
+                Độ hoàn thiện
               </p>
             </div>
             <div className={`text-3xl font-bold ${getScoreColor(analysis.scores.completeness)}`}>
@@ -104,7 +104,7 @@ export const AnalysisResultPage = () => {
             <div className="flex items-center gap-2 mb-3">
               <GitCommit className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Commit Quality
+                Chất lượng commit
               </p>
             </div>
             <div className={`text-3xl font-bold ${getScoreColor(analysis.scores.commitQuality)}`}>
@@ -127,7 +127,7 @@ export const AnalysisResultPage = () => {
             <div className="flex items-center gap-2 mb-3">
               <BookOpen className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Documentation
+                Tài liệu
               </p>
             </div>
             <div className={`text-3xl font-bold ${getScoreColor(analysis.scores.documentation)}`}>
@@ -150,7 +150,7 @@ export const AnalysisResultPage = () => {
             <div className="flex items-center gap-2 mb-3">
               <FileCode className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Code Convention
+                Quy ước code
               </p>
             </div>
             <div className={`text-3xl font-bold ${getScoreColor(analysis.scores.codeConvention)}`}>
@@ -174,9 +174,9 @@ export const AnalysisResultPage = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-              Strengths
+              Điểm mạnh
             </CardTitle>
-            <CardDescription>What your project does well</CardDescription>
+            <CardDescription>Những điểm dự án đang làm tốt</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
@@ -194,9 +194,9 @@ export const AnalysisResultPage = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              Areas for Improvement
+              Điểm cần cải thiện
             </CardTitle>
-            <CardDescription>What could be enhanced</CardDescription>
+            <CardDescription>Những phần có thể nâng cấp thêm</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
@@ -213,8 +213,8 @@ export const AnalysisResultPage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>AI Recommendations</CardTitle>
-          <CardDescription>Prioritized improvements for your project</CardDescription>
+          <CardTitle>Đề xuất từ AI</CardTitle>
+          <CardDescription>Các cải thiện được ưu tiên cho dự án của bạn</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -228,7 +228,7 @@ export const AnalysisResultPage = () => {
                     {rec.title}
                   </h4>
                   <Badge className={getPriorityColor(rec.priority)}>
-                    {rec.priority}
+                    {formatPriority(rec.priority)}
                   </Badge>
                 </div>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
@@ -245,17 +245,17 @@ export const AnalysisResultPage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Career Direction</CardTitle>
-          <CardDescription>AI-powered career path analysis</CardDescription>
+          <CardTitle>Định hướng nghề nghiệp</CardTitle>
+          <CardDescription>Phân tích lộ trình nghề nghiệp bằng AI</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-semibold text-slate-900 dark:text-slate-100">
-                  Primary Direction
+                  Hướng chính
                 </h4>
-                <Badge variant="success">{analysis.careerDirection.confidence}% Confidence</Badge>
+                <Badge variant="success">{analysis.careerDirection.confidence}% tin cậy</Badge>
               </div>
               <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-3">
                 {analysis.careerDirection.primary}
@@ -266,7 +266,7 @@ export const AnalysisResultPage = () => {
             </div>
             <div>
               <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                Alternative Paths
+                Hướng thay thế
               </h4>
               <div className="flex flex-wrap gap-2">
                 {analysis.careerDirection.secondary.map((path) => (
@@ -280,9 +280,9 @@ export const AnalysisResultPage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Portfolio Readiness</CardTitle>
+          <CardTitle>Mức độ sẵn sàng portfolio</CardTitle>
           <CardDescription>
-            {analysis.portfolioReadiness.overallReadiness}% ready for portfolio
+            {analysis.portfolioReadiness.overallReadiness}% sẵn sàng đưa vào portfolio
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -311,7 +311,7 @@ export const AnalysisResultPage = () => {
                       : 'default'
                   }
                 >
-                  {item.importance}
+                  {formatPortfolioImportance(item.importance)}
                 </Badge>
               </div>
             ))}
@@ -332,11 +332,11 @@ export const AnalysisResultPage = () => {
         <Link to="/chat" className="flex-1">
           <Button className="w-full">
             <TrendingUp className="mr-2 h-4 w-4" />
-            Discuss with AI Mentor
+            Trao đổi với AI Mentor
           </Button>
         </Link>
         <Button variant="outline">
-          Export Report
+          Xuất báo cáo
         </Button>
       </div>
     </div>

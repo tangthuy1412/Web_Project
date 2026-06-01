@@ -14,14 +14,14 @@ import {
 import { cn } from '../../lib/utils'
 
 const navigation = [
-  { name: 'Home', to: '/', icon: Home },
-  { name: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
-  { name: 'Repositories', to: '/repositories', icon: FolderGit2 },
-  { name: 'Roadmaps', to: '/roadmaps', icon: Route },
-  { name: 'AI Chat', to: '/chat', icon: MessageSquare },
-  { name: 'Progress', to: '/progress', icon: TrendingUp },
+  { name: 'Trang chủ', to: '/', icon: Home },
+  { name: 'Bảng điều khiển', to: '/dashboard', icon: LayoutDashboard },
+  { name: 'Kho mã nguồn', to: '/repositories', icon: FolderGit2 },
+  { name: 'Lộ trình học', to: '/roadmaps', icon: Route },
+  { name: 'AI Mentor', to: '/chat', icon: MessageSquare },
+  { name: 'Tiến độ', to: '/progress', icon: TrendingUp },
   { name: 'GitHub', to: '/github/connect', icon: Github },
-  { name: 'Settings', to: '/settings', icon: Settings }
+  { name: 'Cài đặt', to: '/settings', icon: Settings }
 ]
 
 type SidebarProps = {
@@ -91,7 +91,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange }: SidebarProps) => {
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                  Alex Johnson
+                  Nguyễn Minh
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                   developer@example.com

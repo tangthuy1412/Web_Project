@@ -17,7 +17,7 @@ export const SkillGapChart = ({ gaps }: SkillGapChartProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Skill Gap Visualization</CardTitle>
+        <CardTitle>Biểu đồ khoảng trống kỹ năng</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={280}>

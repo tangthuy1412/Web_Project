@@ -22,7 +22,7 @@ export const RegisterPage = () => {
     setError('')
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError('Mật khẩu xác nhận không khớp')
       return
     }
 
@@ -40,12 +40,12 @@ export const RegisterPage = () => {
             <Github className="h-7 w-7 text-white" />
           </div>
         </div>
-        <Badge variant="info">Create workspace</Badge>
+        <Badge variant="info">Tạo workspace</Badge>
         <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-          Create your account
+          Tạo tài khoản
         </h2>
         <p className="text-slate-500 dark:text-slate-400">
-          Start analyzing repositories with GitAnalyzer AI
+          Bắt đầu phân tích repository với GitAnalyzer AI
         </p>
       </div>
 
@@ -55,9 +55,9 @@ export const RegisterPage = () => {
             <div className="relative">
               <UserRound className="pointer-events-none absolute left-3 top-[2.45rem] h-4 w-4 text-slate-400" />
               <Input
-                label="Full name"
+                label="Họ và tên"
                 type="text"
-                placeholder="Alex Johnson"
+                placeholder="Nguyễn Minh"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="pl-9"
@@ -81,9 +81,9 @@ export const RegisterPage = () => {
             <div className="relative">
               <LockKeyhole className="pointer-events-none absolute left-3 top-[2.45rem] h-4 w-4 text-slate-400" />
               <Input
-                label="Password"
+                label="Mật khẩu"
                 type="password"
-                placeholder="Create a password"
+                placeholder="Tạo mật khẩu"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-9"
@@ -94,9 +94,9 @@ export const RegisterPage = () => {
             <div className="relative">
               <LockKeyhole className="pointer-events-none absolute left-3 top-[2.45rem] h-4 w-4 text-slate-400" />
               <Input
-                label="Confirm password"
+                label="Xác nhận mật khẩu"
                 type="password"
-                placeholder="Confirm your password"
+                placeholder="Nhập lại mật khẩu"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 error={error}
@@ -108,19 +108,19 @@ export const RegisterPage = () => {
             <div className="flex items-start gap-2 text-sm">
               <input type="checkbox" className="mt-1 rounded border-slate-300 dark:border-slate-700" required />
               <span className="text-slate-600 dark:text-slate-400">
-                I agree to the{' '}
+                Tôi đồng ý với{' '}
                 <a href="#" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
-                  Terms of Service
+                  Điều khoản sử dụng
                 </a>{' '}
-                and{' '}
+                và{' '}
                 <a href="#" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
-                  Privacy Policy
+                  Chính sách bảo mật
                 </a>
               </span>
             </div>
 
             <Button type="submit" className="w-full" isLoading={isLoading}>
-              Create account
+              Tạo tài khoản
             </Button>
           </form>
 
@@ -130,7 +130,7 @@ export const RegisterPage = () => {
                 <div className="w-full border-t border-slate-200 dark:border-slate-800" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-2 text-slate-500 dark:bg-slate-900">Or sign up with</span>
+                <span className="bg-white px-2 text-slate-500 dark:bg-slate-900">Hoặc đăng ký với</span>
               </div>
             </div>
 
@@ -148,9 +148,9 @@ export const RegisterPage = () => {
       </Card>
 
       <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-        Already have an account?{' '}
+        Đã có tài khoản?{' '}
         <Link to="/login" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
-          Sign in
+          Đăng nhập
         </Link>
       </p>
     </div>

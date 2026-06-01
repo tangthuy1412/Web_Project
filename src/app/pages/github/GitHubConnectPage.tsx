@@ -27,10 +27,10 @@ export const GitHubConnectPage = () => {
     <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-          GitHub Integration
+          Tích hợp GitHub
         </h1>
         <p className="text-slate-500 dark:text-slate-400 mt-1">
-          Connect your GitHub account to analyze your repositories
+          Kết nối tài khoản GitHub để phân tích repository của bạn
         </p>
       </div>
 
@@ -43,20 +43,20 @@ export const GitHubConnectPage = () => {
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-emerald-900 dark:text-emerald-100 mb-1">
-                  GitHub Connected
+                  Đã kết nối GitHub
                 </h3>
                 <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-3">
-                  Your GitHub account <strong>@{user.githubUsername}</strong> is successfully connected.
+                  Tài khoản GitHub <strong>@{user.githubUsername}</strong> đã được kết nối thành công.
                 </p>
                 <div className="flex items-center gap-2">
-                  <Badge variant="success">Active</Badge>
+                  <Badge variant="success">Đang hoạt động</Badge>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleDisconnect}
                     className="border-emerald-300 dark:border-emerald-700"
                   >
-                    Disconnect
+                    Ngắt kết nối
                   </Button>
                 </div>
               </div>
@@ -72,10 +72,10 @@ export const GitHubConnectPage = () => {
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-amber-900 dark:text-amber-100 mb-1">
-                  GitHub Not Connected
+                  Chưa kết nối GitHub
                 </h3>
                 <p className="text-sm text-amber-700 dark:text-amber-300">
-                  Please connect your GitHub account to start analyzing your repositories.
+                  Vui lòng kết nối GitHub để bắt đầu phân tích repository.
                 </p>
               </div>
             </div>
@@ -88,20 +88,20 @@ export const GitHubConnectPage = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Github className="h-5 w-5" />
-              OAuth Connection
+              Kết nối OAuth
             </CardTitle>
             <CardDescription>
-              Recommended method for secure authentication
+              Phương thức khuyến nghị để xác thực an toàn
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              Connect via GitHub OAuth to automatically grant access to your repositories.
-              This is the most secure and convenient method.
+              Kết nối qua GitHub OAuth để cấp quyền truy cập repository tự động.
+              Đây là phương thức an toàn và tiện lợi nhất.
             </p>
             <Button className="w-full" onClick={handleConnect} isLoading={isConnecting}>
               <Github className="mr-2 h-5 w-5" />
-              Connect with GitHub
+              Kết nối bằng GitHub
             </Button>
           </CardContent>
         </Card>
@@ -110,13 +110,13 @@ export const GitHubConnectPage = () => {
           <CardHeader>
             <CardTitle>Personal Access Token</CardTitle>
             <CardDescription>
-              Advanced users can use a PAT for integration
+              Người dùng nâng cao có thể dùng PAT để tích hợp
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Input
-              label="GitHub Username"
-              placeholder="your-username"
+              label="Tên người dùng GitHub"
+              placeholder="ten-nguoi-dung"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
@@ -128,7 +128,7 @@ export const GitHubConnectPage = () => {
               onChange={(e) => setToken(e.target.value)}
             />
             <Button variant="outline" className="w-full" onClick={handleConnect}>
-              Connect with Token
+              Kết nối bằng token
             </Button>
           </CardContent>
         </Card>
@@ -136,7 +136,7 @@ export const GitHubConnectPage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>How to Create a Personal Access Token</CardTitle>
+          <CardTitle>Cách tạo Personal Access Token</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div className="flex gap-3">
@@ -165,7 +165,7 @@ export const GitHubConnectPage = () => {
             </div>
             <div>
               <p className="text-slate-700 dark:text-slate-300">
-                Click "Generate new token" and select "Generate new token (classic)"
+                Nhấn "Generate new token" và chọn "Generate new token (classic)"
               </p>
             </div>
           </div>
@@ -176,7 +176,7 @@ export const GitHubConnectPage = () => {
             </div>
             <div>
               <p className="text-slate-700 dark:text-slate-300">
-                Give your token a name and select these scopes: <code className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">repo</code>, <code className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">user</code>
+                Đặt tên token và chọn các scope: <code className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">repo</code>, <code className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">user</code>
               </p>
             </div>
           </div>
@@ -187,7 +187,7 @@ export const GitHubConnectPage = () => {
             </div>
             <div>
               <p className="text-slate-700 dark:text-slate-300">
-                Click "Generate token" and copy the token value
+                Nhấn "Generate token" và sao chép giá trị token
               </p>
             </div>
           </div>
@@ -198,7 +198,7 @@ export const GitHubConnectPage = () => {
             </div>
             <div>
               <p className="text-slate-700 dark:text-slate-300">
-                Paste the token in the field above to connect
+                Dán token vào ô bên trên để kết nối
               </p>
             </div>
           </div>
@@ -207,31 +207,31 @@ export const GitHubConnectPage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Security & Privacy</CardTitle>
+          <CardTitle>Bảo mật & quyền riêng tư</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
             <p className="text-slate-700 dark:text-slate-300">
-              Your tokens are encrypted and stored securely
+              Token của bạn được mã hóa và lưu trữ an toàn
             </p>
           </div>
           <div className="flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
             <p className="text-slate-700 dark:text-slate-300">
-              We only request read-only access to your repositories
+              Hệ thống chỉ yêu cầu quyền đọc repository
             </p>
           </div>
           <div className="flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
             <p className="text-slate-700 dark:text-slate-300">
-              You can revoke access at any time from GitHub settings
+              Bạn có thể thu hồi quyền bất cứ lúc nào trong GitHub settings
             </p>
           </div>
           <div className="flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
             <p className="text-slate-700 dark:text-slate-300">
-              We never modify or push code to your repositories
+              Hệ thống không bao giờ chỉnh sửa hoặc push code vào repository của bạn
             </p>
           </div>
         </CardContent>

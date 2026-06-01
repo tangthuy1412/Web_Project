@@ -6,7 +6,7 @@ import { Button } from '../../../app/components/ui/Button'
 import { Card, CardContent } from '../../../app/components/ui/Card'
 import { cn } from '../../../app/lib/utils'
 import type { Roadmap } from '../types'
-import { getDifficultyTone } from '../utils/roadmapUtils'
+import { formatRoadmapDifficulty, getDifficultyTone } from '../utils/roadmapUtils'
 
 interface RoadmapCardProps {
   roadmap: Roadmap
@@ -27,8 +27,8 @@ export const RoadmapCard = ({ roadmap, compact = false }: RoadmapCardProps) => (
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
               <Badge variant="info">{roadmap.category}</Badge>
-              <Badge variant={getDifficultyTone(roadmap.difficulty)}>{roadmap.difficulty}</Badge>
-              {roadmap.isAIRecommended && <Badge variant="success">AI match</Badge>}
+              <Badge variant={getDifficultyTone(roadmap.difficulty)}>{formatRoadmapDifficulty(roadmap.difficulty)}</Badge>
+              {roadmap.isAIRecommended && <Badge variant="success">AI phù hợp</Badge>}
             </div>
             <div>
               <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">{roadmap.title}</h3>
@@ -58,7 +58,7 @@ export const RoadmapCard = ({ roadmap, compact = false }: RoadmapCardProps) => (
         <div className="mb-5 grid grid-cols-3 gap-2 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5" />
-            {roadmap.estimatedWeeks}w
+            {roadmap.estimatedWeeks} tuần
           </div>
           <div className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" />
@@ -72,12 +72,12 @@ export const RoadmapCard = ({ roadmap, compact = false }: RoadmapCardProps) => (
 
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Completion</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Hoàn thành</p>
             <p className="font-semibold text-slate-900 dark:text-slate-100">{roadmap.progress}%</p>
           </div>
           <Link to={`/roadmaps/${roadmap.slug}`}>
-            <Button size="sm" variant="outline" aria-label={`Open ${roadmap.title}`}>
-              Open
+            <Button size="sm" variant="outline" aria-label={`Mở ${roadmap.title}`}>
+              Mở
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Button>
           </Link>

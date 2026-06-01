@@ -9,22 +9,22 @@ export const NotFoundPage = () => {
         <div className="space-y-2">
           <h1 className="text-9xl font-bold text-slate-200 dark:text-slate-800">404</h1>
           <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-            Page not found
+            Không tìm thấy trang
           </h2>
           <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-            The page you're looking for doesn't exist or has been moved.
+            Trang bạn đang tìm không tồn tại hoặc đã được di chuyển.
           </p>
         </div>
         <div className="flex items-center justify-center gap-3">
           <Link to="/dashboard">
             <Button>
               <Home className="mr-2 h-4 w-4" />
-              Go to Dashboard
+              Về bảng điều khiển
             </Button>
           </Link>
           <Button variant="outline" onClick={() => window.history.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Go Back
+            Quay lại
           </Button>
         </div>
       </div>

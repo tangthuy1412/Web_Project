@@ -13,8 +13,8 @@ export const MilestoneTracker = ({ roadmap }: MilestoneTrackerProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Milestone Tracker</CardTitle>
-        <CardDescription>Portfolio checkpoints for this roadmap</CardDescription>
+        <CardTitle>Theo dõi cột mốc</CardTitle>
+        <CardDescription>Các checkpoint portfolio cho roadmap này</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {milestones.map((milestone) => (
@@ -26,7 +26,7 @@ export const MilestoneTracker = ({ roadmap }: MilestoneTrackerProps) => {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium text-slate-900 dark:text-slate-100">{milestone.title}</p>
                 <Badge variant={milestone.completed ? 'success' : 'default'}>
-                  {milestone.completed ? 'Unlocked' : `Week ${milestone.targetWeek}`}
+                  {milestone.completed ? 'Đã mở khóa' : `Tuần ${milestone.targetWeek}`}
                 </Badge>
               </div>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{milestone.description}</p>

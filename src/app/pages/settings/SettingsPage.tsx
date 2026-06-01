@@ -24,10 +24,10 @@ export const SettingsPage = () => {
     <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-          Settings
+          Cài đặt
         </h1>
         <p className="text-slate-500 dark:text-slate-400 mt-1">
-          Manage your account and preferences
+          Quản lý tài khoản và tùy chọn cá nhân
         </p>
       </div>
 
@@ -35,13 +35,13 @@ export const SettingsPage = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            Profile
+            Hồ sơ
           </CardTitle>
-          <CardDescription>Update your personal information</CardDescription>
+          <CardDescription>Cập nhật thông tin cá nhân</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
-            label="Full Name"
+            label="Họ và tên"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -56,12 +56,12 @@ export const SettingsPage = () => {
               {user?.name?.charAt(0)}
             </div>
             <Button variant="outline" size="sm">
-              Change Avatar
+              Đổi ảnh đại diện
             </Button>
           </div>
           <div className="flex gap-2 pt-2">
-            <Button>Save Changes</Button>
-            <Button variant="outline">Cancel</Button>
+            <Button>Lưu thay đổi</Button>
+            <Button variant="outline">Hủy</Button>
           </div>
         </CardContent>
       </Card>
@@ -70,9 +70,9 @@ export const SettingsPage = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Github className="h-5 w-5" />
-            GitHub Integration
+            Tích hợp GitHub
           </CardTitle>
-          <CardDescription>Manage your GitHub connection</CardDescription>
+          <CardDescription>Quản lý kết nối GitHub</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
@@ -85,14 +85,14 @@ export const SettingsPage = () => {
                   @{user?.githubUsername}
                 </p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Connected
+                  Đã kết nối
                 </p>
               </div>
             </div>
-            <Badge variant="success">Active</Badge>
+            <Badge variant="success">Đang hoạt động</Badge>
           </div>
           <Button variant="outline" className="w-full mt-4">
-            Manage Connection
+            Quản lý kết nối
           </Button>
         </CardContent>
       </Card>
@@ -101,18 +101,18 @@ export const SettingsPage = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
-            Notifications
+            Thông báo
           </CardTitle>
-          <CardDescription>Configure how you receive updates</CardDescription>
+          <CardDescription>Cấu hình cách bạn nhận cập nhật</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium text-slate-900 dark:text-slate-100">
-                Analysis Complete
+                Hoàn tất phân tích
               </p>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Get notified when repository analysis is complete
+                Nhận thông báo khi phân tích repository hoàn tất
               </p>
             </div>
             <input type="checkbox" defaultChecked className="h-4 w-4 rounded" />
@@ -120,10 +120,10 @@ export const SettingsPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium text-slate-900 dark:text-slate-100">
-                AI Recommendations
+                Đề xuất từ AI
               </p>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Receive weekly AI-powered career recommendations
+                Nhận đề xuất nghề nghiệp hằng tuần từ AI
               </p>
             </div>
             <input type="checkbox" defaultChecked className="h-4 w-4 rounded" />
@@ -131,10 +131,10 @@ export const SettingsPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium text-slate-900 dark:text-slate-100">
-                Product Updates
+                Cập nhật sản phẩm
               </p>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Stay updated with new features and improvements
+                Nhận thông tin về tính năng và cải tiến mới
               </p>
             </div>
             <input type="checkbox" className="h-4 w-4 rounded" />
@@ -146,14 +146,14 @@ export const SettingsPage = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Palette className="h-5 w-5" />
-            Appearance
+            Giao diện
           </CardTitle>
-          <CardDescription>Customize how the app looks</CardDescription>
+          <CardDescription>Tùy chỉnh giao diện ứng dụng</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
             <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
-              Theme
+              Chủ đề
             </p>
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -166,7 +166,7 @@ export const SettingsPage = () => {
               >
                 <div className="w-full h-20 rounded bg-white border border-slate-200 mb-2" />
                 <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                  Light
+                  Sáng
                 </p>
               </button>
               <button
@@ -179,7 +179,7 @@ export const SettingsPage = () => {
               >
                 <div className="w-full h-20 rounded bg-slate-900 border border-slate-700 mb-2" />
                 <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                  Dark
+                  Tối
                 </p>
               </button>
             </div>
@@ -191,35 +191,35 @@ export const SettingsPage = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
             <LogOut className="h-5 w-5" />
-            Danger Zone
+            Khu vực nguy hiểm
           </CardTitle>
-          <CardDescription>Irreversible actions</CardDescription>
+          <CardDescription>Các thao tác không thể hoàn tác</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between p-3 rounded-lg bg-red-50 dark:bg-red-950/30">
             <div>
               <p className="font-medium text-red-900 dark:text-red-100">
-                Sign Out
+                Đăng xuất
               </p>
               <p className="text-sm text-red-700 dark:text-red-300">
-                Sign out from your account
+                Đăng xuất khỏi tài khoản
               </p>
             </div>
             <Button variant="destructive" onClick={handleLogout}>
-              Sign Out
+              Đăng xuất
             </Button>
           </div>
           <div className="flex items-center justify-between p-3 rounded-lg bg-red-50 dark:bg-red-950/30">
             <div>
               <p className="font-medium text-red-900 dark:text-red-100">
-                Delete Account
+                Xóa tài khoản
               </p>
               <p className="text-sm text-red-700 dark:text-red-300">
-                Permanently delete your account and all data
+                Xóa vĩnh viễn tài khoản và toàn bộ dữ liệu
               </p>
             </div>
             <Button variant="destructive">
-              Delete
+              Xóa
             </Button>
           </div>
         </CardContent>

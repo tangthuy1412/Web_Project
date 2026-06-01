@@ -64,3 +64,59 @@ export const getDifficultyTone = (difficulty: Roadmap['difficulty']) => {
       return 'warning'
   }
 }
+
+export const formatRoadmapDifficulty = (difficulty: Roadmap['difficulty']): string => {
+  switch (difficulty) {
+    case 'Beginner':
+      return 'Cơ bản'
+    case 'Intermediate':
+      return 'Trung cấp'
+    case 'Advanced':
+      return 'Nâng cao'
+  }
+}
+
+export const formatLearningStatus = (status: LearningNode['status']): string => {
+  switch (status) {
+    case 'completed':
+      return 'Đã hoàn thành'
+    case 'in-progress':
+      return 'Đang học'
+    case 'unlocked':
+      return 'Có thể học'
+    case 'locked':
+      return 'Đang khóa'
+  }
+}
+
+export const formatDurationFilter = (duration: RoadmapFilters['duration']): string => {
+  switch (duration) {
+    case 'All':
+      return 'Tất cả thời lượng'
+    case 'Short':
+      return 'Ngắn'
+    case 'Medium':
+      return 'Trung bình'
+    case 'Long':
+      return 'Dài'
+  }
+}
+
+export const formatCategoryFilter = (category: RoadmapFilters['category']): string =>
+  category === 'All' ? 'Tất cả danh mục' : category
+
+export const formatDifficultyFilter = (difficulty: RoadmapFilters['difficulty']): string =>
+  difficulty === 'All' ? 'Tất cả cấp độ' : formatRoadmapDifficulty(difficulty)
+
+export const formatSkillGapPriority = (priority: 'Critical' | 'High' | 'Medium' | 'Low'): string => {
+  switch (priority) {
+    case 'Critical':
+      return 'Rất quan trọng'
+    case 'High':
+      return 'Cao'
+    case 'Medium':
+      return 'Trung bình'
+    case 'Low':
+      return 'Thấp'
+  }
+}

@@ -14,7 +14,7 @@ import { WeeklyGoalWidget } from '../components/WeeklyGoalWidget'
 import { roadmapCategories } from '../mock/roadmapData'
 import { useRoadmapStore } from '../stores/roadmapStore'
 import type { RoadmapDifficulty } from '../types'
-import { filterRoadmaps } from '../utils/roadmapUtils'
+import { filterRoadmaps, formatCategoryFilter, formatDifficultyFilter, formatDurationFilter } from '../utils/roadmapUtils'
 
 const difficulties: (RoadmapDifficulty | 'All')[] = ['All', 'Beginner', 'Intermediate', 'Advanced']
 const durations = ['All', 'Short', 'Medium', 'Long'] as const
@@ -39,18 +39,18 @@ export const RoadmapsPage = () => {
           <div className="mb-2 flex items-center gap-2">
             <Badge variant="info">
               <Sparkles className="mr-1 h-3 w-3" />
-              AI Learning Roadmap
+              Lộ trình học bằng AI
             </Badge>
           </div>
-          <h1 className="text-3xl font-bold text-slate-950 dark:text-slate-50">Roadmaps</h1>
+          <h1 className="text-3xl font-bold text-slate-950 dark:text-slate-50">Lộ trình học</h1>
           <p className="mt-1 max-w-2xl text-slate-500 dark:text-slate-400">
-            Choose a learning path manually or generate one from your GitHub repository analysis.
+            Chọn lộ trình thủ công hoặc tạo lộ trình từ kết quả phân tích repository GitHub của bạn.
           </p>
         </div>
         <Link to="/roadmaps/ai">
           <Button size="lg">
             <BrainCircuit className="mr-2 h-5 w-5" />
-            Generate AI roadmap
+            Tạo roadmap bằng AI
           </Button>
         </Link>
       </motion.div>
@@ -63,41 +63,41 @@ export const RoadmapsPage = () => {
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
                   <Input
-                    aria-label="Search roadmap"
-                    placeholder="Search roadmap, skill, or stack"
+                    aria-label="Tìm roadmap"
+                    placeholder="Tìm roadmap, kỹ năng hoặc tech stack"
                     className="pl-9"
                     value={filters.search}
                     onChange={(event) => setFilters({ search: event.target.value })}
                   />
                 </div>
                 <select
-                  aria-label="Filter by category"
+                  aria-label="Lọc theo danh mục"
                   className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
                   value={filters.category}
                   onChange={(event) => setFilters({ category: event.target.value as typeof filters.category })}
                 >
                   {roadmapCategories.map((category) => (
-                    <option key={category} value={category}>{category}</option>
+                    <option key={category} value={category}>{formatCategoryFilter(category)}</option>
                   ))}
                 </select>
                 <select
-                  aria-label="Filter by difficulty"
+                  aria-label="Lọc theo cấp độ"
                   className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
                   value={filters.difficulty}
                   onChange={(event) => setFilters({ difficulty: event.target.value as typeof filters.difficulty })}
                 >
                   {difficulties.map((difficulty) => (
-                    <option key={difficulty} value={difficulty}>{difficulty}</option>
+                    <option key={difficulty} value={difficulty}>{formatDifficultyFilter(difficulty)}</option>
                   ))}
                 </select>
                 <select
-                  aria-label="Filter by duration"
+                  aria-label="Lọc theo thời lượng"
                   className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
                   value={filters.duration}
                   onChange={(event) => setFilters({ duration: event.target.value as typeof filters.duration })}
                 >
                   {durations.map((duration) => (
-                    <option key={duration} value={duration}>{duration}</option>
+                    <option key={duration} value={duration}>{formatDurationFilter(duration)}</option>
                   ))}
                 </select>
               </div>
@@ -107,10 +107,10 @@ export const RoadmapsPage = () => {
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-slate-950 dark:text-slate-50">Featured Roadmaps</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">High-signal paths for developer growth.</p>
+                <h2 className="text-xl font-semibold text-slate-950 dark:text-slate-50">Roadmap nổi bật</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Các lộ trình có tín hiệu cao cho tăng trưởng developer.</p>
               </div>
-              <Badge variant="default">{featuredRoadmaps.length} paths</Badge>
+              <Badge variant="default">{featuredRoadmaps.length} lộ trình</Badge>
             </div>
             {isLoading ? (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -123,8 +123,8 @@ export const RoadmapsPage = () => {
             ) : (
               <Card>
                 <CardContent className="p-8 text-center">
-                  <p className="font-medium text-slate-900 dark:text-slate-100">No roadmaps match your filters</p>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Try a broader category or clear the search.</p>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">Không có roadmap phù hợp bộ lọc</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Hãy thử danh mục rộng hơn hoặc xóa tìm kiếm.</p>
                 </CardContent>
               </Card>
             )}
@@ -132,8 +132,8 @@ export const RoadmapsPage = () => {
 
           <section className="space-y-4">
             <div>
-              <h2 className="text-xl font-semibold text-slate-950 dark:text-slate-50">AI Recommended Roadmaps</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Generated from missing skills, tech stack and project complexity.</p>
+              <h2 className="text-xl font-semibold text-slate-950 dark:text-slate-50">Roadmap AI đề xuất</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Được tạo từ kỹ năng còn thiếu, tech stack và độ phức tạp dự án.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               {aiRoadmaps.map((roadmap) => <RoadmapCard key={roadmap.id} roadmap={roadmap} compact />)}
@@ -148,9 +148,9 @@ export const RoadmapsPage = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-emerald-500" />
-                Trending Skills
+                Kỹ năng đang nổi bật
               </CardTitle>
-              <CardDescription>Skills rising across analyzed repositories</CardDescription>
+              <CardDescription>Các kỹ năng xuất hiện nhiều trong repository đã phân tích</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
               {trendingSkills.map((skill) => <Badge key={skill} variant="default">{skill}</Badge>)}

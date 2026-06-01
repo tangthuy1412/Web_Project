@@ -14,7 +14,7 @@ export const RepositoryDetailPage = () => {
   if (!repository) {
     return (
       <div className="max-w-4xl">
-        <p className="text-slate-500">Repository not found</p>
+        <p className="text-slate-500">Không tìm thấy repository</p>
       </div>
     )
   }
@@ -24,7 +24,7 @@ export const RepositoryDetailPage = () => {
       <div>
         <Link to="/repositories" className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 mb-4">
           <ArrowLeft className="h-4 w-4" />
-          Back to Repositories
+          Quay lại danh sách repository
         </Link>
         <div className="flex items-start justify-between">
           <div>
@@ -41,13 +41,13 @@ export const RepositoryDetailPage = () => {
             <Link to={`/analysis/${repository.analysisId}`}>
               <Button>
                 <Eye className="mr-2 h-4 w-4" />
-                View Analysis
+                Xem phân tích
               </Button>
             </Link>
           ) : (
             <Button onClick={() => analyzeRepository(repository.id)}>
               <Play className="mr-2 h-4 w-4" />
-              Analyze Now
+              Phân tích ngay
             </Button>
           )}
         </div>
@@ -57,14 +57,14 @@ export const RepositoryDetailPage = () => {
         <Badge variant="info">{repository.language}</Badge>
         <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
           <Star className="h-4 w-4" />
-          <span className="text-sm">{repository.stars} stars</span>
+          <span className="text-sm">{repository.stars} sao</span>
         </div>
         <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
           <GitFork className="h-4 w-4" />
-          <span className="text-sm">{repository.forks} forks</span>
+          <span className="text-sm">{repository.forks} fork</span>
         </div>
         <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-          <span className="text-sm">Updated {formatRelativeTime(repository.updatedAt)}</span>
+          <span className="text-sm">Cập nhật {formatRelativeTime(repository.updatedAt)}</span>
         </div>
         <a
           href={repository.url}
@@ -72,7 +72,7 @@ export const RepositoryDetailPage = () => {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
         >
-          View on GitHub
+          Xem trên GitHub
           <ExternalLink className="h-4 w-4" />
         </a>
       </div>
@@ -86,7 +86,7 @@ export const RepositoryDetailPage = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  {repository.hasReadme ? 'Yes' : 'No'}
+                  {repository.hasReadme ? 'Có' : 'Không'}
                 </p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">README</p>
               </div>
@@ -102,7 +102,7 @@ export const RepositoryDetailPage = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">3</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Branches</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Nhánh</p>
               </div>
             </div>
           </CardContent>
@@ -116,7 +116,7 @@ export const RepositoryDetailPage = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">2</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Contributors</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Người đóng góp</p>
               </div>
             </div>
           </CardContent>
@@ -125,28 +125,28 @@ export const RepositoryDetailPage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Repository Overview</CardTitle>
+          <CardTitle>Tổng quan repository</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 text-sm">
             <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800">
-              <span className="text-slate-600 dark:text-slate-400">Full Name</span>
+              <span className="text-slate-600 dark:text-slate-400">Tên đầy đủ</span>
               <span className="font-medium">{repository.fullName}</span>
             </div>
             <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800">
-              <span className="text-slate-600 dark:text-slate-400">Visibility</span>
+              <span className="text-slate-600 dark:text-slate-400">Chế độ hiển thị</span>
               <Badge variant={repository.private ? 'warning' : 'success'}>
-                {repository.private ? 'Private' : 'Public'}
+                {repository.private ? 'Riêng tư' : 'Công khai'}
               </Badge>
             </div>
             <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800">
-              <span className="text-slate-600 dark:text-slate-400">Primary Language</span>
+              <span className="text-slate-600 dark:text-slate-400">Ngôn ngữ chính</span>
               <Badge variant="default">{repository.language}</Badge>
             </div>
             <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800">
-              <span className="text-slate-600 dark:text-slate-400">Analysis Status</span>
+              <span className="text-slate-600 dark:text-slate-400">Trạng thái phân tích</span>
               <Badge variant={repository.analyzed ? 'success' : 'default'}>
-                {repository.analyzed ? 'Analyzed' : 'Not Analyzed'}
+                {repository.analyzed ? 'Đã phân tích' : 'Chưa phân tích'}
               </Badge>
             </div>
           </div>
@@ -155,7 +155,7 @@ export const RepositoryDetailPage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
+          <CardTitle>Hoạt động gần đây</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -165,9 +165,9 @@ export const RepositoryDetailPage = () => {
               </div>
               <div className="flex-1">
                 <p className="text-sm text-slate-900 dark:text-slate-100 font-medium">
-                  Pushed 3 commits to main
+                  Đã push 3 commit lên main
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">2 hours ago</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">2 giờ trước</p>
               </div>
             </div>
             <div className="flex gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
@@ -176,9 +176,9 @@ export const RepositoryDetailPage = () => {
               </div>
               <div className="flex-1">
                 <p className="text-sm text-slate-900 dark:text-slate-100 font-medium">
-                  Created branch feature/user-auth
+                  Đã tạo nhánh feature/user-auth
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">1 day ago</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">1 ngày trước</p>
               </div>
             </div>
             <div className="flex gap-3">
@@ -187,9 +187,9 @@ export const RepositoryDetailPage = () => {
               </div>
               <div className="flex-1">
                 <p className="text-sm text-slate-900 dark:text-slate-100 font-medium">
-                  Updated README.md
+                  Đã cập nhật README.md
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">3 days ago</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">3 ngày trước</p>
               </div>
             </div>
           </div>

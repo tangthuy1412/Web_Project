@@ -16,9 +16,9 @@ export const XPCard = ({ stats }: XPCardProps) => {
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-sm text-white/75">Learning level</p>
-            <p className="mt-2 text-3xl font-bold">Level {stats.level}</p>
-            <p className="mt-1 text-sm text-white/80">{stats.totalXp.toLocaleString()} XP earned</p>
+            <p className="text-sm text-white/75">Cấp độ học tập</p>
+            <p className="mt-2 text-3xl font-bold">Cấp {stats.level}</p>
+            <p className="mt-1 text-sm text-white/80">Đã đạt {stats.totalXp.toLocaleString()} XP</p>
           </div>
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-white/15">
             <Zap className="h-6 w-6" />
@@ -27,7 +27,7 @@ export const XPCard = ({ stats }: XPCardProps) => {
         <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/20">
           <div className="h-full rounded-full bg-white" style={{ width: `${progress}%` }} />
         </div>
-        <p className="mt-2 text-xs text-white/75">{Math.max(0, nextLevel - stats.totalXp)} XP to level {stats.level + 1}</p>
+        <p className="mt-2 text-xs text-white/75">Còn {Math.max(0, nextLevel - stats.totalXp)} XP để lên cấp {stats.level + 1}</p>
       </CardContent>
     </Card>
   )

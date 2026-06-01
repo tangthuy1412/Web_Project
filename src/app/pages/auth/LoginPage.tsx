@@ -30,12 +30,12 @@ export const LoginPage = () => {
             <Github className="h-7 w-7 text-white" />
           </div>
         </div>
-        <Badge variant="info">Welcome back</Badge>
+        <Badge variant="info">Chào mừng trở lại</Badge>
         <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-          Sign in to GitAnalyzer
+          Đăng nhập GitAnalyzer
         </h2>
         <p className="text-slate-500 dark:text-slate-400">
-          Continue to your repository analytics workspace
+          Tiếp tục vào workspace phân tích repository của bạn
         </p>
       </div>
 
@@ -58,9 +58,9 @@ export const LoginPage = () => {
             <div className="relative">
               <LockKeyhole className="pointer-events-none absolute left-3 top-[2.45rem] h-4 w-4 text-slate-400" />
               <Input
-                label="Password"
+                label="Mật khẩu"
                 type="password"
-                placeholder="Enter your password"
+                placeholder="Nhập mật khẩu"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-9"
@@ -71,15 +71,15 @@ export const LoginPage = () => {
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2">
                 <input type="checkbox" className="rounded border-slate-300 dark:border-slate-700" />
-                <span className="text-slate-600 dark:text-slate-400">Remember me</span>
+                <span className="text-slate-600 dark:text-slate-400">Ghi nhớ đăng nhập</span>
               </label>
               <a href="#" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
-                Forgot password?
+                Quên mật khẩu?
               </a>
             </div>
 
             <Button type="submit" className="w-full" isLoading={isLoading}>
-              Sign in
+              Đăng nhập
             </Button>
           </form>
 
@@ -89,7 +89,7 @@ export const LoginPage = () => {
                 <div className="w-full border-t border-slate-200 dark:border-slate-800" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-2 text-slate-500 dark:bg-slate-900">Or continue with</span>
+                <span className="bg-white px-2 text-slate-500 dark:bg-slate-900">Hoặc tiếp tục với</span>
               </div>
             </div>
 
@@ -107,9 +107,9 @@ export const LoginPage = () => {
       </Card>
 
       <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-        Don't have an account?{' '}
+        Chưa có tài khoản?{' '}
         <Link to="/register" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
-          Sign up
+          Đăng ký
         </Link>
       </p>
     </div>

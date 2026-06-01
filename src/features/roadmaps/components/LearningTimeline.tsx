@@ -9,8 +9,8 @@ interface LearningTimelineProps {
 export const LearningTimeline = ({ roadmap }: LearningTimelineProps) => (
   <Card>
     <CardHeader>
-      <CardTitle>Learning Timeline</CardTitle>
-      <CardDescription>Milestones synced to roadmap progress</CardDescription>
+      <CardTitle>Dòng thời gian học tập</CardTitle>
+      <CardDescription>Cột mốc được đồng bộ với tiến độ roadmap</CardDescription>
     </CardHeader>
     <CardContent>
       <div className="space-y-4">
@@ -27,7 +27,7 @@ export const LearningTimeline = ({ roadmap }: LearningTimelineProps) => (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h4 className="font-medium text-slate-900 dark:text-slate-100">{milestone.title}</h4>
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                  Week {milestone.targetWeek} · {milestone.rewardXp} XP
+                  Tuần {milestone.targetWeek} - {milestone.rewardXp} XP
                 </span>
               </div>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{milestone.description}</p>

@@ -10,7 +10,7 @@ import type {
 export const mockUser: User = {
   id: '1',
   email: 'developer@example.com',
-  name: 'Alex Johnson',
+  name: 'Nguyễn Minh',
   avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
   githubConnected: true,
   githubUsername: 'alexjohnson',
@@ -22,7 +22,7 @@ export const mockRepositories: Repository[] = [
     id: '1',
     name: 'ecommerce-platform',
     fullName: 'alexjohnson/ecommerce-platform',
-    description: 'Full-stack e-commerce platform built with React, Node.js, and PostgreSQL',
+    description: 'Nền tảng thương mại điện tử full-stack xây dựng bằng React, Node.js và PostgreSQL',
     language: 'TypeScript',
     stars: 127,
     forks: 23,
@@ -37,7 +37,7 @@ export const mockRepositories: Repository[] = [
     id: '2',
     name: 'task-manager-app',
     fullName: 'alexjohnson/task-manager-app',
-    description: 'A modern task management application with real-time collaboration',
+    description: 'Ứng dụng quản lý công việc hiện đại có cộng tác thời gian thực',
     language: 'JavaScript',
     stars: 45,
     forks: 8,
@@ -52,7 +52,7 @@ export const mockRepositories: Repository[] = [
     id: '3',
     name: 'ml-image-classifier',
     fullName: 'alexjohnson/ml-image-classifier',
-    description: 'Machine learning project for image classification using TensorFlow',
+    description: 'Dự án machine learning phân loại hình ảnh bằng TensorFlow',
     language: 'Python',
     stars: 89,
     forks: 15,
@@ -66,7 +66,7 @@ export const mockRepositories: Repository[] = [
     id: '4',
     name: 'weather-api',
     fullName: 'alexjohnson/weather-api',
-    description: 'RESTful API for weather data with caching and rate limiting',
+    description: 'RESTful API dữ liệu thời tiết có caching và rate limiting',
     language: 'Go',
     stars: 34,
     forks: 6,
@@ -80,7 +80,7 @@ export const mockRepositories: Repository[] = [
     id: '5',
     name: 'portfolio-website',
     fullName: 'alexjohnson/portfolio-website',
-    description: 'Personal portfolio website built with Next.js and Tailwind CSS',
+    description: 'Website portfolio cá nhân xây dựng bằng Next.js và Tailwind CSS',
     language: 'TypeScript',
     stars: 12,
     forks: 2,
@@ -98,7 +98,7 @@ export const mockAnalysisResults: AnalysisResult[] = [
     repositoryId: '1',
     repositoryName: 'ecommerce-platform',
     createdAt: '2024-05-21T10:00:00Z',
-    projectType: 'Full-Stack Web Application',
+    projectType: 'Ứng dụng web full-stack',
     techStack: ['React', 'TypeScript', 'Node.js', 'Express', 'PostgreSQL', 'Docker', 'Redis'],
     scores: {
       architecture: 85,
@@ -109,53 +109,53 @@ export const mockAnalysisResults: AnalysisResult[] = [
       overall: 82
     },
     strengths: [
-      'Well-structured monorepo with clear separation of concerns',
-      'Comprehensive TypeScript usage with proper type definitions',
-      'Good test coverage (78%) with unit and integration tests',
-      'Docker containerization for easy deployment',
-      'Clear commit messages following conventional commits',
-      'API documentation using Swagger/OpenAPI'
+      'Monorepo có cấu trúc tốt và phân tách trách nhiệm rõ ràng',
+      'Sử dụng TypeScript đầy đủ với định nghĩa kiểu hợp lý',
+      'Độ phủ test tốt (78%) với unit test và integration test',
+      'Đã container hóa bằng Docker để triển khai dễ hơn',
+      'Commit message rõ ràng theo conventional commits',
+      'Có tài liệu API bằng Swagger/OpenAPI'
     ],
     weaknesses: [
-      'Missing end-to-end tests for critical user flows',
-      'Some components could be refactored for better reusability',
-      'Error handling could be more consistent across the API',
-      'Missing monitoring and logging setup',
-      'No CI/CD pipeline configuration found'
+      'Thiếu end-to-end test cho các luồng người dùng quan trọng',
+      'Một số component nên được refactor để tái sử dụng tốt hơn',
+      'Xử lý lỗi trong API cần nhất quán hơn',
+      'Thiếu cấu hình monitoring và logging',
+      'Chưa tìm thấy cấu hình CI/CD pipeline'
     ],
     recommendations: [
       {
         id: 'rec-1',
-        title: 'Implement End-to-End Testing',
-        description: 'Add E2E tests using Playwright or Cypress to cover critical user journeys like checkout flow, user authentication, and cart management.',
+        title: 'Triển khai End-to-End Testing',
+        description: 'Thêm E2E test bằng Playwright hoặc Cypress cho các hành trình quan trọng như checkout, xác thực người dùng và quản lý giỏ hàng.',
         priority: 'high',
         category: 'testing'
       },
       {
         id: 'rec-2',
-        title: 'Set Up CI/CD Pipeline',
-        description: 'Configure GitHub Actions for automated testing, linting, and deployment to staging/production environments.',
+        title: 'Thiết lập CI/CD Pipeline',
+        description: 'Cấu hình GitHub Actions để tự động test, lint và deploy lên môi trường staging/production.',
         priority: 'high',
         category: 'other'
       },
       {
         id: 'rec-3',
-        title: 'Add Monitoring Solution',
-        description: 'Integrate application monitoring (e.g., Sentry for error tracking, DataDog for performance) to track issues in production.',
+        title: 'Bổ sung giải pháp monitoring',
+        description: 'Tích hợp monitoring như Sentry để theo dõi lỗi hoặc DataDog để theo dõi hiệu năng trong production.',
         priority: 'medium',
         category: 'performance'
       },
       {
         id: 'rec-4',
-        title: 'Improve Component Reusability',
-        description: 'Extract common patterns into a shared component library. Consider creating a design system for consistent UI.',
+        title: 'Cải thiện khả năng tái sử dụng component',
+        description: 'Tách các pattern dùng chung thành thư viện component. Cân nhắc tạo design system để UI nhất quán hơn.',
         priority: 'medium',
         category: 'architecture'
       },
       {
         id: 'rec-5',
-        title: 'Enhance Error Handling',
-        description: 'Implement a centralized error handling middleware and consistent error response format across all API endpoints.',
+        title: 'Nâng cấp xử lý lỗi',
+        description: 'Triển khai middleware xử lý lỗi tập trung và định dạng phản hồi lỗi nhất quán cho toàn bộ API endpoint.',
         priority: 'low',
         category: 'architecture'
       }
@@ -185,21 +185,21 @@ export const mockAnalysisResults: AnalysisResult[] = [
     ],
     careerDirection: {
       primary: 'Full-Stack Engineer',
-      secondary: ['Frontend Specialist', 'Backend Engineer', 'DevOps Engineer'],
+      secondary: ['Chuyên gia Frontend', 'Backend Engineer', 'DevOps Engineer'],
       confidence: 87,
-      reasoning: 'Strong proficiency in both frontend and backend technologies with TypeScript. Shows understanding of system architecture, database design, and containerization. Would benefit from strengthening DevOps skills.'
+      reasoning: 'Bạn có nền tảng tốt ở cả frontend và backend với TypeScript. Repository cho thấy hiểu biết về kiến trúc hệ thống, thiết kế database và containerization. Nên tăng cường kỹ năng DevOps để phát triển nhanh hơn.'
     },
     portfolioReadiness: {
       overallReadiness: 75,
       items: [
-        { label: 'Clear README with project overview', completed: true, importance: 'critical' },
-        { label: 'Live demo link', completed: false, importance: 'critical' },
-        { label: 'Screenshots or video demo', completed: false, importance: 'important' },
-        { label: 'Setup instructions', completed: true, importance: 'critical' },
-        { label: 'Architecture documentation', completed: true, importance: 'important' },
-        { label: 'Test coverage', completed: true, importance: 'important' },
-        { label: 'Code quality badges', completed: false, importance: 'nice-to-have' },
-        { label: 'License file', completed: true, importance: 'nice-to-have' }
+        { label: 'README rõ ràng với tổng quan dự án', completed: true, importance: 'critical' },
+        { label: 'Liên kết demo live', completed: false, importance: 'critical' },
+        { label: 'Ảnh chụp màn hình hoặc video demo', completed: false, importance: 'important' },
+        { label: 'Hướng dẫn cài đặt', completed: true, importance: 'critical' },
+        { label: 'Tài liệu kiến trúc', completed: true, importance: 'important' },
+        { label: 'Độ phủ test', completed: true, importance: 'important' },
+        { label: 'Badge chất lượng code', completed: false, importance: 'nice-to-have' },
+        { label: 'File license', completed: true, importance: 'nice-to-have' }
       ]
     }
   },
@@ -208,7 +208,7 @@ export const mockAnalysisResults: AnalysisResult[] = [
     repositoryId: '2',
     repositoryName: 'task-manager-app',
     createdAt: '2024-05-16T14:30:00Z',
-    projectType: 'Frontend Web Application',
+    projectType: 'Ứng dụng web frontend',
     techStack: ['React', 'JavaScript', 'Firebase', 'Material-UI', 'Socket.io'],
     scores: {
       architecture: 72,
@@ -219,37 +219,37 @@ export const mockAnalysisResults: AnalysisResult[] = [
       overall: 70
     },
     strengths: [
-      'Real-time collaboration features working smoothly',
-      'Responsive design that works well on mobile devices',
-      'Good use of React hooks for state management',
-      'Clean and intuitive user interface'
+      'Tính năng cộng tác thời gian thực hoạt động mượt',
+      'Responsive design hiển thị tốt trên thiết bị di động',
+      'Sử dụng React hooks tốt cho quản lý state',
+      'Giao diện sạch và dễ sử dụng'
     ],
     weaknesses: [
-      'No TypeScript - missing type safety',
-      'Limited test coverage (only 35%)',
-      'Some prop-drilling issues in component tree',
-      'Missing proper error boundaries',
-      'No input validation on forms'
+      'Chưa dùng TypeScript nên thiếu type safety',
+      'Độ phủ test còn thấp (chỉ 35%)',
+      'Một số chỗ bị prop-drilling trong cây component',
+      'Thiếu error boundary phù hợp',
+      'Form chưa có input validation'
     ],
     recommendations: [
       {
         id: 'rec-6',
-        title: 'Migrate to TypeScript',
-        description: 'Convert the codebase to TypeScript to improve code quality, catch errors early, and enhance developer experience.',
+        title: 'Chuyển sang TypeScript',
+        description: 'Chuyển codebase sang TypeScript để cải thiện chất lượng code, phát hiện lỗi sớm và tăng trải nghiệm developer.',
         priority: 'high',
         category: 'architecture'
       },
       {
         id: 'rec-7',
-        title: 'Improve State Management',
-        description: 'Consider using Context API or a state management library like Zustand to avoid prop drilling.',
+        title: 'Cải thiện quản lý state',
+        description: 'Cân nhắc dùng Context API hoặc thư viện quản lý state như Zustand để tránh prop drilling.',
         priority: 'medium',
         category: 'architecture'
       },
       {
         id: 'rec-8',
-        title: 'Add Form Validation',
-        description: 'Implement client-side validation using libraries like React Hook Form with Zod for better UX and data integrity.',
+        title: 'Thêm form validation',
+        description: 'Triển khai validation phía client bằng React Hook Form kết hợp Zod để cải thiện UX và tính toàn vẹn dữ liệu.',
         priority: 'high',
         category: 'other'
       }
@@ -274,19 +274,19 @@ export const mockAnalysisResults: AnalysisResult[] = [
       primary: 'Frontend Developer',
       secondary: ['Full-Stack Engineer', 'UI/UX Developer'],
       confidence: 78,
-      reasoning: 'Strong frontend skills with React and real-time features. Should focus on TypeScript adoption and testing practices to advance career.'
+      reasoning: 'Bạn có kỹ năng frontend tốt với React và tính năng thời gian thực. Nên tập trung áp dụng TypeScript và cải thiện testing để phát triển nghề nghiệp.'
     },
     portfolioReadiness: {
       overallReadiness: 62,
       items: [
-        { label: 'Clear README with project overview', completed: true, importance: 'critical' },
-        { label: 'Live demo link', completed: true, importance: 'critical' },
-        { label: 'Screenshots or video demo', completed: false, importance: 'important' },
-        { label: 'Setup instructions', completed: true, importance: 'critical' },
-        { label: 'Architecture documentation', completed: false, importance: 'important' },
-        { label: 'Test coverage', completed: false, importance: 'important' },
-        { label: 'Code quality badges', completed: false, importance: 'nice-to-have' },
-        { label: 'License file', completed: false, importance: 'nice-to-have' }
+        { label: 'README rõ ràng với tổng quan dự án', completed: true, importance: 'critical' },
+        { label: 'Liên kết demo live', completed: true, importance: 'critical' },
+        { label: 'Ảnh chụp màn hình hoặc video demo', completed: false, importance: 'important' },
+        { label: 'Hướng dẫn cài đặt', completed: true, importance: 'critical' },
+        { label: 'Tài liệu kiến trúc', completed: false, importance: 'important' },
+        { label: 'Độ phủ test', completed: false, importance: 'important' },
+        { label: 'Badge chất lượng code', completed: false, importance: 'nice-to-have' },
+        { label: 'File license', completed: false, importance: 'nice-to-have' }
       ]
     }
   }
@@ -295,51 +295,51 @@ export const mockAnalysisResults: AnalysisResult[] = [
 export const mockChatSessions: ChatSession[] = [
   {
     id: 'chat-1',
-    title: 'How to improve my e-commerce project?',
+    title: 'Cải thiện dự án thương mại điện tử như thế nào?',
     createdAt: '2024-05-22T09:00:00Z',
     repositoryContext: 'ecommerce-platform',
     messages: [
       {
         id: 'msg-1',
         role: 'user',
-        content: 'How can I improve my e-commerce platform project?',
+        content: 'Tôi có thể cải thiện dự án thương mại điện tử như thế nào?',
         timestamp: '2024-05-22T09:00:00Z'
       },
       {
         id: 'msg-2',
         role: 'assistant',
-        content: 'Based on the analysis of your e-commerce platform, here are the top improvements you should focus on:\n\n1. **Add End-to-End Tests**: Your project has good unit test coverage (78%), but lacks E2E tests for critical flows like checkout and payment processing. Consider using Playwright or Cypress.\n\n2. **Implement CI/CD**: Set up GitHub Actions to automate testing and deployment. This will help catch issues early and streamline your release process.\n\n3. **Add Monitoring**: Integrate tools like Sentry for error tracking and performance monitoring. This is crucial for production applications.\n\nWould you like detailed guidance on any of these improvements?',
+        content: 'Dựa trên phân tích nền tảng thương mại điện tử của bạn, đây là các cải thiện nên ưu tiên:\n\n1. **Thêm End-to-End Tests**: Dự án có unit test khá tốt (78%) nhưng thiếu E2E test cho các luồng quan trọng như checkout và thanh toán. Có thể dùng Playwright hoặc Cypress.\n\n2. **Triển khai CI/CD**: Thiết lập GitHub Actions để tự động test và deploy, giúp phát hiện lỗi sớm và tối ưu quy trình release.\n\n3. **Bổ sung Monitoring**: Tích hợp Sentry để theo dõi lỗi và công cụ theo dõi hiệu năng. Điều này rất quan trọng với ứng dụng production.\n\nBạn muốn tôi hướng dẫn chi tiết phần nào trước?',
         timestamp: '2024-05-22T09:00:30Z'
       },
       {
         id: 'msg-3',
         role: 'user',
-        content: 'Yes, can you help me with setting up CI/CD with GitHub Actions?',
+        content: 'Có, hãy giúp tôi thiết lập CI/CD bằng GitHub Actions.',
         timestamp: '2024-05-22T09:01:00Z'
       },
       {
         id: 'msg-4',
         role: 'assistant',
-        content: 'Absolutely! Here\'s a step-by-step guide to set up CI/CD for your e-commerce platform:\n\n## Step 1: Create GitHub Actions Workflow\n\nCreate a file `.github/workflows/ci.yml`:\n\n```yaml\nname: CI/CD Pipeline\n\non:\n  push:\n    branches: [main, develop]\n  pull_request:\n    branches: [main]\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v3\n      - uses: actions/setup-node@v3\n        with:\n          node-version: \'18\'\n      - run: npm ci\n      - run: npm run lint\n      - run: npm test\n      - run: npm run build\n```\n\nThis workflow will:\n- Run on every push to main/develop\n- Execute linting, tests, and build\n- Fail if any step fails\n\nWould you like me to explain how to add deployment steps as well?',
+        content: 'Được. Đây là hướng dẫn từng bước để thiết lập CI/CD cho nền tảng thương mại điện tử:\n\n## Bước 1: Tạo GitHub Actions Workflow\n\nTạo file `.github/workflows/ci.yml`:\n\n```yaml\nname: CI/CD Pipeline\n\non:\n  push:\n    branches: [main, develop]\n  pull_request:\n    branches: [main]\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v3\n      - uses: actions/setup-node@v3\n        with:\n          node-version: \'18\'\n      - run: npm ci\n      - run: npm run lint\n      - run: npm test\n      - run: npm run build\n```\n\nWorkflow này sẽ:\n- Chạy khi push lên main/develop\n- Thực thi lint, test và build\n- Dừng pipeline nếu có bước thất bại\n\nBạn có muốn tôi hướng dẫn thêm bước deployment không?',
         timestamp: '2024-05-22T09:01:45Z'
       }
     ]
   },
   {
     id: 'chat-2',
-    title: 'Career advice for full-stack developer',
+    title: 'Tư vấn nghề nghiệp cho full-stack developer',
     createdAt: '2024-05-20T15:30:00Z',
     messages: [
       {
         id: 'msg-5',
         role: 'user',
-        content: 'What skills should I focus on to become a senior full-stack developer?',
+        content: 'Tôi nên tập trung kỹ năng nào để trở thành senior full-stack developer?',
         timestamp: '2024-05-20T15:30:00Z'
       },
       {
         id: 'msg-6',
         role: 'assistant',
-        content: 'Based on your current portfolio analysis, you\'re on a great path! Here are the key areas to focus on:\n\n**Technical Skills to Strengthen:**\n1. **DevOps & Infrastructure** - You\'re using Docker, but adding Kubernetes, CI/CD pipelines, and cloud platforms (AWS/GCP) would be valuable\n2. **System Design** - Practice designing scalable architectures for high-traffic applications\n3. **Testing** - Expand beyond unit tests to E2E testing and integration testing strategies\n4. **Performance Optimization** - Learn about caching strategies, database optimization, and frontend performance\n\n**Soft Skills:**\n1. **Technical Leadership** - Mentor junior developers, lead code reviews\n2. **Architecture Documentation** - Practice writing clear technical documentation and RFCs\n3. **Communication** - Explain complex technical decisions to non-technical stakeholders\n\nYour TypeScript proficiency is excellent - that\'s a strong foundation. Focus on the DevOps gap first as it appears in multiple project analyses.',
+        content: 'Dựa trên phân tích portfolio hiện tại, bạn đang đi đúng hướng. Các mảng nên tập trung gồm:\n\n**Kỹ năng kỹ thuật cần củng cố:**\n1. **DevOps & Infrastructure** - Bạn đã dùng Docker, nhưng nên học thêm Kubernetes, CI/CD pipeline và cloud platform như AWS/GCP.\n2. **System Design** - Luyện thiết kế kiến trúc có khả năng mở rộng cho ứng dụng traffic cao.\n3. **Testing** - Mở rộng từ unit test sang E2E test và chiến lược integration testing.\n4. **Performance Optimization** - Học caching, tối ưu database và hiệu năng frontend.\n\n**Kỹ năng mềm:**\n1. **Technical Leadership** - Mentor developer junior và dẫn dắt code review.\n2. **Architecture Documentation** - Luyện viết tài liệu kỹ thuật và RFC rõ ràng.\n3. **Communication** - Giải thích quyết định kỹ thuật phức tạp cho stakeholder không chuyên.\n\nTypeScript của bạn đang tốt, đây là nền tảng mạnh. Hãy ưu tiên gap DevOps trước vì nó xuất hiện trong nhiều phân tích dự án.',
         timestamp: '2024-05-20T15:30:45Z'
       }
     ]

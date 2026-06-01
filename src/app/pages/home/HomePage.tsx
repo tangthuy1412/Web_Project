@@ -17,18 +17,18 @@ import { getScoreColor } from '../../lib/utils'
 
 const features = [
   {
-    title: 'Repository scoring',
-    description: 'Review architecture, completeness, documentation, conventions, and commit quality in one place.',
+    title: 'Chấm điểm repository',
+    description: 'Đánh giá kiến trúc, độ hoàn thiện, tài liệu, quy ước và chất lượng commit trong một nơi.',
     icon: BarChart3
   },
   {
-    title: 'Career roadmap',
-    description: 'Turn repository gaps into a practical skill plan for internships, junior roles, and portfolio reviews.',
+    title: 'Roadmap nghề nghiệp',
+    description: 'Biến khoảng trống trong repository thành kế hoạch kỹ năng thực tế cho thực tập, junior role và portfolio.',
     icon: TrendingUp
   },
   {
-    title: 'AI mentor chat',
-    description: 'Ask follow-up questions about a project and get concrete next steps for improving the codebase.',
+    title: 'Chat AI Mentor',
+    description: 'Hỏi tiếp về dự án và nhận bước cải thiện cụ thể cho codebase.',
     icon: MessageSquare
   }
 ]
@@ -42,24 +42,24 @@ export const HomePage = () => {
         <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
           <div className="flex flex-col justify-center">
             <Badge variant="info" className="mb-4 w-fit">
-              AI Developer Analytics
+              Phân tích developer bằng AI
             </Badge>
             <h1 className="max-w-3xl text-4xl font-bold leading-tight text-slate-950 dark:text-white lg:text-5xl">
               GitAnalyzer AI
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-300">
-              Analyze GitHub repositories, understand your engineering strengths, and build a portfolio that is easier to evaluate.
+              Phân tích repository GitHub, hiểu điểm mạnh kỹ thuật và xây dựng portfolio dễ đánh giá hơn.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link to="/github/connect">
                 <Button size="lg">
                   <Github className="mr-2 h-5 w-5" />
-                  Connect GitHub
+                  Kết nối GitHub
                 </Button>
               </Link>
               <Link to="/repositories">
                 <Button variant="outline" size="lg">
-                  View repositories
+                  Xem repository
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
@@ -69,7 +69,7 @@ export const HomePage = () => {
           <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-4 shadow-inner dark:border-slate-800 dark:bg-slate-950/80">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Latest analysis</p>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Phân tích gần nhất</p>
                 <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
                   {bestAnalysis.repositoryName}
                 </h2>
@@ -101,22 +101,22 @@ export const HomePage = () => {
       <div className="animate-rise-delay grid gap-4 md:grid-cols-3">
         <Card className="hover-lift">
           <CardContent className="p-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">Repositories</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Repository</p>
             <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{mockDashboardStats.totalRepositories}</p>
           </CardContent>
         </Card>
         <Card className="hover-lift">
           <CardContent className="p-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">Analyzed</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Đã phân tích</p>
             <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{mockDashboardStats.analyzedRepositories}</p>
           </CardContent>
         </Card>
         <Card className="hover-lift">
           <CardContent className="p-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">GitHub status</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Trạng thái GitHub</p>
             <div className="mt-3 flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-emerald-500" />
-              <Badge variant="success">Connected</Badge>
+              <Badge variant="success">Đã kết nối</Badge>
             </div>
           </CardContent>
         </Card>
@@ -141,15 +141,15 @@ export const HomePage = () => {
           <div>
             <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
               <Sparkles className="h-5 w-5 text-indigo-500" />
-              <h2 className="text-xl font-semibold">Ready to improve the next project?</h2>
+              <h2 className="text-xl font-semibold">Sẵn sàng cải thiện dự án tiếp theo?</h2>
             </div>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Start with a repository scan, then use the dashboard and AI chat to prioritize fixes.
+              Bắt đầu bằng phân tích repository, sau đó dùng dashboard và AI chat để ưu tiên việc cần sửa.
             </p>
           </div>
           <Link to="/dashboard">
             <Button>
-              Open dashboard
+              Mở bảng điều khiển
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Link>

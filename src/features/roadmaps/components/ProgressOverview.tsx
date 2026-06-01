@@ -9,10 +9,10 @@ interface ProgressOverviewProps {
 export const ProgressOverview = ({ stats }: ProgressOverviewProps) => {
   const completion = Math.round((stats.completedNodes / stats.totalNodes) * 100)
   const items = [
-    { label: 'Roadmap completion', value: `${completion}%`, detail: `${stats.completedNodes}/${stats.totalNodes} nodes`, icon: BookOpenCheck, color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400' },
-    { label: 'Learning streak', value: `${stats.currentStreak}d`, detail: `Best ${stats.longestStreak} days`, icon: Flame, color: 'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400' },
-    { label: 'Weekly goal', value: `${stats.weeklyHoursCompleted}/${stats.weeklyGoalHours}h`, detail: 'Active this week', icon: Target, color: 'bg-cyan-100 text-cyan-600 dark:bg-cyan-950 dark:text-cyan-400' },
-    { label: 'Achievements', value: String(stats.achievements.filter((item) => item.unlockedAt).length), detail: `${stats.achievements.length} tracked`, icon: Award, color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' }
+    { label: 'Hoàn thành roadmap', value: `${completion}%`, detail: `${stats.completedNodes}/${stats.totalNodes} node`, icon: BookOpenCheck, color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400' },
+    { label: 'Chuỗi học tập', value: `${stats.currentStreak} ngày`, detail: `Kỷ lục ${stats.longestStreak} ngày`, icon: Flame, color: 'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400' },
+    { label: 'Mục tiêu tuần', value: `${stats.weeklyHoursCompleted}/${stats.weeklyGoalHours} giờ`, detail: 'Đang hoạt động tuần này', icon: Target, color: 'bg-cyan-100 text-cyan-600 dark:bg-cyan-950 dark:text-cyan-400' },
+    { label: 'Thành tựu', value: String(stats.achievements.filter((item) => item.unlockedAt).length), detail: `${stats.achievements.length} mục đang theo dõi`, icon: Award, color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' }
   ]
 
   return (

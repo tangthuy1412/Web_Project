@@ -6,9 +6,9 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('en-US', {
+  return new Date(date).toLocaleDateString('vi-VN', {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: 'numeric'
   })
 }
@@ -21,10 +21,10 @@ export function formatRelativeTime(date: string): string {
   const diffHours = Math.floor(diffMins / 60)
   const diffDays = Math.floor(diffHours / 24)
 
-  if (diffMins < 1) return 'just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffMins < 1) return 'vừa xong'
+  if (diffMins < 60) return `${diffMins} phút trước`
+  if (diffHours < 24) return `${diffHours} giờ trước`
+  if (diffDays < 7) return `${diffDays} ngày trước`
   return formatDate(date)
 }
 
@@ -50,5 +50,27 @@ export function getPriorityColor(priority: 'high' | 'medium' | 'low'): string {
       return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950'
     case 'low':
       return 'text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950'
+  }
+}
+
+export function formatPriority(priority: 'high' | 'medium' | 'low'): string {
+  switch (priority) {
+    case 'high':
+      return 'Cao'
+    case 'medium':
+      return 'Trung bình'
+    case 'low':
+      return 'Thấp'
+  }
+}
+
+export function formatPortfolioImportance(importance: 'critical' | 'important' | 'nice-to-have'): string {
+  switch (importance) {
+    case 'critical':
+      return 'Bắt buộc'
+    case 'important':
+      return 'Quan trọng'
+    case 'nice-to-have':
+      return 'Nên có'
   }
 }

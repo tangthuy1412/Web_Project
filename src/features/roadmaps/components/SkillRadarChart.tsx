@@ -16,8 +16,8 @@ export const SkillRadarChart = ({ skills }: SkillRadarChartProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Skill Growth Radar</CardTitle>
-        <CardDescription>Current capability against target career level</CardDescription>
+        <CardTitle>Radar phát triển kỹ năng</CardTitle>
+        <CardDescription>Năng lực hiện tại so với mục tiêu nghề nghiệp</CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
@@ -26,8 +26,8 @@ export const SkillRadarChart = ({ skills }: SkillRadarChartProps) => {
             <PolarAngleAxis dataKey="skill" tick={{ fill: '#64748b', fontSize: 11 }} />
             <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 10 }} />
             <Tooltip />
-            <Radar name="Current" dataKey="current" stroke="#6366f1" fill="#6366f1" fillOpacity={0.45} />
-            <Radar name="Target" dataKey="target" stroke="#22c55e" fill="#22c55e" fillOpacity={0.16} />
+            <Radar name="Hiện tại" dataKey="current" stroke="#6366f1" fill="#6366f1" fillOpacity={0.45} />
+            <Radar name="Mục tiêu" dataKey="target" stroke="#22c55e" fill="#22c55e" fillOpacity={0.16} />
           </RadarChart>
         </ResponsiveContainer>
       </CardContent>

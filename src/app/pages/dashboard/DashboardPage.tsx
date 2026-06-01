@@ -28,10 +28,10 @@ export const DashboardPage = () => {
     <div className="space-y-6 max-w-7xl">
       <div>
         <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-          Welcome back, Alex! 👋
+          Chào mừng trở lại, Nguyễn Minh!
         </h1>
         <p className="text-slate-500 dark:text-slate-400 mt-1">
-          Here's an overview of your GitHub repository analysis
+          Đây là tổng quan phân tích repository GitHub của bạn
         </p>
       </div>
 
@@ -41,7 +41,7 @@ export const DashboardPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  Total Repositories
+                  Tổng repository
                 </p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">
                   {stats.totalRepositories}
@@ -59,7 +59,7 @@ export const DashboardPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  Analyzed
+                  Đã phân tích
                 </p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">
                   {stats.analyzedRepositories}
@@ -77,10 +77,10 @@ export const DashboardPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  GitHub Status
+                  Trạng thái GitHub
                 </p>
                 <div className="flex items-center gap-2 mt-2">
-                  <Badge variant="success">Connected</Badge>
+                  <Badge variant="success">Đã kết nối</Badge>
                 </div>
               </div>
               <div className="h-12 w-12 rounded-lg bg-cyan-100 dark:bg-cyan-950 flex items-center justify-center">
@@ -95,7 +95,7 @@ export const DashboardPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  Overall Score
+                  Điểm tổng quan
                 </p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">
                   82/100
@@ -112,8 +112,8 @@ export const DashboardPage = () => {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Language Distribution</CardTitle>
-            <CardDescription>Your repository programming languages</CardDescription>
+            <CardTitle>Phân bố ngôn ngữ</CardTitle>
+            <CardDescription>Ngôn ngữ lập trình trong repository của bạn</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-6">
@@ -156,8 +156,8 @@ export const DashboardPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Skill Overview</CardTitle>
-            <CardDescription>Your development skill assessment</CardDescription>
+            <CardTitle>Tổng quan kỹ năng</CardTitle>
+            <CardDescription>Đánh giá kỹ năng phát triển phần mềm của bạn</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
@@ -166,7 +166,7 @@ export const DashboardPage = () => {
                 <PolarAngleAxis dataKey="skill" tick={{ fill: '#64748b', fontSize: 12 }} />
                 <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 10 }} />
                 <Radar
-                  name="Skills"
+                  name="Kỹ năng"
                   dataKey="value"
                   stroke="#6366f1"
                   fill="#6366f1"
@@ -185,9 +185,9 @@ export const DashboardPage = () => {
           <CardContent className="p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Daily Goal</p>
-                <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">{learningStats.dailyGoalMinutes} min</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{learningStats.currentStreak} day learning streak</p>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Mục tiêu hằng ngày</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">{learningStats.dailyGoalMinutes} phút</p>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Chuỗi học {learningStats.currentStreak} ngày</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-cyan-100 dark:bg-cyan-950 flex items-center justify-center">
                 <Target className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
@@ -196,7 +196,7 @@ export const DashboardPage = () => {
             <Link to="/roadmaps" className="mt-4 block">
               <Button variant="outline" className="w-full">
                 <Route className="mr-2 h-4 w-4" />
-                Open Roadmaps
+                Mở lộ trình học
               </Button>
             </Link>
           </CardContent>
@@ -207,12 +207,12 @@ export const DashboardPage = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Recent Analyses</CardTitle>
-              <CardDescription>Your latest repository analysis results</CardDescription>
+              <CardTitle>Phân tích gần đây</CardTitle>
+              <CardDescription>Kết quả phân tích repository mới nhất</CardDescription>
             </div>
             <Link to="/repositories">
               <Button variant="ghost" size="sm">
-                View all <ArrowRight className="ml-2 h-4 w-4" />
+                Xem tất cả <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
           </div>
@@ -241,14 +241,14 @@ export const DashboardPage = () => {
                       ))}
                     </div>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Analyzed {formatRelativeTime(analysis.createdAt)}
+                      Đã phân tích {formatRelativeTime(analysis.createdAt)}
                     </p>
                   </div>
                   <div className="text-right">
                     <div className={`text-2xl font-bold ${getScoreColor(analysis.scores.overall)}`}>
                       {analysis.scores.overall}
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Overall Score</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Điểm tổng quan</p>
                   </div>
                 </div>
               </Link>
@@ -261,14 +261,14 @@ export const DashboardPage = () => {
         <Card className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0">
           <CardContent className="p-6">
             <Sparkles className="h-8 w-8 mb-4" />
-            <h3 className="text-xl font-bold mb-2">AI Career Guidance</h3>
+            <h3 className="text-xl font-bold mb-2">Định hướng nghề nghiệp bằng AI</h3>
             <p className="text-white/90 mb-4">
-              Based on your analysis, you're on track to become a Full-Stack Engineer.
-              Focus on DevOps skills to accelerate your growth.
+              Dựa trên phân tích hiện tại, bạn đang phù hợp với hướng Full-Stack Engineer.
+              Hãy tập trung vào kỹ năng DevOps để tăng tốc phát triển.
             </p>
             <Link to="/chat">
               <Button variant="outline" className="bg-white/20 border-white/30 text-white hover:bg-white/30">
-                Chat with AI Mentor
+                Chat với AI Mentor
               </Button>
             </Link>
           </CardContent>
@@ -276,26 +276,26 @@ export const DashboardPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Get started with your next steps</CardDescription>
+            <CardTitle>Thao tác nhanh</CardTitle>
+            <CardDescription>Bắt đầu với các bước tiếp theo</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             <Link to="/repositories">
               <Button variant="outline" className="w-full justify-start">
                 <FolderGit2 className="mr-2 h-4 w-4" />
-                Analyze a Repository
+                Phân tích repository
               </Button>
             </Link>
             <Link to="/progress">
               <Button variant="outline" className="w-full justify-start">
                 <TrendingUp className="mr-2 h-4 w-4" />
-                View Progress Report
+                Xem báo cáo tiến độ
               </Button>
             </Link>
             <Link to="/github/connect">
               <Button variant="outline" className="w-full justify-start">
                 <Code2 className="mr-2 h-4 w-4" />
-                Manage GitHub Connection
+                Quản lý kết nối GitHub
               </Button>
             </Link>
           </CardContent>

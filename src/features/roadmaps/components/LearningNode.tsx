@@ -5,7 +5,7 @@ import { Badge } from '../../../app/components/ui/Badge'
 import { Button } from '../../../app/components/ui/Button'
 import { cn } from '../../../app/lib/utils'
 import type { LearningNode as LearningNodeType, LearningNodeStatus } from '../types'
-import { getDifficultyTone, getStatusTone } from '../utils/roadmapUtils'
+import { formatLearningStatus, formatRoadmapDifficulty, getDifficultyTone, getStatusTone } from '../utils/roadmapUtils'
 
 interface LearningNodeProps {
   node: LearningNodeType
@@ -40,7 +40,7 @@ export const LearningNode = ({ node, onStatusChange, onBookmarkToggle }: Learnin
             <div className="flex flex-wrap items-center gap-2">
               <h4 className="font-semibold text-slate-950 dark:text-slate-50">{node.title}</h4>
               <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', getStatusTone(node.status))}>
-                {node.status.replace('-', ' ')}
+                {formatLearningStatus(node.status)}
               </span>
             </div>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{node.description}</p>
@@ -57,7 +57,7 @@ export const LearningNode = ({ node, onStatusChange, onBookmarkToggle }: Learnin
           className="ml-8 mt-4 space-y-4"
         >
           <div className="flex flex-wrap gap-2">
-            <Badge variant={getDifficultyTone(node.difficulty)}>{node.difficulty}</Badge>
+            <Badge variant={getDifficultyTone(node.difficulty)}>{formatRoadmapDifficulty(node.difficulty)}</Badge>
             <Badge variant="default">
               <Clock className="mr-1 h-3 w-3" />
               {node.estimatedHours}h
@@ -70,7 +70,7 @@ export const LearningNode = ({ node, onStatusChange, onBookmarkToggle }: Learnin
 
           {node.dependencies.length > 0 && (
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Prerequisites: {node.dependencies.join(', ')}
+              Điều kiện tiên quyết: {node.dependencies.join(', ')}
             </p>
           )}
 
@@ -83,7 +83,7 @@ export const LearningNode = ({ node, onStatusChange, onBookmarkToggle }: Learnin
               >
                 <div className="font-medium text-slate-900 dark:text-slate-100">{resource.title}</div>
                 <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  {resource.provider} · {resource.estimatedMinutes}m · {resource.type}
+                  {resource.provider} - {resource.estimatedMinutes} phút - {resource.type}
                 </div>
               </a>
             ))}
@@ -97,7 +97,7 @@ export const LearningNode = ({ node, onStatusChange, onBookmarkToggle }: Learnin
 
           {node.notes && (
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-              Note: {node.notes}
+              Ghi chú: {node.notes}
             </div>
           )}
 
@@ -108,20 +108,20 @@ export const LearningNode = ({ node, onStatusChange, onBookmarkToggle }: Learnin
               onClick={() => onStatusChange?.(node.id, node.status === 'completed' ? 'in-progress' : 'completed')}
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
-              {node.status === 'completed' ? 'Reopen' : 'Mark complete'}
+              {node.status === 'completed' ? 'Mở lại' : 'Đánh dấu hoàn thành'}
             </Button>
             <Button size="sm" variant="outline" disabled={isLocked}>
-              Resume
+              Tiếp tục
             </Button>
             <Button
               size="sm"
               variant="ghost"
               disabled={isLocked}
               onClick={() => onBookmarkToggle?.(node.id)}
-              aria-label={node.bookmarked ? 'Remove bookmark' : 'Bookmark lesson'}
+              aria-label={node.bookmarked ? 'Bỏ lưu bài học' : 'Lưu bài học'}
             >
               <Bookmark className={cn('mr-2 h-4 w-4', node.bookmarked && 'fill-indigo-500 text-indigo-500')} />
-              Bookmark
+              Lưu
             </Button>
           </div>
         </motion.div>

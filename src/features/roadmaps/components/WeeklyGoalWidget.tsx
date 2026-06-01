@@ -14,15 +14,15 @@ export const WeeklyGoalWidget = ({ stats }: WeeklyGoalWidgetProps) => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Target className="h-5 w-5 text-cyan-500" />
-          Weekly Goal
+          Mục tiêu tuần
         </CardTitle>
-        <CardDescription>Daily goal: {stats.dailyGoalMinutes} minutes</CardDescription>
+        <CardDescription>Mục tiêu hằng ngày: {stats.dailyGoalMinutes} phút</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex items-end justify-between">
           <div>
             <p className="text-3xl font-bold text-slate-950 dark:text-slate-50">{stats.weeklyHoursCompleted}h</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">of {stats.weeklyGoalHours}h completed</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">đã hoàn thành trên {stats.weeklyGoalHours} giờ</p>
           </div>
           <span className="rounded-full bg-cyan-100 px-3 py-1 text-sm font-medium text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400">
             {progress}%

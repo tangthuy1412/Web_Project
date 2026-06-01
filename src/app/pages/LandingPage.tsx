@@ -165,14 +165,14 @@ const pricingPlans = [
     name: 'Premium',
     price: '199Kđ',
     description: 'Dành cho người đang chuẩn bị phỏng vấn hoặc nâng cấp career path.',
-    features: ['Unlimited scans', 'AI Mentor không giới hạn', 'Career readiness score', 'Progress analytics', 'Export report'],
+    features: ['Quét không giới hạn', 'AI Mentor không giới hạn', 'Điểm sẵn sàng nghề nghiệp', 'Phân tích tiến độ', 'Xuất báo cáo'],
     highlighted: true
   },
   {
     name: 'Team',
     price: 'Liên hệ',
     description: 'Dành cho mentor, bootcamp và đội ngũ kỹ thuật.',
-    features: ['Team dashboard', 'Learning cohorts', 'Admin analytics', 'Private workspace', 'Priority support']
+    features: ['Dashboard đội nhóm', 'Nhóm học tập', 'Phân tích cho admin', 'Workspace riêng tư', 'Hỗ trợ ưu tiên']
   }
 ]
 
@@ -384,7 +384,7 @@ const HeroDashboard = () => (
           <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-4 dark:border-white/10 dark:bg-white/5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Repository Analysis</p>
+                <p className="text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Phân tích repository</p>
                 <h3 className="mt-1 text-lg font-bold text-slate-950 dark:text-white">portfolio-dashboard</h3>
               </div>
               <div className="rounded-lg bg-indigo-600 px-3 py-2 text-center text-white shadow-lg shadow-indigo-600/25">
@@ -404,7 +404,7 @@ const HeroDashboard = () => (
 
           <div className="rounded-lg border border-slate-200 bg-white/80 p-4 dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">Learning Roadmap</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">Lộ trình học</p>
               <span className="text-xs text-slate-500 dark:text-slate-400">12 tuần</span>
             </div>
             <div className="space-y-3">
@@ -445,7 +445,7 @@ const HeroDashboard = () => (
     {[
       { label: 'Skill Gap', value: 'Testing -28%', className: '-left-4 top-16' },
       { label: 'Career Path', value: 'Frontend Engineer', className: '-right-3 top-8' },
-      { label: 'Recommended', value: 'NextJS, Vitest', className: 'bottom-10 -left-6' }
+      { label: 'Đề xuất', value: 'NextJS, Vitest', className: 'bottom-10 -left-6' }
     ].map((card, index) => (
       <motion.div
         key={card.label}
@@ -620,7 +620,7 @@ export const FeaturesSection = () => (
             <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                 <span>AI signal</span>
-                <span>High confidence</span>
+                <span>Độ tin cậy cao</span>
               </div>
               <div className="mt-3 h-2 rounded-full bg-slate-200 dark:bg-slate-800">
                 <motion.div
@@ -680,14 +680,14 @@ export const RoadmapSection = () => (
   <section id="roadmap" className="bg-slate-950 px-4 py-20 text-white sm:px-6 lg:px-8">
     <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
       <div>
-        <Badge variant="info" className="mb-4 bg-cyan-400/10 text-cyan-300">AI Learning Roadmap</Badge>
+        <Badge variant="info" className="mb-4 bg-cyan-400/10 text-cyan-300">Lộ trình học bằng AI</Badge>
         <h2 className="text-3xl font-bold leading-tight md:text-5xl">Roadmap trực quan dựa trên repository thật</h2>
         <p className="mt-5 text-lg leading-8 text-slate-300">
           Ví dụ cho Frontend Developer: JavaScript, TypeScript, React, NextJS, Testing, CI/CD và System Design được sắp xếp theo mức độ ưu tiên.
         </p>
         <div className="mt-8 grid grid-cols-3 gap-3">
           {[
-            ['76%', 'Progress'],
+            ['76%', 'Tiến độ'],
             ['7', 'Milestones'],
             ['20 tuần', 'Estimated']
           ].map(([value, label]) => (
@@ -739,7 +739,7 @@ export const ProgressSection = () => (
   <section id="progress" className="px-4 py-20 sm:px-6 lg:px-8">
     <div className="mx-auto max-w-7xl">
       <SectionHeader
-        eyebrow="Progress Tracking"
+        eyebrow="Theo dõi tiến độ"
         title="Theo dõi tiến trình như một sản phẩm học tập nghiêm túc"
         description="XP, level, streak, achievements và analytics giúp người học biết mình đang tiến bộ thật sự."
       />
@@ -749,7 +749,7 @@ export const ProgressSection = () => (
             { label: 'XP', value: '12,840', icon: Trophy, color: 'text-amber-500' },
             { label: 'Level', value: '24', icon: BadgeCheck, color: 'text-indigo-500' },
             { label: 'Streak', value: '18 ngày', icon: Flame, color: 'text-rose-500' },
-            { label: 'Completion', value: '76%', icon: Target, color: 'text-emerald-500' }
+            { label: 'Hoàn thành', value: '76%', icon: Target, color: 'text-emerald-500' }
           ].map((item) => (
             <div key={item.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
               <item.icon className={cn('h-6 w-6', item.color)} />
@@ -761,7 +761,7 @@ export const ProgressSection = () => (
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h3 className="text-2xl font-bold text-slate-950 dark:text-white">Learning Analytics</h3>
+              <h3 className="text-2xl font-bold text-slate-950 dark:text-white">Phân tích học tập</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">Activity timeline trong 7 tuần gần nhất</p>
             </div>
             <BarChart3 className="h-6 w-6 text-indigo-500" />
@@ -863,7 +863,7 @@ export const CareerInsightsSection = () => (
           </div>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-slate-950/70">
-          <h3 className="text-xl font-bold text-slate-950 dark:text-white">Strengths</h3>
+          <h3 className="text-xl font-bold text-slate-950 dark:text-white">Điểm mạnh</h3>
           <div className="mt-5 space-y-3">
             {['React component architecture', 'Clean UI implementation', 'Git workflow ổn định', 'API integration căn bản'].map((item) => (
               <div key={item} className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200">
@@ -872,7 +872,7 @@ export const CareerInsightsSection = () => (
               </div>
             ))}
           </div>
-          <h3 className="mt-8 text-xl font-bold text-slate-950 dark:text-white">Weaknesses</h3>
+          <h3 className="mt-8 text-xl font-bold text-slate-950 dark:text-white">Điểm yếu</h3>
           <div className="mt-5 space-y-3">
             {['Testing coverage thấp', 'CI/CD chưa rõ', 'System design cần luyện thêm'].map((item) => (
               <div key={item} className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200">
@@ -883,7 +883,7 @@ export const CareerInsightsSection = () => (
           </div>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-slate-950/70">
-          <h3 className="text-xl font-bold text-slate-950 dark:text-white">Recommended Roles</h3>
+          <h3 className="text-xl font-bold text-slate-950 dark:text-white">Vai trò đề xuất</h3>
           <div className="mt-5 space-y-3">
             {[
               ['Frontend Engineer', '92% match'],
@@ -1057,7 +1057,7 @@ export const FooterSection = () => (
           <span className="font-bold text-slate-950 dark:text-white">GitAnalyzer AI</span>
         </div>
         <p className="mt-4 max-w-sm text-sm leading-6 text-slate-600 dark:text-slate-300">
-          AI GitHub Repository Analyzer & Personalized Learning Roadmap cho developer muốn phát triển bằng dữ liệu thực tế.
+          Nền tảng phân tích repository GitHub bằng AI và tạo lộ trình học cá nhân hóa cho developer muốn phát triển bằng dữ liệu thực tế.
         </p>
         <div className="mt-5 flex gap-2">
           {[Github, Linkedin, X].map((Icon, index) => (
@@ -1068,8 +1068,8 @@ export const FooterSection = () => (
         </div>
       </div>
       {[
-        ['Tính năng', 'Repository Analysis', 'Skill Gap', 'AI Mentor', 'Progress Tracking'],
-        ['Roadmaps', 'Frontend', 'Backend', 'Fullstack', 'DevOps'],
+        ['Tính năng', 'Phân tích repository', 'Skill Gap', 'AI Mentor', 'Theo dõi tiến độ'],
+        ['Roadmap', 'Frontend', 'Backend', 'Fullstack', 'DevOps'],
         ['Company', 'Pricing', 'Documentation', 'Chính sách bảo mật', 'Điều khoản sử dụng']
       ].map(([title, ...links]) => (
         <div key={title}>
