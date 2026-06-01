@@ -4,6 +4,7 @@ import { AuthLayout } from './layouts/AuthLayout'
 
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
+import { LandingPage } from './pages/LandingPage'
 import { HomePage } from './pages/home/HomePage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { GitHubConnectPage } from './pages/github/GitHubConnectPage'
@@ -20,6 +21,10 @@ import { RoadmapsPage } from '../features/roadmaps/pages/RoadmapsPage'
 
 export const router = createBrowserRouter([
   {
+    path: '/',
+    element: <LandingPage />
+  },
+  {
     path: '/login',
     element: <AuthLayout />,
     children: [
@@ -34,10 +39,9 @@ export const router = createBrowserRouter([
     ]
   },
   {
-    path: '/',
     element: <MainLayout />,
     children: [
-      { index: true, element: <HomePage /> },
+      { path: 'home', element: <HomePage /> },
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'github/connect', element: <GitHubConnectPage /> },
       { path: 'repositories', element: <RepositoriesPage /> },
