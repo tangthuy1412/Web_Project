@@ -1,22 +1,95 @@
-import { useState } from 'react'
-import { User, Github, Bell, Palette, LogOut } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card'
+import { type FormEvent, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
+import { AlertCircle, Github, LockKeyhole, LogOut, Palette, RefreshCw, Save, User } from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Badge } from '../../components/ui/Badge'
 import { useAuthStore } from '../../stores/authStore'
 import { useTheme } from '../../hooks/useTheme'
-import { useNavigate } from 'react-router'
 
 export const SettingsPage = () => {
   const navigate = useNavigate()
-  const { user, logout } = useAuthStore()
+  const { user, profile, fetchProfile, saveProfile, changePassword, logout, isLoading, error } = useAuthStore()
   const { theme, setTheme } = useTheme()
-  const [name, setName] = useState(user?.name || '')
-  const [email, setEmail] = useState(user?.email || '')
+  const [profileForm, setProfileForm] = useState({
+    fullName: '',
+    university: '',
+    major: '',
+    year: 1,
+    targetCareer: '',
+    currentSkills: '',
+    githubUsername: ''
+  })
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [success, setSuccess] = useState('')
+  const [isRefreshingProfile, setIsRefreshingProfile] = useState(false)
 
-  const handleLogout = () => {
-    logout()
+  const fillProfileForm = () => {
+    setProfileForm({
+      fullName: profile?.fullName || user?.name || '',
+      university: profile?.university || '',
+      major: profile?.major || '',
+      year: profile?.year || 1,
+      targetCareer: profile?.targetCareer || '',
+      currentSkills: profile?.currentSkills?.join(', ') || '',
+      githubUsername: profile?.githubUsername || user?.githubUsername || ''
+    })
+  }
+
+  useEffect(() => {
+    setIsRefreshingProfile(true)
+    fetchProfile().finally(() => setIsRefreshingProfile(false))
+  }, [fetchProfile])
+
+  useEffect(() => {
+    fillProfileForm()
+  }, [profile, user])
+
+  const updateProfileField = (field: keyof typeof profileForm, value: string | number) => {
+    setProfileForm((current) => ({ ...current, [field]: value }))
+  }
+
+  const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setSuccess('')
+    await saveProfile({
+      fullName: profileForm.fullName,
+      university: profileForm.university,
+      major: profileForm.major,
+      year: Number(profileForm.year),
+      targetCareer: profileForm.targetCareer,
+      currentSkills: profileForm.currentSkills.split(',').map((skill) => skill.trim()).filter(Boolean),
+      githubUsername: profileForm.githubUsername || undefined
+    })
+    setSuccess('Đã lưu hồ sơ.')
+  }
+
+  const handleRefreshProfile = async () => {
+    setSuccess('')
+    setIsRefreshingProfile(true)
+    try {
+      await fetchProfile()
+      setSuccess('Đã tải lại thông tin người dùng.')
+    } finally {
+      setIsRefreshingProfile(false)
+    }
+  }
+
+  const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setSuccess('')
+    await changePassword(passwordForm.currentPassword, passwordForm.newPassword, passwordForm.confirmPassword)
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+    setSuccess('Đã đổi mật khẩu.')
+  }
+
+  const handleLogout = async () => {
+    await logout()
     navigate('/login')
   }
 
@@ -26,202 +99,139 @@ export const SettingsPage = () => {
         <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
           Cài đặt
         </h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1">
-          Quản lý tài khoản và tùy chọn cá nhân
+        <p className="mt-1 text-slate-500 dark:text-slate-400">
+          Quản lý hồ sơ, GitHub và tài khoản.
         </p>
       </div>
 
+      {error && (
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <p>{error}</p>
+        </div>
+      )}
+      {success && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
+          {success}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Hồ sơ
-          </CardTitle>
-          <CardDescription>Cập nhật thông tin cá nhân</CardDescription>
+          <CardTitle className="flex items-center gap-2"><User className="h-5 w-5" />Thông tin tài khoản</CardTitle>
+          <CardDescription>Dữ liệu đăng nhập hiện tại từ backend auth.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Input
-            label="Họ và tên"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <Input
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <div className="flex items-center gap-2">
-            <div className="h-16 w-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-2xl font-medium">
-              {user?.name?.charAt(0)}
-            </div>
-            <Button variant="outline" size="sm">
-              Đổi ảnh đại diện
-            </Button>
-          </div>
-          <div className="flex gap-2 pt-2">
-            <Button>Lưu thay đổi</Button>
-            <Button variant="outline">Hủy</Button>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <Input label="Email" value={user?.email || ''} disabled />
+          <Input label="Tên hiển thị" value={user?.name || ''} disabled />
+          <div className="md:col-span-2 flex flex-wrap items-center gap-2">
+            <Badge variant={user?.githubConnected ? 'success' : 'default'}>
+              {user?.githubConnected ? 'GitHub đã kết nối' : 'GitHub chưa kết nối'}
+            </Badge>
+            {user?.githubUsername && <Badge variant="info">@{user.githubUsername}</Badge>}
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Github className="h-5 w-5" />
-            Tích hợp GitHub
-          </CardTitle>
-          <CardDescription>Quản lý kết nối GitHub</CardDescription>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2"><User className="h-5 w-5" />Hồ sơ sinh viên</CardTitle>
+              <CardDescription>Thông tin có sẵn sẽ được điền vào form và có thể chỉnh sửa.</CardDescription>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={handleRefreshProfile} isLoading={isRefreshingProfile}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Tải lại
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
-                <Github className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="font-medium text-slate-900 dark:text-slate-100">
-                  @{user?.githubUsername}
-                </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Đã kết nối
-                </p>
-              </div>
+          <form onSubmit={handleProfileSubmit} className="grid gap-4 md:grid-cols-2">
+            <Input label="Họ và tên" value={profileForm.fullName} onChange={(event) => updateProfileField('fullName', event.target.value)} required />
+            <Input label="Trường đại học" value={profileForm.university} onChange={(event) => updateProfileField('university', event.target.value)} required />
+            <Input label="Ngành học" value={profileForm.major} onChange={(event) => updateProfileField('major', event.target.value)} required />
+            <Input label="Năm học" type="number" min={1} value={profileForm.year} onChange={(event) => updateProfileField('year', Number(event.target.value))} required />
+            <Input label="Định hướng nghề nghiệp" value={profileForm.targetCareer} onChange={(event) => updateProfileField('targetCareer', event.target.value)} required />
+            <Input label="GitHub username" value={profileForm.githubUsername} onChange={(event) => updateProfileField('githubUsername', event.target.value)} />
+            <div className="md:col-span-2">
+              <Input label="Kỹ năng hiện có" value={profileForm.currentSkills} onChange={(event) => updateProfileField('currentSkills', event.target.value)} placeholder="JavaScript, React, Node.js" />
             </div>
-            <Badge variant="success">Đang hoạt động</Badge>
+            <div className="md:col-span-2">
+              <Button type="submit" isLoading={isLoading}>
+                <Save className="mr-2 h-4 w-4" />
+                Lưu hồ sơ
+              </Button>
+              <Button type="button" variant="outline" className="ml-2" onClick={fillProfileForm}>
+                Hoàn tác
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Github className="h-5 w-5" />GitHub</CardTitle>
+          <CardDescription>Trạng thái kết nối OAuth.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
+            <div>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                @{user?.githubUsername || profileForm.githubUsername || 'not-connected'}
+              </p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {user?.githubConnected ? 'Đã kết nối' : 'Chưa kết nối'}
+              </p>
+            </div>
+            <Badge variant={user?.githubConnected ? 'success' : 'default'}>
+              {user?.githubConnected ? 'Đang hoạt động' : 'Chưa hoạt động'}
+            </Badge>
           </div>
-          <Button variant="outline" className="w-full mt-4">
-            Quản lý kết nối
+          <Button variant="outline" className="mt-4 w-full" onClick={() => navigate('/github/connect')}>
+            Quản lý kết nối GitHub
           </Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Thông báo
-          </CardTitle>
-          <CardDescription>Cấu hình cách bạn nhận cập nhật</CardDescription>
+          <CardTitle className="flex items-center gap-2"><LockKeyhole className="h-5 w-5" />Đổi mật khẩu</CardTitle>
+          <CardDescription>Gọi POST /auth/change-password.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-slate-900 dark:text-slate-100">
-                Hoàn tất phân tích
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Nhận thông báo khi phân tích repository hoàn tất
-              </p>
+        <CardContent>
+          <form onSubmit={handlePasswordSubmit} className="grid gap-4 md:grid-cols-3">
+            <Input label="Mật khẩu hiện tại" type="password" value={passwordForm.currentPassword} onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))} required />
+            <Input label="Mật khẩu mới" type="password" value={passwordForm.newPassword} onChange={(event) => setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))} required />
+            <Input label="Xác nhận mật khẩu" type="password" value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))} required />
+            <div className="md:col-span-3">
+              <Button type="submit" variant="outline" isLoading={isLoading}>Đổi mật khẩu</Button>
             </div>
-            <input type="checkbox" defaultChecked className="h-4 w-4 rounded" />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-slate-900 dark:text-slate-100">
-                Đề xuất từ AI
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Nhận đề xuất nghề nghiệp hằng tuần từ AI
-              </p>
-            </div>
-            <input type="checkbox" defaultChecked className="h-4 w-4 rounded" />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-slate-900 dark:text-slate-100">
-                Cập nhật sản phẩm
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Nhận thông tin về tính năng và cải tiến mới
-              </p>
-            </div>
-            <input type="checkbox" className="h-4 w-4 rounded" />
-          </div>
+          </form>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Palette className="h-5 w-5" />
-            Giao diện
-          </CardTitle>
-          <CardDescription>Tùy chỉnh giao diện ứng dụng</CardDescription>
+          <CardTitle className="flex items-center gap-2"><Palette className="h-5 w-5" />Giao diện</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
-              Chủ đề
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setTheme('light')}
-                className={`p-4 rounded-lg border-2 transition-colors ${
-                  theme === 'light'
-                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950'
-                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                }`}
-              >
-                <div className="w-full h-20 rounded bg-white border border-slate-200 mb-2" />
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                  Sáng
-                </p>
-              </button>
-              <button
-                onClick={() => setTheme('dark')}
-                className={`p-4 rounded-lg border-2 transition-colors ${
-                  theme === 'dark'
-                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950'
-                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                }`}
-              >
-                <div className="w-full h-20 rounded bg-slate-900 border border-slate-700 mb-2" />
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                  Tối
-                </p>
-              </button>
-            </div>
-          </div>
+        <CardContent className="flex gap-2">
+          <Button variant={theme === 'light' ? 'default' : 'outline'} onClick={() => setTheme('light')}>Light</Button>
+          <Button variant={theme === 'dark' ? 'default' : 'outline'} onClick={() => setTheme('dark')}>Dark</Button>
         </CardContent>
       </Card>
 
       <Card className="border-red-200 dark:border-red-900">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
-            <LogOut className="h-5 w-5" />
-            Khu vực nguy hiểm
-          </CardTitle>
-          <CardDescription>Các thao tác không thể hoàn tác</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between p-3 rounded-lg bg-red-50 dark:bg-red-950/30">
-            <div>
-              <p className="font-medium text-red-900 dark:text-red-100">
-                Đăng xuất
-              </p>
-              <p className="text-sm text-red-700 dark:text-red-300">
-                Đăng xuất khỏi tài khoản
-              </p>
-            </div>
-            <Button variant="destructive" onClick={handleLogout}>
-              Đăng xuất
-            </Button>
+        <CardContent className="flex items-center justify-between p-6">
+          <div>
+            <p className="font-medium text-red-900 dark:text-red-100">Đăng xuất</p>
+            <p className="text-sm text-red-700 dark:text-red-300">Xóa token local và gọi backend logout.</p>
           </div>
-          <div className="flex items-center justify-between p-3 rounded-lg bg-red-50 dark:bg-red-950/30">
-            <div>
-              <p className="font-medium text-red-900 dark:text-red-100">
-                Xóa tài khoản
-              </p>
-              <p className="text-sm text-red-700 dark:text-red-300">
-                Xóa vĩnh viễn tài khoản và toàn bộ dữ liệu
-              </p>
-            </div>
-            <Button variant="destructive">
-              Xóa
-            </Button>
-          </div>
+          <Button variant="destructive" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Đăng xuất
+          </Button>
         </CardContent>
       </Card>
     </div>

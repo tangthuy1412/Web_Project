@@ -9,16 +9,17 @@ import { useAuthStore } from '../../stores/authStore'
 
 export const RegisterPage = () => {
   const navigate = useNavigate()
-  const register = useAuthStore(state => state.register)
+  const { register, error: apiError } = useAuthStore()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [oauthNotice, setOauthNotice] = useState('')
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     setError('')
 
     if (password !== confirmPassword) {
@@ -27,9 +28,14 @@ export const RegisterPage = () => {
     }
 
     setIsLoading(true)
-    await register(email, password, name)
-    setIsLoading(false)
-    navigate('/dashboard')
+    try {
+      await register(email, password, name)
+      navigate('/dashboard')
+    } catch {
+      return
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -52,6 +58,12 @@ export const RegisterPage = () => {
       <Card className="hover-lift shadow-xl shadow-slate-200/70 dark:shadow-black/20">
         <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {(error || apiError) && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+                {error || apiError}
+              </div>
+            )}
+
             <div className="relative">
               <UserRound className="pointer-events-none absolute left-3 top-[2.45rem] h-4 w-4 text-slate-400" />
               <Input
@@ -59,7 +71,7 @@ export const RegisterPage = () => {
                 type="text"
                 placeholder="Nguyễn Minh"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(event) => setName(event.target.value)}
                 className="pl-9"
                 required
               />
@@ -72,7 +84,7 @@ export const RegisterPage = () => {
                 type="email"
                 placeholder="you@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 className="pl-9"
                 required
               />
@@ -85,7 +97,7 @@ export const RegisterPage = () => {
                 type="password"
                 placeholder="Tạo mật khẩu"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(event) => setPassword(event.target.value)}
                 className="pl-9"
                 required
               />
@@ -98,7 +110,7 @@ export const RegisterPage = () => {
                 type="password"
                 placeholder="Nhập lại mật khẩu"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(event) => setConfirmPassword(event.target.value)}
                 error={error}
                 className="pl-9"
                 required
@@ -134,12 +146,28 @@ export const RegisterPage = () => {
               </div>
             </div>
 
+            {oauthNotice && (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+                {oauthNotice}
+              </div>
+            )}
+
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <Button type="button" variant="outline" className="w-full">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setOauthNotice('Backend hiện tại chưa hỗ trợ đăng ký/đăng nhập bằng GitHub. Hãy tạo tài khoản bằng email trước, sau đó kết nối GitHub trong app.')}
+              >
                 <Github className="mr-2 h-5 w-5" />
                 GitHub
               </Button>
-              <Button type="button" variant="outline" className="w-full">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setOauthNotice('Backend hiện tại chưa có endpoint đăng ký bằng Google.')}
+              >
                 Google
               </Button>
             </div>

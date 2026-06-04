@@ -1,89 +1,132 @@
 import { create } from 'zustand'
-import type { ChatSession, ChatMessage } from '../types'
-import { mockChatSessions } from '../mock/data'
+import type { ChatSession } from '../types'
+import { chatApi } from '../services/apis/chatApi'
+import { extractApiResource, getApiErrorMessage } from '../services/apis/apiClient'
+import { normalizeChatMessage, normalizeChatSession, normalizeChatSessions } from '../services/apis/normalizers'
 
-interface ChatState {
+type ChatState = {
   sessions: ChatSession[]
   currentSession: ChatSession | null
   isLoading: boolean
-  createSession: (title: string, repositoryContext?: string) => void
+  error: string | null
+  fetchSessions: () => Promise<void>
+  createSession: (title: string, repositoryContext?: string) => Promise<ChatSession>
   sendMessage: (content: string) => Promise<void>
-  selectSession: (id: string) => void
-  deleteSession: (id: string) => void
+  selectSession: (id: string) => Promise<void>
+  clearError: () => void
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
-  sessions: mockChatSessions,
-  currentSession: mockChatSessions[0] || null,
+  sessions: [],
+  currentSession: null,
   isLoading: false,
+  error: null,
 
-  createSession: (title: string, repositoryContext?: string) => {
-    const newSession: ChatSession = {
-      id: `chat-${Date.now()}`,
-      title,
-      createdAt: new Date().toISOString(),
-      messages: [],
-      repositoryContext
+  fetchSessions: async () => {
+    set({ isLoading: true, error: null })
+
+    try {
+      const sessions = normalizeChatSessions(await chatApi.getSessions())
+      set({
+        sessions,
+        currentSession: get().currentSession ?? sessions[0] ?? null,
+        isLoading: false
+      })
+    } catch (error) {
+      set({ isLoading: false, error: getApiErrorMessage(error) })
     }
-    set(state => ({
-      sessions: [newSession, ...state.sessions],
-      currentSession: newSession
-    }))
   },
 
-  sendMessage: async (content: string) => {
-    const currentSession = get().currentSession
-    if (!currentSession) return
+  createSession: async (title) => {
+    set({ isLoading: true, error: null })
 
-    const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      role: 'user',
+    try {
+      const session = normalizeChatSession(extractApiResource(await chatApi.createSession(title), ['session', 'chatSession']))
+      if (!session.id) throw new Error('Backend không trả session id')
+
+      set((state) => ({
+        sessions: [session, ...state.sessions],
+        currentSession: session,
+        isLoading: false
+      }))
+
+      return session
+    } catch (error) {
+      set({ isLoading: false, error: getApiErrorMessage(error) })
+      throw error
+    }
+  },
+
+  sendMessage: async (content) => {
+    let currentSession = get().currentSession
+
+    if (!currentSession) {
+      currentSession = await get().createSession('Tu van GitHub cua toi')
+    }
+
+    if (!currentSession.id) {
+      set({ error: 'Chat session không có id. Hãy tạo session mới.' })
+      return
+    }
+
+    const optimisticMessage = {
+      id: `local-${Date.now()}`,
+      role: 'user' as const,
       content,
       timestamp: new Date().toISOString()
     }
 
-    set(state => ({
-      currentSession: state.currentSession ? {
-        ...state.currentSession,
-        messages: [...state.currentSession.messages, userMessage]
-      } : null
+    set((state) => ({
+      currentSession: state.currentSession
+        ? { ...state.currentSession, messages: [...state.currentSession.messages, optimisticMessage] }
+        : state.currentSession,
+      isLoading: true,
+      error: null
     }))
 
-    set({ isLoading: true })
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    try {
+      const payload = await chatApi.sendMessage(currentSession.id, content)
+      const sessionPayload = extractApiResource(payload, ['session', 'chatSession'])
+      const responseSession = sessionPayload && typeof sessionPayload === 'object' && 'messages' in sessionPayload
+        ? normalizeChatSession(sessionPayload)
+        : null
+      const responseMessage = responseSession
+        ? null
+        : normalizeChatMessage(extractApiResource(payload, ['assistantMessage', 'message', 'reply', 'aiResponse', 'response']))
 
-    const aiMessage: ChatMessage = {
-      id: `msg-${Date.now() + 1}`,
-      role: 'assistant',
-      content: 'Đây là phản hồi AI mẫu. Khi triển khai production, phần này sẽ kết nối tới backend AI thật để đưa ra lời khuyên cá nhân hóa, trả lời câu hỏi về repository và giúp bạn cải thiện kỹ năng phát triển phần mềm.',
-      timestamp: new Date().toISOString()
+      set((state) => {
+        const nextSession = responseSession ?? (
+          state.currentSession
+            ? { ...state.currentSession, messages: [...state.currentSession.messages, responseMessage!] }
+            : state.currentSession
+        )
+
+        return {
+          currentSession: nextSession,
+          sessions: state.sessions.map((session) => session.id === currentSession.id ? nextSession! : session),
+          isLoading: false
+        }
+      })
+    } catch (error) {
+      set({ isLoading: false, error: getApiErrorMessage(error) })
+      throw error
     }
-
-    set(state => ({
-      currentSession: state.currentSession ? {
-        ...state.currentSession,
-        messages: [...state.currentSession.messages, aiMessage]
-      } : null,
-      sessions: state.sessions.map(s =>
-        s.id === state.currentSession?.id
-          ? { ...s, messages: [...s.messages, userMessage, aiMessage] }
-          : s
-      ),
-      isLoading: false
-    }))
   },
 
-  selectSession: (id: string) => {
-    const session = get().sessions.find(s => s.id === id)
-    if (session) {
-      set({ currentSession: session })
+  selectSession: async (id) => {
+    const cached = get().sessions.find((session) => session.id === id)
+    if (cached) set({ currentSession: cached })
+
+    try {
+      const session = normalizeChatSession(extractApiResource(await chatApi.getSession(id), ['session', 'chatSession']))
+      set((state) => ({
+        currentSession: session,
+        sessions: state.sessions.map((item) => item.id === id ? session : item)
+      }))
+    } catch (error) {
+      set({ error: getApiErrorMessage(error) })
     }
   },
 
-  deleteSession: (id: string) => {
-    set(state => ({
-      sessions: state.sessions.filter(s => s.id !== id),
-      currentSession: state.currentSession?.id === id ? null : state.currentSession
-    }))
-  }
+  clearError: () => set({ error: null })
 }))

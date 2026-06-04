@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { Github, LockKeyhole, Mail } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
@@ -9,17 +9,25 @@ import { useAuthStore } from '../../stores/authStore'
 
 export const LoginPage = () => {
   const navigate = useNavigate()
-  const login = useAuthStore(state => state.login)
+  const location = useLocation()
+  const { login, error } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [oauthNotice, setOauthNotice] = useState('')
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     setIsLoading(true)
-    await login(email, password)
-    setIsLoading(false)
-    navigate('/dashboard')
+    try {
+      await login(email, password)
+      const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
+      navigate(from ?? '/dashboard')
+    } catch {
+      return
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -42,6 +50,12 @@ export const LoginPage = () => {
       <Card className="hover-lift shadow-xl shadow-slate-200/70 dark:shadow-black/20">
         <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+                {error}
+              </div>
+            )}
+
             <div className="relative">
               <Mail className="pointer-events-none absolute left-3 top-[2.45rem] h-4 w-4 text-slate-400" />
               <Input
@@ -49,7 +63,7 @@ export const LoginPage = () => {
                 type="email"
                 placeholder="you@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 className="pl-9"
                 required
               />
@@ -62,7 +76,7 @@ export const LoginPage = () => {
                 type="password"
                 placeholder="Nhập mật khẩu"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(event) => setPassword(event.target.value)}
                 className="pl-9"
                 required
               />
@@ -93,12 +107,28 @@ export const LoginPage = () => {
               </div>
             </div>
 
+            {oauthNotice && (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+                {oauthNotice}
+              </div>
+            )}
+
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <Button type="button" variant="outline" className="w-full">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setOauthNotice('Backend hiện tại chưa hỗ trợ đăng nhập bằng GitHub. Hãy đăng nhập bằng email trước, sau đó vào trang GitHub để kết nối OAuth.')}
+              >
                 <Github className="mr-2 h-5 w-5" />
                 GitHub
               </Button>
-              <Button type="button" variant="outline" className="w-full">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setOauthNotice('Backend hiện tại chưa có endpoint đăng nhập bằng Google.')}
+              >
                 Google
               </Button>
             </div>
