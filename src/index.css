@@ -23,6 +23,12 @@ a {
   text-decoration: none;
 }
 
+.landing-authenticated a[href="/login"],
+.landing-authenticated a[href="/register"],
+.landing-authenticated a[href="/github/connect"] {
+  display: none;
+}
+
 ::selection {
   background: rgba(99, 102, 241, 0.18);
 }

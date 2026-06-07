@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router'
+import { Link, NavLink } from 'react-router'
 import {
   Bell,
   ChevronLeft,
@@ -16,7 +16,7 @@ import { cn } from '../../lib/utils'
 import { useAuthStore } from '../../stores/authStore'
 
 const navigation = [
-  { name: 'Trang chủ', to: '/dashboard', icon: Home },
+  { name: 'Trang chủ', to: '/', icon: Home },
   { name: 'Tổng quan', to: '/dashboard', icon: LayoutDashboard },
   { name: 'Repositories', to: '/repositories', icon: FolderGit2 },
   { name: 'Lộ trình', to: '/roadmaps', icon: Route },
@@ -44,21 +44,21 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange }: SidebarProps) => {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen border-r border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl shadow-xl shadow-slate-200/60 dark:shadow-black/20 transition-all duration-300',
+        'fixed left-0 top-0 z-40 h-screen border-r border-slate-200/80 bg-white/90 shadow-xl shadow-slate-200/60 backdrop-blur-xl transition-all duration-300 dark:border-slate-800/80 dark:bg-slate-900/90 dark:shadow-black/20',
         isCollapsed ? 'w-16' : 'w-64'
       )}
     >
       <div className="flex h-full flex-col">
         <div className="flex h-16 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
           {!isCollapsed && (
-            <div className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2" title="Về trang chủ">
               <div className="soft-pulse flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
                 <Github className="h-5 w-5 text-white" />
               </div>
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-lg font-semibold text-transparent">
                 GitAnalyzer
               </span>
-            </div>
+            </Link>
           )}
           <button
             onClick={() => onCollapsedChange(!isCollapsed)}
@@ -74,6 +74,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange }: SidebarProps) => {
             <NavLink
               key={item.name}
               to={item.to}
+              end={item.to === '/'}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',

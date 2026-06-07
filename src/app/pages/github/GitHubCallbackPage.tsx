@@ -2,10 +2,10 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { Github } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
+import { API_ORIGIN } from '../../config/api'
 
 const getBackendCallbackUrl = () => {
-  const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000/api'
-  return `${new URL(apiBase).origin}/api/github/oauth/callback`
+  return `${API_ORIGIN}/api/github/oauth/callback`
 }
 
 export const GitHubCallbackPage = () => {

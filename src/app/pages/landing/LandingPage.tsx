@@ -9,6 +9,7 @@ import {
   Bot,
   BrainCircuit,
   Check,
+  ChevronDown,
   ChevronRight,
   Code2,
   Compass,
@@ -33,11 +34,13 @@ import {
   Target,
   TrendingUp,
   Trophy,
+  User,
   Users,
   X
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
+import { useAuthStore } from '../../stores/authStore'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../../components/ui/accordion'
 import { useTheme } from '../../hooks/useTheme'
 import { cn } from '../../lib/utils'
@@ -246,6 +249,8 @@ export const LandingNavbar = () => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
+  const { isAuthenticated, user } = useAuthStore()
+  const displayName = user?.name || user?.email || 'Tài khoản'
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 8)
@@ -260,7 +265,8 @@ export const LandingNavbar = () => {
         'fixed inset-x-0 top-0 z-50 border-b transition-all duration-300',
         isScrolled
           ? 'border-slate-200/80 bg-white/80 shadow-sm shadow-slate-200/60 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/78 dark:shadow-black/20'
-          : 'border-transparent bg-transparent'
+          : 'border-transparent bg-transparent',
+        isAuthenticated && 'landing-authenticated'
       )}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -290,13 +296,30 @@ export const LandingNavbar = () => {
           <Button variant="ghost" size="sm" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
-          <Link to="/login">
+          {isAuthenticated && (
+            <>
+              <Link to="/dashboard">
+                <Button variant="ghost" size="sm">
+                  <User className="mr-2 h-4 w-4" />
+                  {displayName}
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+              <Link to="/dashboard">
+                <Button size="sm">
+                  Vào Dashboard
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </>
+          )}
+          <Link to="/login" className={isAuthenticated ? 'hidden' : undefined}>
             <Button variant="ghost" size="sm">Đăng nhập</Button>
           </Link>
-          <Link to="/register">
+          <Link to="/register" className={isAuthenticated ? 'hidden' : undefined}>
             <Button variant="outline" size="sm">Đăng ký</Button>
           </Link>
-          <Link to="/github/connect">
+          <Link to="/github/connect" className={isAuthenticated ? 'hidden' : undefined}>
             <Button size="sm">
               <Github className="mr-2 h-4 w-4" />
               Kết nối GitHub
@@ -328,6 +351,22 @@ export const LandingNavbar = () => {
             ))}
           </div>
           <div className="mt-4 grid gap-2">
+            {isAuthenticated && (
+              <>
+                <Link to="/dashboard" onClick={() => setIsOpen(false)}>
+                  <Button variant="outline" className="w-full">
+                    <User className="mr-2 h-4 w-4" />
+                    {displayName}
+                  </Button>
+                </Link>
+                <Link to="/dashboard" onClick={() => setIsOpen(false)}>
+                  <Button className="w-full">
+                    Vào Dashboard
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </>
+            )}
             <Link to="/login"><Button variant="outline" className="w-full">Đăng nhập</Button></Link>
             <Link to="/github/connect"><Button className="w-full"><Github className="mr-2 h-4 w-4" />Kết nối GitHub</Button></Link>
           </div>

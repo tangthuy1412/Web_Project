@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios'
+import { API_BASE_URL } from '../../config/api'
 
 const TOKEN_KEY = 'gitanalyzer.jwt'
 const USER_KEY = 'gitanalyzer.user'
@@ -34,7 +35,7 @@ export const clearStoredUser = () => {
 }
 
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000/api',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -99,5 +100,5 @@ export const getApiErrorMessage = (error: unknown) => {
     return String(payload?.message ?? payload?.error ?? error.message)
   }
 
-  return error instanceof Error ? error.message : 'Da co loi xay ra'
+  return error instanceof Error ? error.message : 'Đã có lỗi xảy ra'
 }

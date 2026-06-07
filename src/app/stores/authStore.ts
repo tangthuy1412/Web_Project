@@ -13,6 +13,7 @@ import {
 import { githubApi } from '../services/apis/githubApi'
 import { normalizeUser } from '../services/apis/normalizers'
 import { profileApi, type ProfilePayload } from '../services/apis/profileApi'
+import { API_ORIGIN } from '../config/api'
 
 type AuthState = {
   user: User | null
@@ -56,10 +57,7 @@ const toProfile = (payload: unknown): Profile => {
 const toAbsoluteOAuthUrl = (url: string) => {
   if (/^https?:\/\//i.test(url)) return url
 
-  const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000/api'
-  const backendOrigin = new URL(apiBase).origin
-
-  return new URL(url, backendOrigin).toString()
+  return new URL(url, API_ORIGIN).toString()
 }
 
 const toRecord = (payload: unknown) => {
