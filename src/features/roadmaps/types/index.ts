@@ -85,6 +85,18 @@ export interface Roadmap {
   modules: RoadmapModule[]
   createdFrom?: 'manual' | 'ai'
   careerOutcome: string
+  status?: 'active' | 'archived'
+  createdAt?: string
+  updatedAt?: string
+  sourceRepositoriesCount?: number
+  missingSkills?: string[]
+  supportingPaths?: {
+    id: string
+    title: string
+    reason: string
+    skills: string[]
+    suggestedTasks: string[]
+  }[]
 }
 
 export interface SkillProgress {

@@ -9,12 +9,14 @@ import { getApiErrorMessage } from '../../services/apis/apiClient'
 import { useAuthStore } from '../../stores/authStore'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatRelativeTime, getScoreColor } from '../../lib/utils'
+import { buildRepositoryAnalysisOverview } from '../../services/analysis/analysisOverview'
 
 export const DashboardPage = () => {
   const user = useAuthStore(state => state.user)
   const { repositories, analyses, fetchRepositories, fetchMyAnalyses } = useRepositoryStore()
   const [dashboardPayload, setDashboardPayload] = useState<Record<string, unknown> | null>(null)
   const [error, setError] = useState('')
+  const analysisOverview = buildRepositoryAnalysisOverview(analyses)
 
   useEffect(() => {
     dashboardApi.me()
@@ -32,9 +34,9 @@ export const DashboardPage = () => {
       totalRepositories: Number(payload.totalRepositories ?? payload.repositoryCount ?? repositories.length),
       analyzedRepositories: Number(payload.analyzedRepositories ?? payload.analysisCount ?? analyses.length),
       githubConnected: Boolean(payload.githubConnected ?? user?.githubConnected),
-      overallScore: Number(payload.overallScore ?? analyses[0]?.scores.overall ?? 0)
+      overallScore: Number(payload.overallScore ?? analysisOverview?.averageOverallScore ?? analyses[0]?.scores.overall ?? 0)
     }
-  }, [analyses, dashboardPayload, repositories.length, user?.githubConnected])
+  }, [analyses, analysisOverview?.averageOverallScore, dashboardPayload, repositories.length, user?.githubConnected])
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -43,13 +45,13 @@ export const DashboardPage = () => {
           Chào mừng, {user?.name || 'bạn'}!
         </h1>
         <p className="mt-1 text-slate-500 dark:text-slate-400">
-          Tổng quan GitHub, kết quả phân tích và các bước tiếp theo.
+          Tổng quan GitHub, kết quả phân tích và các bước tiếp theo cho lộ trình phát triển của bạn.
         </p>
       </div>
 
       {error && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
-          Dashboard API chưa sẵn sàng hoặc chưa có payload: {error}
+          Chưa tải được dữ liệu dashboard: {error}
         </div>
       )}
 
@@ -57,36 +59,127 @@ export const DashboardPage = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm text-slate-500">Repositories</p><p className="mt-2 text-3xl font-bold">{stats.totalRepositories}</p></div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-950"><FolderGit2 className="h-6 w-6 text-indigo-600" /></div>
+              <div>
+                <p className="text-sm text-slate-500">Repository</p>
+                <p className="mt-2 text-3xl font-bold">{stats.totalRepositories}</p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-950">
+                <FolderGit2 className="h-6 w-6 text-indigo-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm text-slate-500">Đã phân tích</p><p className="mt-2 text-3xl font-bold">{stats.analyzedRepositories}</p></div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950"><CheckCircle2 className="h-6 w-6 text-emerald-600" /></div>
+              <div>
+                <p className="text-sm text-slate-500">Đã phân tích</p>
+                <p className="mt-2 text-3xl font-bold">{stats.analyzedRepositories}</p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950">
+                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm text-slate-500">GitHub</p><div className="mt-2"><Badge variant={stats.githubConnected ? 'success' : 'default'}>{stats.githubConnected ? 'Đã kết nối' : 'Chưa kết nối'}</Badge></div></div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-cyan-100 dark:bg-cyan-950"><Github className="h-6 w-6 text-cyan-600" /></div>
+              <div>
+                <p className="text-sm text-slate-500">GitHub</p>
+                <div className="mt-2">
+                  <Badge variant={stats.githubConnected ? 'success' : 'default'}>
+                    {stats.githubConnected ? 'Đã kết nối' : 'Chưa kết nối'}
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-cyan-100 dark:bg-cyan-950">
+                <Github className="h-6 w-6 text-cyan-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm text-slate-500">Điểm tổng quan</p><p className={`mt-2 text-3xl font-bold ${getScoreColor(stats.overallScore)}`}>{stats.overallScore || '-'}</p></div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-950"><TrendingUp className="h-6 w-6 text-purple-600" /></div>
+              <div>
+                <p className="text-sm text-slate-500">Điểm tổng quan</p>
+                <p className={`mt-2 text-3xl font-bold ${getScoreColor(stats.overallScore)}`}>{stats.overallScore || '-'}</p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-950">
+                <TrendingUp className="h-6 w-6 text-purple-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Nhận xét tổng quan từ các repository</CardTitle>
+          <CardDescription>
+            Dữ liệu được tổng hợp từ API phân tích của bạn, không chỉ từ một repository riêng lẻ.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {analysisOverview ? (
+            <div className="space-y-5">
+              <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-700 dark:bg-slate-950/70 dark:text-slate-300">
+                {analysisOverview.summary}
+              </p>
+              <div className="grid gap-3 md:grid-cols-4">
+                <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                  <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{analysisOverview.repositoriesCount}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">repo đã phân tích</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                  <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{analysisOverview.averageOverallScore}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">điểm trung bình</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                  <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{analysisOverview.averageTestingScore}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">testing trung bình</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                  <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{analysisOverview.averageDeploymentScore}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">deployment trung bình</p>
+                </div>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-3">
+                <div>
+                  <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Hướng nghề nghiệp nổi bật</p>
+                  <div className="flex flex-wrap gap-2">
+                    {analysisOverview.topCareerDirections.length ? analysisOverview.topCareerDirections.map((item) => (
+                      <Badge key={item.label} variant="success">{item.label} · {item.count}</Badge>
+                    )) : <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Công nghệ nổi bật</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[...analysisOverview.topLanguages, ...analysisOverview.topFrameworks].slice(0, 6).map((item) => (
+                      <Badge key={`${item.label}-${item.count}`} variant="info">{item.label} · {item.count}</Badge>
+                    ))}
+                    {!analysisOverview.topLanguages.length && !analysisOverview.topFrameworks.length && <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Kỹ năng nên bổ sung</p>
+                  <div className="flex flex-wrap gap-2">
+                    {analysisOverview.missingSkills.length ? analysisOverview.missingSkills.map((item) => (
+                      <Badge key={item.label} variant="warning">{item.label}</Badge>
+                    )) : <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
+              Chưa có phân tích nào. Hãy đồng bộ repository và chạy phân tích để xem nhận xét tổng quan.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -94,15 +187,17 @@ export const DashboardPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Phân tích gần đây</CardTitle>
-                <CardDescription>Kết quả mới nhất của người dùng hiện tại.</CardDescription>
+                <CardDescription>Kết quả mới nhất của tài khoản hiện tại.</CardDescription>
               </div>
-              <Link to="/repositories"><Button variant="ghost" size="sm">Repositories <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>
+              <Link to="/repositories">
+                <Button variant="ghost" size="sm">Repository <ArrowRight className="ml-2 h-4 w-4" /></Button>
+              </Link>
             </div>
           </CardHeader>
           <CardContent>
             {analyses.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
-                Chưa có phân tích. Hãy đồng bộ repositories và chạy Phân tích.
+                Chưa có phân tích. Hãy đồng bộ repository và chạy phân tích.
               </div>
             ) : (
               <div className="space-y-3">
@@ -125,12 +220,21 @@ export const DashboardPage = () => {
         <Card>
           <CardHeader>
             <CardTitle>Thao tác nhanh</CardTitle>
-            <CardDescription>Đi theo flow end-to-end của backend.</CardDescription>
+            <CardDescription>Những bước chính để cập nhật dữ liệu và nhận tư vấn từ AI.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Link to="/github/connect"><Button variant="outline" className="w-full justify-start"><Github className="mr-2 h-4 w-4" />Kết nối GitHub</Button></Link>
-            <Link to="/repositories"><Button variant="outline" className="w-full justify-start"><Code2 className="mr-2 h-4 w-4" />Đồng bộ / phân tích repository</Button></Link>
-            <Link to="/chat"><Button variant="outline" className="w-full justify-start"><MessageSquare className="mr-2 h-4 w-4" />Hỏi AI Mentor</Button></Link>
+            <Link to="/github/connect">
+              <Button variant="outline" className="w-full justify-start"><Github className="mr-2 h-4 w-4" />Kết nối GitHub</Button>
+            </Link>
+            <Link to="/repositories">
+              <Button variant="outline" className="w-full justify-start"><Code2 className="mr-2 h-4 w-4" />Đồng bộ / phân tích repository</Button>
+            </Link>
+            <Link to="/roadmaps">
+              <Button variant="outline" className="w-full justify-start"><TrendingUp className="mr-2 h-4 w-4" />Xem roadmap đề xuất</Button>
+            </Link>
+            <Link to="/chat">
+              <Button variant="outline" className="w-full justify-start"><MessageSquare className="mr-2 h-4 w-4" />Hỏi AI Mentor</Button>
+            </Link>
           </CardContent>
         </Card>
       </div>

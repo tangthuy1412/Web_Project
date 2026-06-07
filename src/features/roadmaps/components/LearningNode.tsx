@@ -62,7 +62,6 @@ export const LearningNode = ({ node, onStatusChange, onBookmarkToggle }: Learnin
               <Clock className="mr-1 h-3 w-3" />
               {node.estimatedHours}h
             </Badge>
-            <Badge variant="info">{node.xp} XP</Badge>
             {node.skills.map((skill) => (
               <Badge key={skill} variant="default">{skill}</Badge>
             ))}
@@ -70,28 +69,30 @@ export const LearningNode = ({ node, onStatusChange, onBookmarkToggle }: Learnin
 
           {node.dependencies.length > 0 && (
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Điều kiện tiên quyết: {node.dependencies.join(', ')}
+              Nên hoàn thành trước: {node.dependencies.length} nhiệm vụ liên quan
             </p>
           )}
 
-          <div className="grid gap-2 sm:grid-cols-2">
-            {node.resources.map((resource) => (
-              <a
-                key={resource.id}
-                href={resource.url}
-                className="rounded-md border border-slate-200 p-3 text-sm hover:border-indigo-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-800 dark:hover:border-indigo-700 dark:hover:bg-slate-800/60"
-              >
-                <div className="font-medium text-slate-900 dark:text-slate-100">{resource.title}</div>
-                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  {resource.provider} - {resource.estimatedMinutes} phút - {resource.type}
-                </div>
-              </a>
-            ))}
-          </div>
+          {node.resources.length > 0 && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {node.resources.map((resource) => (
+                <a
+                  key={resource.id}
+                  href={resource.url}
+                  className="rounded-md border border-slate-200 p-3 text-sm hover:border-indigo-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-800 dark:hover:border-indigo-700 dark:hover:bg-slate-800/60"
+                >
+                  <div className="font-medium text-slate-900 dark:text-slate-100">{resource.title}</div>
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {resource.provider} - {resource.estimatedMinutes} phút - {resource.type}
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
 
           {node.project && (
             <div className="rounded-md bg-indigo-50 p-3 text-sm text-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-200">
-              Mini project: {node.project}
+              Thực hành: {node.project}
             </div>
           )}
 
@@ -118,7 +119,7 @@ export const LearningNode = ({ node, onStatusChange, onBookmarkToggle }: Learnin
               variant="ghost"
               disabled={isLocked}
               onClick={() => onBookmarkToggle?.(node.id)}
-              aria-label={node.bookmarked ? 'Bỏ lưu bài học' : 'Lưu bài học'}
+              aria-label={node.bookmarked ? 'Bỏ lưu nhiệm vụ' : 'Lưu nhiệm vụ'}
             >
               <Bookmark className={cn('mr-2 h-4 w-4', node.bookmarked && 'fill-indigo-500 text-indigo-500')} />
               Lưu
