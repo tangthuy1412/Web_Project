@@ -109,7 +109,7 @@ export const ProgressPage = () => {
       <Card>
         <CardHeader>
           <CardTitle>Mức độ kỹ năng hiện tại</CardTitle>
-          <CardDescription>Dữ liệu được suy ra từ các roadmap thật đang tải từ backend.</CardDescription>
+          <CardDescription>Dữ liệu được tổng hợp từ các roadmap đang học của bạn.</CardDescription>
         </CardHeader>
         <CardContent>
           {skillChartData.length > 0 ? (
@@ -127,7 +127,7 @@ export const ProgressPage = () => {
             <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-700">
               {isLoading
                 ? 'Đang tải dữ liệu tiến độ...'
-                : 'Chưa có dữ liệu tiến độ. Hãy tạo hoặc mở một roadmap từ API backend để bắt đầu theo dõi.'}
+                : 'Chưa có dữ liệu tiến độ. Hãy tạo hoặc mở một roadmap để bắt đầu theo dõi.'}
             </div>
           )}
         </CardContent>

@@ -8,6 +8,7 @@ import {
   getApiErrorMessage,
   getStoredUser,
   getToken,
+  setToken,
   setStoredUser
 } from '../services/apis/apiClient'
 import { githubApi } from '../services/apis/githubApi'
@@ -25,6 +26,10 @@ type AuthState = {
   bootstrap: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, fullName: string) => Promise<void>
+  loginWithGoogle: (idToken: string) => Promise<void>
+  loginWithGithub: (accessToken: string) => Promise<void>
+  startGitHubLogin: () => Promise<void>
+  completeLoginWithToken: (accessToken: string) => Promise<void>
   logout: () => Promise<void>
   changePassword: (currentPassword: string, newPassword: string, confirmPassword: string) => Promise<void>
   fetchProfile: () => Promise<void>
@@ -130,6 +135,86 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user, isAuthenticated: Boolean(getToken()), isLoading: false })
     } catch (error) {
       set({ isLoading: false, error: getApiErrorMessage(error) })
+      throw error
+    }
+  },
+
+  loginWithGoogle: async (idToken) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      const payload = await authApi.loginWithGoogle({ idToken })
+      const userPayload = extractApiResource(payload, ['user', 'account', 'profile'])
+      const user = normalizeUser(userPayload)
+      setStoredUser(user)
+      set({ user, isAuthenticated: true, isLoading: false })
+      await get().fetchProfile()
+      await get().refreshGitHubAccount()
+    } catch (error) {
+      set({ isLoading: false, error: getApiErrorMessage(error) })
+      throw error
+    }
+  },
+
+  loginWithGithub: async (accessToken) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      const payload = await authApi.loginWithGithub({ accessToken })
+      const userPayload = extractApiResource(payload, ['user', 'account', 'profile'])
+      const user = normalizeUser({ ...toRecord(userPayload), githubConnected: true })
+      setStoredUser(user)
+      set({ user, isAuthenticated: true, isLoading: false })
+      await get().fetchProfile()
+      await get().refreshGitHubAccount()
+    } catch (error) {
+      set({ isLoading: false, error: getApiErrorMessage(error) })
+      throw error
+    }
+  },
+
+  startGitHubLogin: async () => {
+    set({ isLoading: true, error: null })
+
+    try {
+      sessionStorage.setItem('gitanalyzer.githubAuthIntent', 'login')
+      const { authorizeUrl, authorizationUrl, oauthUrl, connectUrl, url } = await githubApi.getOAuthUrl()
+      const nextUrl = authorizeUrl ?? authorizationUrl ?? oauthUrl ?? connectUrl ?? url
+
+      if (!nextUrl) {
+        throw new Error('Không thể mở đăng nhập GitHub. Vui lòng thử lại.')
+      }
+
+      const absoluteUrl = toAbsoluteOAuthUrl(nextUrl)
+      const oauthUrlObject = new URL(absoluteUrl)
+
+      if (oauthUrlObject.searchParams.get('client_id') === 'change_me') {
+        throw new Error('Đăng nhập GitHub chưa được cấu hình. Vui lòng liên hệ quản trị viên.')
+      }
+
+      window.location.assign(absoluteUrl)
+    } catch (error) {
+      sessionStorage.removeItem('gitanalyzer.githubAuthIntent')
+      set({ isLoading: false, error: getApiErrorMessage(error) })
+      throw error
+    }
+  },
+
+  completeLoginWithToken: async (accessToken) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      setToken(accessToken)
+      const userPayload = extractApiResource(await authApi.me(), ['user', 'account', 'profile'])
+      const user = normalizeUser(userPayload)
+      setStoredUser(user)
+      set({ user, isAuthenticated: true, isLoading: false, isBootstrapping: false })
+      await get().fetchProfile()
+      await get().refreshGitHubAccount()
+    } catch (error) {
+      clearToken()
+      clearStoredUser()
+      set({ user: null, isAuthenticated: false, isLoading: false, error: getApiErrorMessage(error) })
       throw error
     }
   },

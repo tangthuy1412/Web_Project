@@ -312,7 +312,7 @@ export const AnalysisResultPage = () => {
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-emerald-600" />Điểm mạnh</CardTitle></CardHeader>
           <CardContent>
-            {renderTextList(analysis.strengths, 'Backend chưa trả danh sách điểm mạnh.')}
+            {renderTextList(analysis.strengths, 'Chưa có dữ liệu điểm mạnh.')}
           </CardContent>
         </Card>
       </div>
@@ -322,7 +322,7 @@ export const AnalysisResultPage = () => {
         <CardContent className="grid gap-6 lg:grid-cols-2">
           <div>
             <h3 className="mb-2 font-medium text-slate-900 dark:text-slate-100">Điểm yếu</h3>
-            {renderTextList(analysis.weaknesses, 'Backend chưa trả danh sách điểm yếu.')}
+            {renderTextList(analysis.weaknesses, 'Chưa có dữ liệu điểm cần cải thiện.')}
           </div>
           <div>
             <h3 className="mb-2 font-medium text-slate-900 dark:text-slate-100">Kỹ năng còn thiếu</h3>

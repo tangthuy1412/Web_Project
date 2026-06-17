@@ -118,7 +118,7 @@ export const DashboardPage = () => {
         <CardHeader>
           <CardTitle>Nhận xét tổng quan từ các repository</CardTitle>
           <CardDescription>
-            Dữ liệu được tổng hợp từ API phân tích của bạn, không chỉ từ một repository riêng lẻ.
+            Dữ liệu được tổng hợp từ các repository đã phân tích của bạn, không chỉ từ một dự án riêng lẻ.
           </CardDescription>
         </CardHeader>
         <CardContent>

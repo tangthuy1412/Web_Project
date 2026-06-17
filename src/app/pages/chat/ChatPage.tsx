@@ -230,7 +230,7 @@ export const ChatPage = () => {
                     Hỏi AI Mentor
                   </h3>
                   <p className="mx-auto max-w-md text-sm text-slate-500 dark:text-slate-400">
-                    Bạn có thể nhập câu hỏi ngay. Hệ thống sẽ tự tạo chat session rồi gửi message lên backend.
+                    Bạn có thể nhập câu hỏi ngay. Hệ thống sẽ tự tạo cuộc trò chuyện và lưu lại nội dung cho bạn.
                   </p>
                 </div>
               </div>

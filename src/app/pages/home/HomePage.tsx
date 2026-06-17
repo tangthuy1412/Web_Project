@@ -21,7 +21,7 @@ import { useRepositoryStore } from '../../stores/repositoryStore'
 const features = [
   {
     title: 'Chấm điểm repository',
-    description: 'Đánh giá công nghệ, tài liệu, chất lượng commit, testing và mức độ sẵn sàng portfolio từ dữ liệu backend.',
+    description: 'Đánh giá công nghệ, tài liệu, chất lượng commit, testing và mức độ sẵn sàng portfolio từ dữ liệu phân tích.',
     icon: BarChart3
   },
   {
@@ -57,7 +57,7 @@ export const HomePage = () => {
         <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
           <div className="flex flex-col justify-center">
             <Badge variant="info" className="mb-4 w-fit">
-              Phân tích developer bằng AI
+              Phân tích kỹ năng bằng AI
             </Badge>
             <h1 className="max-w-3xl text-4xl font-bold leading-tight text-slate-950 dark:text-white lg:text-5xl">
               GitAnalyzer AI
@@ -119,12 +119,12 @@ export const HomePage = () => {
               </>
             ) : (
               <div className="flex h-full min-h-[260px] flex-col justify-center rounded-lg border border-dashed border-slate-300 bg-white p-5 text-center dark:border-slate-700 dark:bg-slate-900">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Dữ liệu từ API thật</p>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Chưa có dữ liệu phân tích</p>
                 <h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
                   Chưa có phân tích repository
                 </h2>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  Kết nối GitHub, đồng bộ repository và chạy phân tích để xem số liệu thật từ backend.
+                  Kết nối GitHub, đồng bộ repository và chạy phân tích để xem kết quả của bạn.
                 </p>
                 <Link to={isAuthenticated ? '/repositories' : '/login'} className="mt-4">
                   <Button variant="outline">

@@ -9,6 +9,14 @@ type RegisterRequest = LoginRequest & {
   fullName: string
 }
 
+type GoogleLoginRequest = {
+  idToken: string
+}
+
+type GithubLoginRequest = {
+  accessToken: string
+}
+
 export type ChangePasswordRequest = {
   currentPassword: string
   newPassword: string
@@ -53,6 +61,18 @@ export const authApi = {
 
   async login(payload: LoginRequest) {
     const response = await apiClient.post('/auth/login', payload)
+    persistToken(response.data)
+    return unwrapResponse<AuthPayload>(response.data)
+  },
+
+  async loginWithGoogle(payload: GoogleLoginRequest) {
+    const response = await apiClient.post('/auth/google', payload)
+    persistToken(response.data)
+    return unwrapResponse<AuthPayload>(response.data)
+  },
+
+  async loginWithGithub(payload: GithubLoginRequest) {
+    const response = await apiClient.post('/auth/github', payload)
     persistToken(response.data)
     return unwrapResponse<AuthPayload>(response.data)
   },
