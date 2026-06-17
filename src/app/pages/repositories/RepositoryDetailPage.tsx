@@ -1,11 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { AlertCircle, ArrowLeft, BookOpen, Bot, CheckCircle2, ExternalLink, FileJson, GitCommit, GitFork, Lightbulb, Play, RefreshCw, Star, Target } from 'lucide-react'
+import { AlertCircle, ArrowLeft, BookOpen, Bot, CheckCircle2, ExternalLink, FileJson, Flag, GitCommit, GitFork, Lightbulb, Play, RefreshCw, Send, Star, Target } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatRelativeTime } from '../../lib/utils'
+import { reportApi } from '../../services/apis/reportApi'
+import { getApiErrorMessage } from '../../services/apis/apiClient'
+
+const reportReasons = [
+  'Nội dung không phù hợp',
+  'Repository có nội dung gây hiểu nhầm',
+  'Repository chứa nội dung spam',
+  'Repository có dấu hiệu lạm dụng',
+  'Thông tin repository không chính xác',
+  'Khác'
+]
 
 const preview = (value: unknown) => {
   if (typeof value === 'string') return value
@@ -34,6 +45,11 @@ export const RepositoryDetailPage = () => {
   } = useRepositoryStore()
   const [packagesLoading, setPackagesLoading] = useState(false)
   const [commitsLoading, setCommitsLoading] = useState(false)
+  const [reportReason, setReportReason] = useState(reportReasons[0])
+  const [reportDescription, setReportDescription] = useState('')
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false)
+  const [reportMessage, setReportMessage] = useState('')
+  const [reportError, setReportError] = useState('')
 
   const repository = useMemo(() => {
     return repositories.find((repo) => repo.id === id) ?? selectedRepository
@@ -75,6 +91,35 @@ export const RepositoryDetailPage = () => {
 
   const handleGenerateFeedback = async () => {
     await generateFeedback(id)
+  }
+
+  const handleSubmitReport = async () => {
+    const description = reportDescription.trim()
+
+    if (!description) {
+      setReportError('Vui lòng mô tả ngắn gọn vấn đề bạn muốn báo cáo.')
+      setReportMessage('')
+      return
+    }
+
+    setIsSubmittingReport(true)
+    setReportError('')
+    setReportMessage('')
+
+    try {
+      await reportApi.createReport({
+        targetType: 'repository',
+        targetId: id,
+        reason: reportReason,
+        description
+      })
+      setReportDescription('')
+      setReportMessage('Đã gửi báo cáo. Quản trị viên sẽ xem xét nội dung này.')
+    } catch (err) {
+      setReportError(getApiErrorMessage(err))
+    } finally {
+      setIsSubmittingReport(false)
+    }
   }
 
   if (isLoading && !repository) {
@@ -176,6 +221,68 @@ export const RepositoryDetailPage = () => {
                 </Link>
               )}
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Flag className="h-5 w-5" />
+            Báo cáo repository
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+            Nếu repository này có nội dung không phù hợp hoặc thông tin bất thường, bạn có thể gửi báo cáo để quản trị viên xem xét.
+          </p>
+
+          {reportMessage && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
+              {reportMessage}
+            </div>
+          )}
+
+          {reportError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+              {reportError}
+            </div>
+          )}
+
+          <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Lý do báo cáo
+              </label>
+              <select
+                value={reportReason}
+                onChange={(event) => setReportReason(event.target.value)}
+                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900"
+              >
+                {reportReasons.map((reason) => (
+                  <option key={reason} value={reason}>{reason}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Mô tả chi tiết
+              </label>
+              <textarea
+                value={reportDescription}
+                onChange={(event) => setReportDescription(event.target.value)}
+                placeholder="Ví dụ: Repository này có nội dung không phù hợp hoặc thông tin gây hiểu nhầm..."
+                className="min-h-24 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={handleSubmitReport} isLoading={isSubmittingReport}>
+              <Send className="mr-2 h-4 w-4" />
+              Gửi báo cáo
+            </Button>
           </div>
         </CardContent>
       </Card>

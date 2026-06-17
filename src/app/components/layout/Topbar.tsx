@@ -33,7 +33,7 @@ export const Topbar = () => {
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
 
-          <Button variant="ghost" size="sm" className="relative h-10 w-10 p-0" title="Thông báo">
+          <Button variant="ghost" size="sm" className="relative h-10 w-10 p-0" onClick={() => navigate('/notifications')} title="Thông báo">
             <Bell className="h-5 w-5" />
             <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
           </Button>

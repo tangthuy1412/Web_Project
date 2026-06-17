@@ -25,8 +25,15 @@ const typeLabels: Record<string, string> = {
   GITHUB_ANALYSIS_REMINDER: 'Nhắc phân tích GitHub',
   ROADMAP_TASK_REMINDER: 'Nhắc học roadmap',
   REPOSITORY_IMPROVEMENT: 'Gợi ý cải thiện repository',
+  REPORT_CREATED: 'Báo cáo đã gửi',
+  REPORT_UPDATED: 'Phản hồi báo cáo',
+  REPORT_RESOLVED: 'Báo cáo đã xử lý',
+  REPORT_REJECTED: 'Báo cáo bị từ chối',
+  REPORT_STATUS_UPDATED: 'Phản hồi báo cáo',
   SYSTEM: 'Hệ thống'
 }
+
+const isReportNotification = (type: string) => type.toUpperCase().includes('REPORT')
 
 const normalizeNotification = (payload: unknown): NotificationItem => {
   const item = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
@@ -118,7 +125,7 @@ export const NotificationsPage = () => {
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Thông báo</h1>
           <p className="mt-1 text-slate-500 dark:text-slate-400">
-            Xem các cập nhật quan trọng về tài khoản, repository và roadmap của bạn.
+            Xem các cập nhật quan trọng về tài khoản, repository, roadmap và phản hồi báo cáo từ quản trị viên.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -149,20 +156,24 @@ export const NotificationsPage = () => {
               </div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Chưa có thông báo</h2>
               <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
-                Khi có cập nhật mới về phân tích repository hoặc lộ trình học, thông báo sẽ xuất hiện tại đây.
+                Khi có cập nhật mới về phân tích repository, lộ trình học hoặc phản hồi báo cáo từ quản trị viên, thông báo sẽ xuất hiện tại đây.
               </p>
             </div>
           ) : (
             <div className="divide-y divide-slate-200 dark:divide-slate-800">
               {items.map((item) => (
                 <article key={item.id} className="flex gap-4 p-5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-900/60">
-                  <div className="mt-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300">
+                  <div className={`mt-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${
+                    isReportNotification(item.type)
+                      ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300'
+                      : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300'
+                  }`}>
                     <Bell className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-semibold text-slate-950 dark:text-slate-50">{item.title}</h2>
-                      <Badge variant={item.read ? 'default' : 'info'}>
+                      <Badge variant={isReportNotification(item.type) ? 'warning' : item.read ? 'default' : 'info'}>
                         {typeLabels[item.type] ?? item.type}
                       </Badge>
                       {!item.read && <span className="h-2 w-2 rounded-full bg-indigo-500" aria-label="Chưa đọc" />}

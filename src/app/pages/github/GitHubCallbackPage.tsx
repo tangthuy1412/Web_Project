@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { Github } from 'lucide-react'
 import { API_ORIGIN } from '../../config/api'
+import { getDefaultAuthenticatedPath } from '../../lib/authNavigation'
 import { useAuthStore } from '../../stores/authStore'
 
 const getBackendCallbackUrl = () => {
@@ -41,7 +42,7 @@ export const GitHubCallbackPage = () => {
     if (appToken) {
       sessionStorage.removeItem('gitanalyzer.githubAuthIntent')
       completeLoginWithToken(appToken)
-        .then(() => navigate('/dashboard', { replace: true }))
+        .then(() => navigate(getDefaultAuthenticatedPath(useAuthStore.getState().user), { replace: true }))
         .catch(() => navigate('/login', { replace: true }))
       return
     }
@@ -49,7 +50,7 @@ export const GitHubCallbackPage = () => {
     if (githubAccessToken) {
       sessionStorage.removeItem('gitanalyzer.githubAuthIntent')
       loginWithGithub(githubAccessToken)
-        .then(() => navigate('/dashboard', { replace: true }))
+        .then(() => navigate(getDefaultAuthenticatedPath(useAuthStore.getState().user), { replace: true }))
         .catch(() => navigate('/login', { replace: true }))
       return
     }

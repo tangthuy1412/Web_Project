@@ -7,6 +7,7 @@ import { Card, CardContent } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { SocialLoginPanel } from '../../components/auth/SocialLoginPanel'
 import { useAuthStore } from '../../stores/authStore'
+import { getDefaultAuthenticatedPath } from '../../lib/authNavigation'
 
 export const LoginPage = () => {
   const navigate = useNavigate()
@@ -18,7 +19,7 @@ export const LoginPage = () => {
 
   const goNext = () => {
     const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
-    navigate(from ?? '/dashboard')
+    navigate(from ?? getDefaultAuthenticatedPath(useAuthStore.getState().user))
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

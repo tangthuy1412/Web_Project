@@ -3,6 +3,9 @@ export interface User {
   email: string;
   name: string;
   avatar?: string;
+  provider?: string;
+  role?: 'admin' | 'student' | string;
+  status?: 'active' | 'banned' | 'inactive' | string;
   githubConnected: boolean;
   githubUsername?: string;
   createdAt: string;

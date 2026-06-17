@@ -12,6 +12,9 @@ export const normalizeUser = (payload: unknown): User => {
     email: firstString(user.email),
     name: firstString(user.name, user.fullName, user.username, user.email),
     avatar: firstString(user.avatar, user.avatarUrl, github.avatarUrl),
+    provider: firstString(user.provider),
+    role: firstString(user.role, 'student'),
+    status: firstString(user.status, 'active'),
     githubConnected: Boolean(user.githubConnected ?? user.isGithubConnected ?? githubUsername),
     githubUsername: githubUsername || undefined,
     createdAt: firstString(user.createdAt, new Date().toISOString())

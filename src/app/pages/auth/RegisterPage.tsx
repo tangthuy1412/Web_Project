@@ -7,6 +7,7 @@ import { Card, CardContent } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { SocialLoginPanel } from '../../components/auth/SocialLoginPanel'
 import { useAuthStore } from '../../stores/authStore'
+import { getDefaultAuthenticatedPath } from '../../lib/authNavigation'
 
 export const RegisterPage = () => {
   const navigate = useNavigate()
@@ -30,7 +31,7 @@ export const RegisterPage = () => {
     setIsLoading(true)
     try {
       await register(email, password, name)
-      navigate('/dashboard')
+      navigate(getDefaultAuthenticatedPath(useAuthStore.getState().user))
     } catch {
       return
     } finally {
@@ -122,7 +123,7 @@ export const RegisterPage = () => {
             </Button>
           </form>
 
-          <SocialLoginPanel onSuccess={() => navigate('/dashboard')} />
+          <SocialLoginPanel onSuccess={() => navigate(getDefaultAuthenticatedPath(useAuthStore.getState().user))} />
         </CardContent>
       </Card>
 

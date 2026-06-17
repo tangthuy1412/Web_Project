@@ -1,8 +1,11 @@
+import type { ComponentType } from 'react'
 import { Link, NavLink } from 'react-router'
 import {
+  BarChart3,
   Bell,
   ChevronLeft,
   ChevronRight,
+  Flag,
   FolderGit2,
   Github,
   Home,
@@ -10,12 +13,20 @@ import {
   MessageSquare,
   Route,
   Settings,
+  ShieldCheck,
   TrendingUp
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useAuthStore } from '../../stores/authStore'
 
-const navigation = [
+type NavigationItem = {
+  name: string
+  to: string
+  icon: ComponentType<{ className?: string }>
+  end?: boolean
+}
+
+const userNavigation: NavigationItem[] = [
   { name: 'Trang chủ', to: '/', icon: Home },
   { name: 'Tổng quan', to: '/dashboard', icon: LayoutDashboard },
   { name: 'Repositories', to: '/repositories', icon: FolderGit2 },
@@ -27,6 +38,18 @@ const navigation = [
   { name: 'Cài đặt', to: '/settings', icon: Settings }
 ]
 
+const adminNavigation: NavigationItem[] = [
+  { name: 'Trang chủ', to: '/', icon: Home, end: true },
+  { name: 'Tổng quan', to: '/admin', icon: ShieldCheck, end: true },
+  { name: 'Repositories', to: '/admin/repositories', icon: FolderGit2 },
+  { name: 'Phân tích', to: '/admin/analysis', icon: BarChart3 },
+  { name: 'Phản hồi AI', to: '/admin/ai-feedback', icon: MessageSquare },
+  { name: 'Roadmap', to: '/admin/roadmaps', icon: Route },
+  { name: 'Báo cáo', to: '/admin/reports', icon: Flag },
+  { name: 'Thông báo', to: '/notifications', icon: Bell },
+  { name: 'Cài đặt', to: '/settings', icon: Settings }
+]
+
 type SidebarProps = {
   isCollapsed: boolean
   onCollapsedChange: (isCollapsed: boolean) => void
@@ -34,6 +57,8 @@ type SidebarProps = {
 
 export const Sidebar = ({ isCollapsed, onCollapsedChange }: SidebarProps) => {
   const user = useAuthStore(state => state.user)
+  const isAdmin = user?.role === 'admin'
+  const navigation = isAdmin ? adminNavigation : userNavigation
   const initials = (user?.name || user?.email || 'U')
     .split(' ')
     .map((part) => part[0])
@@ -51,12 +76,12 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange }: SidebarProps) => {
       <div className="flex h-full flex-col">
         <div className="flex h-16 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
           {!isCollapsed && (
-            <Link to="/" className="flex items-center gap-2" title="Về trang chủ">
+            <Link to={isAdmin ? '/admin' : '/'} className="flex items-center gap-2" title={isAdmin ? 'Về trang quản trị' : 'Về trang chủ'}>
               <div className="soft-pulse flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-                <Github className="h-5 w-5 text-white" />
+                {isAdmin ? <ShieldCheck className="h-5 w-5 text-white" /> : <Github className="h-5 w-5 text-white" />}
               </div>
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-lg font-semibold text-transparent">
-                GitAnalyzer
+                {isAdmin ? 'Admin' : 'GitAnalyzer'}
               </span>
             </Link>
           )}
@@ -74,7 +99,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange }: SidebarProps) => {
             <NavLink
               key={item.name}
               to={item.to}
-              end={item.to === '/'}
+              end={item.end ?? item.to === '/'}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
@@ -102,7 +127,7 @@ export const Sidebar = ({ isCollapsed, onCollapsedChange }: SidebarProps) => {
                   {user?.name || 'Người dùng'}
                 </p>
                 <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                  {user?.email || 'Chưa có email'}
+                  {isAdmin ? 'Quản trị viên' : user?.email || 'Chưa có email'}
                 </p>
               </div>
             )}
