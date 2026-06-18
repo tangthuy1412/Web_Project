@@ -41,10 +41,21 @@ export const apiClient = axios.create({
   }
 })
 
+const isPublicAuthEndpoint = (url?: string) => {
+  if (!url) return false
+
+  return [
+    '/auth/login',
+    '/auth/register',
+    '/auth/google',
+    '/auth/github'
+  ].some((endpoint) => url === endpoint || url.endsWith(endpoint))
+}
+
 apiClient.interceptors.request.use((config) => {
   const token = getToken()
 
-  if (token) {
+  if (token && !isPublicAuthEndpoint(config.url)) {
     config.headers.Authorization = `Bearer ${token}`
   }
 
