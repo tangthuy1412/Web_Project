@@ -209,6 +209,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
 
     try {
+      clearToken()
+      clearStoredUser()
       sessionStorage.setItem('gitanalyzer.githubAuthIntent', 'login')
       const payload = await authApi.loginWithGithub({
         redirectUrl: getGitHubLoginRedirectUrl()

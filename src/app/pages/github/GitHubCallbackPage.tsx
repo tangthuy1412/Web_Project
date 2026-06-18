@@ -18,15 +18,35 @@ const getBackendCallbackUrl = () => {
 const getTokenFromParams = (params: URLSearchParams) => {
   return (
     params.get('accessToken') ||
+    params.get('access_token') ||
     params.get('token') ||
     params.get('jwt') ||
+    params.get('jwtToken') ||
     params.get('appToken') ||
-    params.get('authToken')
+    params.get('authToken') ||
+    params.get('auth_token')
   )
 }
 
 const getGithubAccessTokenFromParams = (params: URLSearchParams) => {
-  return params.get('githubAccessToken') || params.get('github_token') || params.get('githubToken')
+  return params.get('githubAccessToken') || params.get('github_access_token') || params.get('github_token') || params.get('githubToken')
+}
+
+const getCallbackParams = () => {
+  const params = new URLSearchParams(window.location.search)
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
+  const hashParams = new URLSearchParams(hash)
+
+  hashParams.forEach((value, key) => {
+    if (!params.has(key)) params.set(key, value)
+  })
+
+  return params
+}
+
+const failGitHubLogin = (message: string) => {
+  sessionStorage.removeItem('gitanalyzer.githubAuthIntent')
+  useAuthStore.setState({ isLoading: false, error: message })
 }
 
 export const GitHubCallbackPage = () => {
@@ -40,16 +60,26 @@ export const GitHubCallbackPage = () => {
   } = useAuthStore()
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
+    const params = getCallbackParams()
     const appToken = getTokenFromParams(params)
     const githubAccessToken = getGithubAccessTokenFromParams(params)
     const githubAuthIntent = sessionStorage.getItem('gitanalyzer.githubAuthIntent')
+    const errorMessage = params.get('message') || params.get('error_description') || params.get('error')
+
+    if (errorMessage) {
+      failGitHubLogin(`Đăng nhập GitHub thất bại: ${errorMessage}`)
+      navigate('/login', { replace: true })
+      return
+    }
 
     if (appToken) {
       sessionStorage.removeItem('gitanalyzer.githubAuthIntent')
       completeLoginWithToken(appToken)
         .then(() => navigate(getDefaultAuthenticatedPath(useAuthStore.getState().user), { replace: true }))
-        .catch(() => navigate('/login', { replace: true }))
+        .catch(() => {
+          failGitHubLogin('Không thể xác thực tài khoản GitHub. Vui lòng thử lại.')
+          navigate('/login', { replace: true })
+        })
       return
     }
 
@@ -57,7 +87,10 @@ export const GitHubCallbackPage = () => {
       sessionStorage.removeItem('gitanalyzer.githubAuthIntent')
       loginWithGithub(githubAccessToken)
         .then(() => navigate(getDefaultAuthenticatedPath(useAuthStore.getState().user), { replace: true }))
-        .catch(() => navigate('/login', { replace: true }))
+        .catch(() => {
+          failGitHubLogin('Không thể xác thực tài khoản GitHub. Vui lòng thử lại.')
+          navigate('/login', { replace: true })
+        })
       return
     }
 
@@ -69,7 +102,7 @@ export const GitHubCallbackPage = () => {
     if (isBootstrapping) return
 
     if (githubAuthIntent === 'login' && !isAuthenticated) {
-      sessionStorage.removeItem('gitanalyzer.githubAuthIntent')
+      failGitHubLogin('GitHub đã phản hồi nhưng hệ thống chưa nhận được token đăng nhập. Vui lòng thử lại.')
       navigate('/login', { replace: true })
       return
     }
