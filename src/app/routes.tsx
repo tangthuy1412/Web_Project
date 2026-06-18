@@ -67,6 +67,14 @@ export const router = createBrowserRouter([
     element: <GitHubCallbackPage />
   },
   {
+    path: '/auth/github/callback',
+    element: <GitHubCallbackPage />
+  },
+  {
+    path: '/api/auth/github/callback',
+    element: <GitHubCallbackPage />
+  },
+  {
     element: <ProtectedRoute />,
     children: [
       {

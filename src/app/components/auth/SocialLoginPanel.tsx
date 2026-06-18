@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Github } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useAuthStore } from '../../stores/authStore'
+import { getApiErrorMessage } from '../../services/apis/apiClient'
 
 declare global {
   interface Window {
@@ -33,6 +34,7 @@ type SocialLoginPanelProps = {
 }
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
+let initializedGoogleClientId: string | null = null
 
 const loadGoogleScript = () => {
   return new Promise<void>((resolve, reject) => {
@@ -62,40 +64,55 @@ export const SocialLoginPanel = ({ onSuccess }: SocialLoginPanelProps) => {
   const { loginWithGoogle, startGitHubLogin } = useAuthStore()
   const googleButtonRef = useRef<HTMLDivElement | null>(null)
   const googleButtonShellRef = useRef<HTMLDivElement | null>(null)
+  const googleAuthHandlerRef = useRef<(response: { credential?: string }) => void>(() => undefined)
   const [notice, setNotice] = useState('')
   const [isGoogleReady, setIsGoogleReady] = useState(false)
   const [isGithubLoading, setIsGithubLoading] = useState(false)
+
+  useEffect(() => {
+    googleAuthHandlerRef.current = async (response) => {
+      setNotice('')
+
+      if (!response.credential) {
+        setNotice('Không nhận được xác thực từ Google. Vui lòng thử lại.')
+        return
+      }
+
+      try {
+        await loginWithGoogle(response.credential)
+        onSuccess()
+      } catch {
+        setNotice('Đăng nhập Google thất bại. Vui lòng thử lại.')
+      }
+    }
+  }, [loginWithGoogle, onSuccess])
 
   useEffect(() => {
     if (!googleClientId) return
 
     let isMounted = true
     let resizeObserver: ResizeObserver | null = null
+    let lastRenderedWidth = 0
+
+    const initializeGoogle = () => {
+      if (!window.google?.accounts?.id || initializedGoogleClientId === googleClientId) return
+
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: (response) => googleAuthHandlerRef.current(response)
+      })
+      initializedGoogleClientId = googleClientId
+    }
 
     const renderGoogleButton = () => {
       if (!isMounted || !googleButtonRef.current || !window.google?.accounts?.id) return
 
+      initializeGoogle()
+
       const width = Math.max(220, Math.min(420, googleButtonShellRef.current?.clientWidth ?? 320))
+      if (width === lastRenderedWidth && googleButtonRef.current.children.length > 0) return
 
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: async (response) => {
-          setNotice('')
-
-          if (!response.credential) {
-            setNotice('Không nhận được xác thực từ Google. Vui lòng thử lại.')
-            return
-          }
-
-          try {
-            await loginWithGoogle(response.credential)
-            onSuccess()
-          } catch {
-            setNotice('Đăng nhập Google thất bại. Vui lòng thử lại.')
-          }
-        }
-      })
-
+      lastRenderedWidth = width
       googleButtonRef.current.innerHTML = ''
       window.google.accounts.id.renderButton(googleButtonRef.current, {
         theme: 'outline',
@@ -124,7 +141,7 @@ export const SocialLoginPanel = ({ onSuccess }: SocialLoginPanelProps) => {
       isMounted = false
       resizeObserver?.disconnect()
     }
-  }, [loginWithGoogle, onSuccess])
+  }, [])
 
   const handleGithubLogin = async () => {
     setNotice('')
@@ -132,8 +149,8 @@ export const SocialLoginPanel = ({ onSuccess }: SocialLoginPanelProps) => {
 
     try {
       await startGitHubLogin()
-    } catch {
-      setNotice('Không thể mở đăng nhập GitHub. Vui lòng thử lại.')
+    } catch (error) {
+      setNotice(getApiErrorMessage(error) || 'Không thể mở đăng nhập GitHub. Vui lòng thử lại.')
       setIsGithubLoading(false)
     }
   }

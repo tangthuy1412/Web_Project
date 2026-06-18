@@ -6,7 +6,13 @@ import { getDefaultAuthenticatedPath } from '../../lib/authNavigation'
 import { useAuthStore } from '../../stores/authStore'
 
 const getBackendCallbackUrl = () => {
-  return `${API_ORIGIN}/api/github/oauth/callback`
+  const pathname = window.location.pathname
+  const githubAuthIntent = sessionStorage.getItem('gitanalyzer.githubAuthIntent')
+  const isLoginCallback = pathname.includes('/auth/github/callback') || githubAuthIntent === 'login'
+
+  return isLoginCallback
+    ? `${API_ORIGIN}/api/auth/github/callback`
+    : `${API_ORIGIN}/api/github/oauth/callback`
 }
 
 const getTokenFromParams = (params: URLSearchParams) => {

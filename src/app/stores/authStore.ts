@@ -65,6 +65,38 @@ const toAbsoluteOAuthUrl = (url: string) => {
   return new URL(url, API_ORIGIN).toString()
 }
 
+const getGitHubLoginRedirectUrl = () => {
+  return `${window.location.origin}/auth/github/callback`
+}
+
+const extractOAuthUrl = (payload: unknown) => {
+  if (typeof payload === 'string') return payload
+
+  const record = extractApiResource<Record<string, unknown>>(payload, ['github', 'oauth', 'auth'])
+  const nextUrl = record.authorizeUrl ??
+    record.authorizationUrl ??
+    record.oauthUrl ??
+    record.authUrl ??
+    record.githubAuthUrl ??
+    record.loginUrl ??
+    record.redirectUrl ??
+    record.authorize_url ??
+    record.redirect_url ??
+    record.url
+
+  if (typeof nextUrl === 'string') return nextUrl
+
+  for (const value of Object.values(record)) {
+    if (typeof value === 'string' && /^https?:\/\//i.test(value)) return value
+    if (value && typeof value === 'object') {
+      const nestedUrl = extractOAuthUrl(value)
+      if (nestedUrl) return nestedUrl
+    }
+  }
+
+  return undefined
+}
+
 const toRecord = (payload: unknown) => {
   return payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
 }
@@ -178,8 +210,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       sessionStorage.setItem('gitanalyzer.githubAuthIntent', 'login')
-      const { authorizeUrl, authorizationUrl, oauthUrl, connectUrl, url } = await githubApi.getOAuthUrl()
-      const nextUrl = authorizeUrl ?? authorizationUrl ?? oauthUrl ?? connectUrl ?? url
+      const payload = await authApi.loginWithGithub({
+        redirectUrl: getGitHubLoginRedirectUrl()
+      })
+      const nextUrl = extractOAuthUrl(payload)
 
       if (!nextUrl) {
         throw new Error('Không thể mở đăng nhập GitHub. Vui lòng thử lại.')

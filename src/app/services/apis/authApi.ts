@@ -14,7 +14,8 @@ type GoogleLoginRequest = {
 }
 
 type GithubLoginRequest = {
-  accessToken: string
+  accessToken?: string
+  redirectUrl?: string
 }
 
 export type ChangePasswordRequest = {
@@ -27,6 +28,14 @@ export type AuthPayload = {
   token?: string
   accessToken?: string
   jwt?: string
+  authorizeUrl?: string
+  authorizationUrl?: string
+  oauthUrl?: string
+  authUrl?: string
+  githubAuthUrl?: string
+  loginUrl?: string
+  redirectUrl?: string
+  url?: string
   user?: unknown
   profile?: unknown
 }
