@@ -19,7 +19,7 @@ import { getDefaultAuthenticatedPath } from '../../lib/authNavigation'
 export const LoginPage = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { completeLoginWithToken, login, loginWithGithub, error } = useAuthStore()
+  const { completeLoginWithToken, isAuthenticated, isBootstrapping, login, loginWithGithub, user, error } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -28,6 +28,12 @@ export const LoginPage = () => {
     const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
     navigate(from ?? getDefaultAuthenticatedPath(useAuthStore.getState().user))
   }
+
+  useEffect(() => {
+    if (!isBootstrapping && isAuthenticated) {
+      navigate(getDefaultAuthenticatedPath(user), { replace: true })
+    }
+  }, [isAuthenticated, isBootstrapping, navigate, user])
 
   useEffect(() => {
     const params = getMergedUrlParams()
