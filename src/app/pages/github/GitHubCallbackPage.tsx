@@ -2,6 +2,12 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { Github } from 'lucide-react'
 import { API_ORIGIN } from '../../config/api'
+import {
+  getAppTokenFromParams,
+  getGithubAccessTokenFromParams,
+  getMergedUrlParams,
+  getOAuthErrorFromParams
+} from '../../lib/authCallback'
 import { getDefaultAuthenticatedPath } from '../../lib/authNavigation'
 import { useAuthStore } from '../../stores/authStore'
 
@@ -13,35 +19,6 @@ const getBackendCallbackUrl = () => {
   return isLoginCallback
     ? `${API_ORIGIN}/api/auth/github/callback`
     : `${API_ORIGIN}/api/github/oauth/callback`
-}
-
-const getTokenFromParams = (params: URLSearchParams) => {
-  return (
-    params.get('accessToken') ||
-    params.get('access_token') ||
-    params.get('token') ||
-    params.get('jwt') ||
-    params.get('jwtToken') ||
-    params.get('appToken') ||
-    params.get('authToken') ||
-    params.get('auth_token')
-  )
-}
-
-const getGithubAccessTokenFromParams = (params: URLSearchParams) => {
-  return params.get('githubAccessToken') || params.get('github_access_token') || params.get('github_token') || params.get('githubToken')
-}
-
-const getCallbackParams = () => {
-  const params = new URLSearchParams(window.location.search)
-  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
-  const hashParams = new URLSearchParams(hash)
-
-  hashParams.forEach((value, key) => {
-    if (!params.has(key)) params.set(key, value)
-  })
-
-  return params
 }
 
 const failGitHubLogin = (message: string) => {
@@ -60,11 +37,11 @@ export const GitHubCallbackPage = () => {
   } = useAuthStore()
 
   useEffect(() => {
-    const params = getCallbackParams()
-    const appToken = getTokenFromParams(params)
+    const params = getMergedUrlParams()
+    const appToken = getAppTokenFromParams(params)
     const githubAccessToken = getGithubAccessTokenFromParams(params)
     const githubAuthIntent = sessionStorage.getItem('gitanalyzer.githubAuthIntent')
-    const errorMessage = params.get('message') || params.get('error_description') || params.get('error')
+    const errorMessage = getOAuthErrorFromParams(params)
 
     if (errorMessage) {
       failGitHubLogin(`Đăng nhập GitHub thất bại: ${errorMessage}`)

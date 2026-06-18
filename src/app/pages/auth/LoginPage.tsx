@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { Github, LockKeyhole, Mail } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
@@ -6,13 +6,20 @@ import { Button } from '../../components/ui/Button'
 import { Card, CardContent } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { SocialLoginPanel } from '../../components/auth/SocialLoginPanel'
+import { API_ORIGIN } from '../../config/api'
 import { useAuthStore } from '../../stores/authStore'
+import {
+  getAppTokenFromParams,
+  getGithubAccessTokenFromParams,
+  getMergedUrlParams,
+  getOAuthErrorFromParams
+} from '../../lib/authCallback'
 import { getDefaultAuthenticatedPath } from '../../lib/authNavigation'
 
 export const LoginPage = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { login, error } = useAuthStore()
+  const { completeLoginWithToken, login, loginWithGithub, error } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -21,6 +28,43 @@ export const LoginPage = () => {
     const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
     navigate(from ?? getDefaultAuthenticatedPath(useAuthStore.getState().user))
   }
+
+  useEffect(() => {
+    const params = getMergedUrlParams()
+    const appToken = getAppTokenFromParams(params)
+    const githubAccessToken = getGithubAccessTokenFromParams(params)
+    const oauthError = getOAuthErrorFromParams(params)
+
+    if (params.has('code') && params.has('state')) {
+      window.location.replace(`${API_ORIGIN}/api/auth/github/callback${window.location.search}`)
+      return
+    }
+
+    if (oauthError) {
+      useAuthStore.setState({ isLoading: false, error: `Đăng nhập GitHub thất bại: ${oauthError}` })
+      window.history.replaceState(null, '', '/login')
+      return
+    }
+
+    if (!appToken && !githubAccessToken) return
+
+    const complete = appToken
+      ? completeLoginWithToken(appToken)
+      : loginWithGithub(githubAccessToken as string)
+
+    complete
+      .then(() => {
+        window.history.replaceState(null, '', '/login')
+        goNext()
+      })
+      .catch(() => {
+        useAuthStore.setState({
+          isLoading: false,
+          error: 'Không thể hoàn tất đăng nhập GitHub. Vui lòng thử lại.'
+        })
+        window.history.replaceState(null, '', '/login')
+      })
+  }, [completeLoginWithToken, loginWithGithub])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()

@@ -65,6 +65,7 @@ export const SocialLoginPanel = ({ onSuccess }: SocialLoginPanelProps) => {
   const googleButtonRef = useRef<HTMLDivElement | null>(null)
   const googleButtonShellRef = useRef<HTMLDivElement | null>(null)
   const googleAuthHandlerRef = useRef<(response: { credential?: string }) => void>(() => undefined)
+  const githubLoginLockRef = useRef(false)
   const [notice, setNotice] = useState('')
   const [isGoogleReady, setIsGoogleReady] = useState(false)
   const [isGithubLoading, setIsGithubLoading] = useState(false)
@@ -144,6 +145,9 @@ export const SocialLoginPanel = ({ onSuccess }: SocialLoginPanelProps) => {
   }, [])
 
   const handleGithubLogin = async () => {
+    if (githubLoginLockRef.current) return
+
+    githubLoginLockRef.current = true
     setNotice('')
     setIsGithubLoading(true)
 
@@ -151,6 +155,7 @@ export const SocialLoginPanel = ({ onSuccess }: SocialLoginPanelProps) => {
       await startGitHubLogin()
     } catch (error) {
       setNotice(getApiErrorMessage(error) || 'Không thể mở đăng nhập GitHub. Vui lòng thử lại.')
+      githubLoginLockRef.current = false
       setIsGithubLoading(false)
     }
   }
