@@ -35,13 +35,13 @@ export interface LearningResource {
   targetRole: string
   level: string
   language: string
-  type: string
+  type: string // 'video', 'article', 'docs', v.v.
   title: string
   url: string
-  provider: string
+  provider: string // 'YouTube', v.v.
   thumbnailUrl?: string
   channelTitle?: string
-  source?: string
+  source?: string // 'curated' | 'youtube_api'
   score?: number
   tags?: string[]
 }
