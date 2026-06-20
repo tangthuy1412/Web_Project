@@ -34,6 +34,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { AIRoadmapPage } from '../features/roadmaps/pages/AIRoadmapPage'
 import { RoadmapDetailPage } from '../features/roadmaps/pages/RoadmapDetailPage'
 import { RoadmapsPage } from '../features/roadmaps/pages/RoadmapsPage'
+import { SkillLearningDetailPage } from '../features/roadmaps/pages/SkillLearningDetailPage'
 
 export const router = createBrowserRouter([
   {
@@ -94,6 +95,7 @@ export const router = createBrowserRouter([
               { path: 'roadmaps', element: <RoadmapsPage /> },
               { path: 'roadmaps/ai', element: <AIRoadmapPage /> },
               { path: 'roadmaps/:id', element: <RoadmapDetailPage /> },
+              { path: 'roadmaps/:id/skills/:skillName', element: <SkillLearningDetailPage /> },
               { path: 'progress', element: <ProgressPage /> }
             ]
           },
