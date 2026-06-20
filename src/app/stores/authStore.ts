@@ -14,7 +14,7 @@ import {
 import { githubApi } from '../services/apis/githubApi'
 import { normalizeUser } from '../services/apis/normalizers'
 import { profileApi, type ProfilePayload } from '../services/apis/profileApi'
-import { API_ORIGIN } from '../config/api'
+import { API_ORIGIN, getGitHubAuthCallbackUrl, getGitHubConnectCallbackUrl } from '../config/api'
 
 type AuthState = {
   user: User | null
@@ -66,7 +66,11 @@ const toAbsoluteOAuthUrl = (url: string) => {
 }
 
 const getGitHubLoginRedirectUrl = () => {
-  return `${window.location.origin}/auth/github/callback`
+  return getGitHubAuthCallbackUrl()
+}
+
+const getGitHubConnectRedirectUrl = () => {
+  return getGitHubConnectCallbackUrl()
 }
 
 const extractOAuthUrl = (payload: unknown) => {
@@ -323,7 +327,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
 
     try {
-      const { authorizeUrl, authorizationUrl, oauthUrl, connectUrl, url } = await githubApi.getOAuthUrl()
+      const { authorizeUrl, authorizationUrl, oauthUrl, connectUrl, url } = await githubApi.getOAuthUrl({
+        redirectUrl: getGitHubConnectRedirectUrl()
+      })
       const nextUrl = authorizeUrl ?? authorizationUrl ?? oauthUrl ?? connectUrl ?? url
 
       if (!nextUrl) {

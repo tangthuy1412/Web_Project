@@ -1,8 +1,8 @@
 import { apiClient, unwrapResponse } from './apiClient'
 
 export const githubApi = {
-  async getOAuthUrl() {
-    const response = await apiClient.get('/github/oauth')
+  async getOAuthUrl(params?: { redirectUrl?: string }) {
+    const response = await apiClient.get('/github/oauth', { params })
     return unwrapResponse<{
       authorizeUrl?: string
       authorizationUrl?: string
