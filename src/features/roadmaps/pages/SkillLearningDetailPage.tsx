@@ -142,7 +142,7 @@ export const SkillLearningDetailPage = () => {
           </Link>
         </div>
 
-        {error && (
+        {error && !error.toLowerCase().includes('not found') && !error.toLowerCase().includes('generate') && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/20">
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
@@ -192,7 +192,7 @@ export const SkillLearningDetailPage = () => {
           </Link>
         </div>
 
-        {error && (
+        {error && !error.toLowerCase().includes('not found') && !error.toLowerCase().includes('generate') && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/20">
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
