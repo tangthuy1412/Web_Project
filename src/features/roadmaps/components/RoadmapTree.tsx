@@ -33,6 +33,7 @@ export const RoadmapTree = ({ roadmap, onStatusChange, onBookmarkToggle }: Roadm
               <LearningNode
                 key={node.id}
                 node={node}
+                roadmapId={roadmap.id}
                 onStatusChange={onStatusChange}
                 onBookmarkToggle={onBookmarkToggle}
               />

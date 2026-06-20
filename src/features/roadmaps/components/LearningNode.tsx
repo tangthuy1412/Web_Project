@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { motion } from 'motion/react'
 import { Bookmark, CheckCircle2, ChevronDown, Circle, Clock, Lock, PlayCircle } from 'lucide-react'
 import { Badge } from '../../../app/components/ui/Badge'
@@ -9,6 +10,7 @@ import { formatLearningStatus, formatRoadmapDifficulty, getDifficultyTone, getSt
 
 interface LearningNodeProps {
   node: LearningNodeType
+  roadmapId?: string
   onStatusChange?: (nodeId: string, status: LearningNodeStatus) => void
   onBookmarkToggle?: (nodeId: string) => void
 }
@@ -20,7 +22,7 @@ const StatusIcon = ({ status }: { status: LearningNodeStatus }) => {
   return <Circle className="h-5 w-5 text-cyan-500" />
 }
 
-export const LearningNode = ({ node, onStatusChange, onBookmarkToggle }: LearningNodeProps) => {
+export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle }: LearningNodeProps) => {
   const [expanded, setExpanded] = useState(node.status === 'in-progress')
   const isLocked = node.status === 'locked'
 
@@ -63,7 +65,20 @@ export const LearningNode = ({ node, onStatusChange, onBookmarkToggle }: Learnin
               {node.estimatedHours}h
             </Badge>
             {node.skills.map((skill) => (
-              <Badge key={skill} variant="default">{skill}</Badge>
+              roadmapId ? (
+                <Link key={skill} to={`/roadmaps/${roadmapId}/skills/${skill}`}>
+                  <Badge
+                    variant="default"
+                    className="cursor-pointer hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950 dark:hover:text-indigo-400 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition-all"
+                  >
+                    {skill}
+                  </Badge>
+                </Link>
+              ) : (
+                <Badge key={skill} variant="default">
+                  {skill}
+                </Badge>
+              )
             ))}
           </div>
 
@@ -111,9 +126,17 @@ export const LearningNode = ({ node, onStatusChange, onBookmarkToggle }: Learnin
               <CheckCircle2 className="mr-2 h-4 w-4" />
               {node.status === 'completed' ? 'Mở lại' : 'Đánh dấu hoàn thành'}
             </Button>
-            <Button size="sm" variant="outline" disabled={isLocked}>
-              Tiếp tục
-            </Button>
+            {roadmapId && node.skills.length > 0 ? (
+              <Link to={`/roadmaps/${roadmapId}/skills/${node.skills[0]}`}>
+                <Button size="sm" variant="outline" disabled={isLocked}>
+                  Tiếp tục
+                </Button>
+              </Link>
+            ) : (
+              <Button size="sm" variant="outline" disabled={isLocked}>
+                Tiếp tục
+              </Button>
+            )}
             <Button
               size="sm"
               variant="ghost"
