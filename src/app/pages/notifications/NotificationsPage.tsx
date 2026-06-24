@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bell, ChevronLeft, ChevronRight, Inbox, RefreshCw } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight, GitBranch, Inbox, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent } from '../../components/ui/Card'
@@ -21,19 +21,28 @@ const defaultPagination: Pagination = {
   totalPages: 0
 }
 
-const typeLabels: Record<string, string> = {
-  GITHUB_ANALYSIS_REMINDER: 'Nhắc phân tích GitHub',
-  ROADMAP_TASK_REMINDER: 'Nhắc học roadmap',
-  REPOSITORY_IMPROVEMENT: 'Gợi ý cải thiện repository',
-  REPORT_CREATED: 'Báo cáo đã gửi',
-  REPORT_UPDATED: 'Phản hồi báo cáo',
-  REPORT_RESOLVED: 'Báo cáo đã xử lý',
-  REPORT_REJECTED: 'Báo cáo bị từ chối',
-  REPORT_STATUS_UPDATED: 'Phản hồi báo cáo',
-  SYSTEM: 'Hệ thống'
+type NotificationMeta = {
+  label: string
+  icon: typeof Sparkles
+  tone: string
+  badge: 'default' | 'success' | 'info'
 }
 
-const isReportNotification = (type: string) => type.toUpperCase().includes('REPORT')
+const getNotificationMeta = (item: NotificationItem): NotificationMeta | null => {
+  const text = `${item.type} ${item.title} ${item.message}`.toLowerCase()
+  if (text.includes('roadmap') || text.includes('lộ trình')) {
+    if (text.includes('complete') || text.includes('completed') || text.includes('finish') || text.includes('hoàn thành')) {
+      return { label: 'Roadmap hoàn thành', icon: CheckCircle2, tone: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300', badge: 'success' }
+    }
+    if (text.includes('create') || text.includes('created') || text.includes('generate') || text.includes('tạo')) {
+      return { label: 'Roadmap đã tạo', icon: Sparkles, tone: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300', badge: 'info' }
+    }
+  }
+  if (text.includes('repository') || text.includes('repo') || text.includes('github') || text.includes('analysis') || text.includes('phân tích')) {
+    return { label: 'Repository', icon: GitBranch, tone: 'bg-cyan-50 text-cyan-600 dark:bg-cyan-950/50 dark:text-cyan-300', badge: 'default' }
+  }
+  return null
+}
 
 const normalizeNotification = (payload: unknown): NotificationItem => {
   const item = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
@@ -90,6 +99,7 @@ export const NotificationsPage = () => {
   const [pagination, setPagination] = useState<Pagination>(defaultPagination)
   const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
+  const [isUpdatingId, setIsUpdatingId] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   const unreadCount = useMemo(() => items.filter((item) => !item.read).length, [items])
@@ -100,7 +110,7 @@ export const NotificationsPage = () => {
 
     try {
       const payload = await notificationApi.getMine({ page: nextPage, limit: 20 })
-      setItems(extractItems(payload).map(normalizeNotification))
+      setItems(extractItems(payload).map(normalizeNotification).filter((item) => getNotificationMeta(item) !== null))
       setPagination(extractPagination(payload))
     } catch (err) {
       setError(getApiErrorMessage(err))
@@ -119,13 +129,39 @@ export const NotificationsPage = () => {
     setPage(nextPage)
   }
 
+  const markAsRead = async (item: NotificationItem) => {
+    if (item.read || isUpdatingId) return
+    setIsUpdatingId(item.id)
+    try {
+      await notificationApi.markAsRead(item.id)
+      setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, read: true } : entry))
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+    } finally {
+      setIsUpdatingId(null)
+    }
+  }
+
+  const removeNotification = async (item: NotificationItem) => {
+    if (isUpdatingId) return
+    setIsUpdatingId(item.id)
+    try {
+      await notificationApi.remove(item.id)
+      setItems((current) => current.filter((entry) => entry.id !== item.id))
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+    } finally {
+      setIsUpdatingId(null)
+    }
+  }
+
   return (
     <div className="max-w-5xl space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Thông báo</h1>
           <p className="mt-1 text-slate-500 dark:text-slate-400">
-            Xem các cập nhật quan trọng về tài khoản, repository, roadmap và phản hồi báo cáo từ quản trị viên.
+            Theo dõi roadmap được tạo, roadmap đã hoàn thành và các cập nhật quan trọng của repository.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -156,25 +192,26 @@ export const NotificationsPage = () => {
               </div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Chưa có thông báo</h2>
               <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
-                Khi có cập nhật mới về phân tích repository, lộ trình học hoặc phản hồi báo cáo từ quản trị viên, thông báo sẽ xuất hiện tại đây.
+                Thông báo về roadmap và repository sẽ xuất hiện tại đây.
               </p>
             </div>
           ) : (
             <div className="divide-y divide-slate-200 dark:divide-slate-800">
-              {items.map((item) => (
+              {items.map((item) => {
+                const meta = getNotificationMeta(item)
+                if (!meta) return null
+                const Icon = meta.icon
+
+                return (
                 <article key={item.id} className="flex gap-4 p-5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-900/60">
-                  <div className={`mt-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${
-                    isReportNotification(item.type)
-                      ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300'
-                      : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300'
-                  }`}>
-                    <Bell className="h-5 w-5" />
+                  <div className={`mt-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${meta.tone}`}>
+                    <Icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-semibold text-slate-950 dark:text-slate-50">{item.title}</h2>
-                      <Badge variant={isReportNotification(item.type) ? 'warning' : item.read ? 'default' : 'info'}>
-                        {typeLabels[item.type] ?? item.type}
+                      <Badge variant={item.read ? 'default' : meta.badge}>
+                        {meta.label}
                       </Badge>
                       {!item.read && <span className="h-2 w-2 rounded-full bg-indigo-500" aria-label="Chưa đọc" />}
                     </div>
@@ -185,8 +222,13 @@ export const NotificationsPage = () => {
                       <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{formatDate(item.createdAt)}</p>
                     )}
                   </div>
+                  <div className="flex shrink-0 flex-col gap-1">
+                    {!item.read && <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Đánh dấu đã đọc" aria-label={`Đánh dấu đã đọc: ${item.title}`} disabled={isUpdatingId === item.id} onClick={() => markAsRead(item)}><CheckCircle2 className="h-4 w-4" /></Button>}
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-red-600" title="Xóa thông báo" aria-label={`Xóa thông báo: ${item.title}`} disabled={isUpdatingId === item.id} onClick={() => removeNotification(item)}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
                 </article>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>

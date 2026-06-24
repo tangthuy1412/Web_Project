@@ -18,7 +18,7 @@ import { AnalysisResultPage } from './pages/analysis/AnalysisResultPage'
 import { ChatPage } from './pages/chat/ChatPage'
 import { SettingsPage } from './pages/settings/SettingsPage'
 import { NotificationsPage } from './pages/notifications/NotificationsPage'
-import { ProgressPage } from './pages/progress/ProgressPage'
+import { RepositoryProgressPage } from './pages/progress/RepositoryProgressPage'
 import { AdminAiFeedbackDetailPage } from './pages/admin/AdminAiFeedbackDetailPage'
 import { AdminAiFeedbackPage } from './pages/admin/AdminAiFeedbackPage'
 import { AdminAnalysisDetailPage } from './pages/admin/AdminAnalysisDetailPage'
@@ -96,7 +96,7 @@ export const router = createBrowserRouter([
               { path: 'roadmaps/ai', element: <AIRoadmapPage /> },
               { path: 'roadmaps/:id', element: <RoadmapDetailPage /> },
               { path: 'roadmaps/:id/skills/:skillName', element: <SkillLearningDetailPage /> },
-              { path: 'progress', element: <ProgressPage /> }
+              { path: 'progress', element: <RepositoryProgressPage /> }
             ]
           },
           { path: 'settings', element: <SettingsPage /> },

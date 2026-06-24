@@ -13,6 +13,35 @@ export type RoadmapRoleRecommendation = {
 const includesAny = (text: string, keywords: string[]) =>
   keywords.some((keyword) => text.includes(keyword))
 
+export const getSuggestedRoadmapRoles = (analyses: AnalysisResult[], limit = 5): Role[] => {
+  if (analyses.length === 0) return roadmapTargetRoles.slice(0, limit)
+
+  const text = collectAnalysisText(analyses)
+  const scores = new Map<Role, number>(roadmapTargetRoles.map((role) => [role, 0]))
+  const add = (role: Role, value: number) => scores.set(role, (scores.get(role) ?? 0) + value)
+
+  if (includesAny(text, ['react', 'vue', 'frontend', 'css', 'html', 'ui', 'web-vitals'])) add('Frontend Developer', 4)
+  if (includesAny(text, ['node', 'express', 'mongodb', 'mongoose', 'jwt', 'api', 'backend', 'server'])) add('Backend Developer', 4)
+  if (includesAny(text, ['react', 'frontend']) && includesAny(text, ['node', 'express', 'mongodb', 'api', 'backend'])) add('Fullstack Developer', 6)
+  if (includesAny(text, ['docker', 'ci/cd', 'deployment', 'github actions', 'devops'])) add('DevOps Beginner', 4)
+  if (includesAny(text, ['testing', 'test', 'qa', 'playwright', 'jest'])) add('Tester / QA Engineer', 4)
+  if (includesAny(text, ['mobile', 'react native', 'flutter', 'android', 'ios'])) add('Mobile Developer', 5)
+  if (includesAny(text, ['data', 'dashboard', 'analytics', 'python', 'pandas', 'sql'])) add('Data Analyst', 4)
+  if (includesAny(text, ['ai', 'machine learning', 'ml', 'model', 'gemini', 'llm'])) add('AI / Machine Learning Beginner', 4)
+
+  analyses.forEach((analysis) => {
+    const missing = analysis.missingSkills.map((skill) => skill.name.toLowerCase()).join(' ')
+    if (includesAny(missing, ['docker', 'deployment', 'ci/cd'])) add('DevOps Beginner', 2)
+    if (includesAny(missing, ['testing', 'test'])) add('Tester / QA Engineer', 2)
+    if (includesAny(missing, ['backend', 'api', 'node'])) add('Backend Developer', 2)
+  })
+
+  return Array.from(scores.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([role]) => role)
+}
+
 const collectAnalysisText = (analyses: AnalysisResult[]) =>
   analyses
     .flatMap((analysis) => [

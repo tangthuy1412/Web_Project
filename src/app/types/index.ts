@@ -223,3 +223,52 @@ export interface ProgressData {
     overall: number;
   };
 }
+
+export type RoleMatchLevel = 'high' | 'medium' | 'low' | 'very_low' | string;
+
+export interface RoleMatch {
+  roleId: string;
+  roleName: string;
+  description: string;
+  category: string;
+  matchScore: number;
+  matchLevel: RoleMatchLevel;
+  matchLevelLabel: string;
+  requiredScore: number;
+  optionalScore: number;
+  coverageScore: number;
+  matchedSkillCount: number;
+  weakSkillCount: number;
+  missingRequiredSkillCount: number;
+  recommendedNextSkills: string[];
+  topMatchedSkills: string[];
+  topMissingSkills: string[];
+  summary: string;
+}
+
+export interface RepositoryRoleMatches {
+  repositoryId: string;
+  repoName: string;
+  fullName: string;
+  analyzedAt: string;
+  topRole: Pick<RoleMatch, 'roleId' | 'roleName' | 'matchScore' | 'matchLevel' | 'matchLevelLabel'>;
+  matches: RoleMatch[];
+}
+
+export interface RoleCatalogItem {
+  roleId: string;
+  roleName: string;
+  description: string;
+  category: string;
+  level: string;
+  requiredSkillCount: number;
+  optionalSkillCount: number;
+}
+
+export interface SkillCatalogItem {
+  name: string;
+  category: string;
+  aliases: string[];
+  defaultLevel: string;
+  tags: string[];
+}

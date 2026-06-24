@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { motion } from 'motion/react'
 import { ArrowLeft, BrainCircuit, Clock, GitBranch, Route, Sparkles } from 'lucide-react'
@@ -10,9 +10,8 @@ import { Badge } from '../../../app/components/ui/Badge'
 import { Button } from '../../../app/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../app/components/ui/Card'
 import { useRepositoryStore } from '../../../app/stores/repositoryStore'
-import { roadmapTargetRoles } from '../constants/roadmapTargetRoles'
 import { useRoadmapStore } from '../stores/roadmapStore'
-import { recommendJobReadinessRoadmaps, recommendRoadmapRole, type RoadmapRoleRecommendation } from '../utils/roadmapRecommendation'
+import { getSuggestedRoadmapRoles, recommendJobReadinessRoadmaps, recommendRoadmapRole, type RoadmapRoleRecommendation } from '../utils/roadmapRecommendation'
 import { formatRoadmapDifficulty, formatSkillGapPriority } from '../utils/roadmapUtils'
 
 export const AIRoadmapPage = () => {
@@ -21,24 +20,32 @@ export const AIRoadmapPage = () => {
   const [targetRole, setTargetRole] = useState(aiRecommendation?.roadmap.careerOutcome ?? 'Backend Developer')
   const recommendedRoadmap = recommendRoadmapRole(analyses)
   const jobReadinessRoadmaps = recommendJobReadinessRoadmaps(analyses)
+  const suggestedTargetRoles = useMemo(() => getSuggestedRoadmapRoles(analyses), [analyses])
+  const repositoryId = analyses[0]?.repositoryId
 
   useEffect(() => {
     fetchMyAnalyses()
   }, [fetchMyAnalyses])
 
+  useEffect(() => {
+    if (!suggestedTargetRoles.some((role) => role === targetRole)) {
+      setTargetRole(suggestedTargetRoles[0])
+    }
+  }, [suggestedTargetRoles, targetRole])
+
   const handleGenerate = async (forceRegenerate = false) => {
-    await generateAIRoadmap(targetRole, forceRegenerate)
+    await generateAIRoadmap(targetRole, forceRegenerate, repositoryId)
   }
 
   const handleUseRecommendation = async () => {
     if (!recommendedRoadmap) return
     setTargetRole(recommendedRoadmap.role)
-    await generateAIRoadmap(recommendedRoadmap.role, false)
+    await generateAIRoadmap(recommendedRoadmap.role, false, repositoryId)
   }
 
   const handleUseJobSuggestion = async (suggestion: RoadmapRoleRecommendation) => {
     setTargetRole(suggestion.role)
-    await generateAIRoadmap(suggestion.role, false)
+    await generateAIRoadmap(suggestion.role, false, repositoryId)
   }
 
   if (!aiRecommendation) {
@@ -76,7 +83,7 @@ export const AIRoadmapPage = () => {
                 onChange={(event) => setTargetRole(event.target.value)}
                 className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
               >
-                {roadmapTargetRoles.map((role) => (
+                {suggestedTargetRoles.map((role) => (
                   <option key={role} value={role}>{role}</option>
                 ))}
               </select>
@@ -140,7 +147,7 @@ export const AIRoadmapPage = () => {
             onChange={(event) => setTargetRole(event.target.value)}
             className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
           >
-            {roadmapTargetRoles.map((role) => (
+            {suggestedTargetRoles.map((role) => (
               <option key={role} value={role}>{role}</option>
             ))}
           </select>

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { roadmapService, type RoadmapListParams } from '../services/roadmapService'
 import type { AIRecommendation, LearningNodeStatus, Roadmap, RoadmapFilters, SkillProgress, UserLearningStats } from '../types'
+import { getApiErrorMessage } from '../../../app/services/apis/apiClient'
 
 interface RoadmapState {
   roadmaps: Roadmap[]
@@ -13,7 +14,7 @@ interface RoadmapState {
   error: string | null
   fetchRoadmaps: (params?: RoadmapListParams) => Promise<void>
   fetchRoadmapDetail: (idOrSlug: string) => Promise<Roadmap | undefined>
-  generateAIRoadmap: (targetRole?: string, forceRegenerate?: boolean) => Promise<AIRecommendation | null>
+  generateAIRoadmap: (targetRole?: string, forceRegenerate?: boolean, repoId?: string) => Promise<AIRecommendation | null>
   archiveRoadmap: (roadmapId: string) => Promise<void>
   setFilters: (filters: Partial<RoadmapFilters>) => void
   getRoadmapById: (idOrSlug: string) => Roadmap | undefined
@@ -187,11 +188,11 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
     }
   },
 
-  generateAIRoadmap: async (targetRole, forceRegenerate = false) => {
+  generateAIRoadmap: async (targetRole, forceRegenerate = false, repoId) => {
     set({ isGenerating: true, error: null })
 
     try {
-      const aiRecommendation = await roadmapService.generateAIRoadmap(targetRole, forceRegenerate)
+      const aiRecommendation = await roadmapService.generateAIRoadmap(targetRole, forceRegenerate, repoId)
       const roadmaps = get().roadmaps.some((roadmap) => roadmap.id === aiRecommendation.roadmap.id)
         ? get().roadmaps.map((roadmap) => (roadmap.id === aiRecommendation.roadmap.id ? aiRecommendation.roadmap : roadmap))
         : [aiRecommendation.roadmap, ...get().roadmaps]
@@ -206,7 +207,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
     } catch (error) {
       set({
         isGenerating: false,
-        error: error instanceof Error ? error.message : 'Không thể tạo roadmap. Vui lòng thử lại.'
+        error: getApiErrorMessage(error)
       })
       return null
     }

@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Code2,
+  CircleHelp,
   Loader2,
   MessageSquare,
   Package,
@@ -18,6 +19,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
+import { RoleMatchPanel } from '../../components/analysis/RoleMatchPanel'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatDate } from '../../lib/utils'
 
@@ -173,6 +176,14 @@ export const AnalysisResultPage = () => {
     ['Testing', clampScore(analysis.scores.testingScore)],
     ['Độ sẵn sàng portfolio', clampScore(analysis.scores.portfolioReadinessScore)]
   ] as const
+  const scoreDescriptions: Record<(typeof scoreItems)[number][0], string> = {
+    'Tech stack': 'Mức độ phù hợp và tính hiện đại của ngôn ngữ, framework, thư viện được sử dụng trong repository.',
+    'Tài liệu': 'Chất lượng README, hướng dẫn cài đặt, cấu hình và mức độ dễ hiểu khi người khác tiếp cận dự án.',
+    'Chất lượng commit': 'Mức độ rõ ràng, đều đặn và có ý nghĩa của lịch sử commit.',
+    'Triển khai': 'Mức độ sẵn sàng để chạy hoặc đưa dự án lên môi trường thật, bao gồm cấu hình và deploy.',
+    'Testing': 'Mức độ hiện diện của unit test, integration test hoặc end-to-end test trong dự án.',
+    'Độ sẵn sàng portfolio': 'Mức độ hoàn chỉnh và thuyết phục của dự án khi dùng để giới thiệu năng lực với nhà tuyển dụng.'
+  }
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -222,6 +233,8 @@ export const AnalysisResultPage = () => {
         </CardContent>
       </Card>
 
+      <RoleMatchPanel repositoryId={analysis.repositoryId || id} />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -232,7 +245,19 @@ export const AnalysisResultPage = () => {
         <CardContent>
           <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
             <div className={`rounded-lg border p-5 ${overallTone.soft}`}>
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Điểm tổng quan</p>
+              <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-300">
+                <p>Điểm tổng quan</p>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" aria-label="Giải thích điểm tổng quan" className="rounded-sm text-slate-400 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:text-slate-200">
+                      <CircleHelp className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8} className="max-w-xs leading-5">
+                    Điểm tổng hợp từ tech stack, tài liệu, commit, triển khai, testing và mức độ sẵn sàng portfolio.
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <div className={`mt-3 text-5xl font-bold ${overallTone.text}`}>{overallScore}</div>
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{overallTone.label}</p>
             </div>
@@ -243,7 +268,19 @@ export const AnalysisResultPage = () => {
                 return (
                   <div key={label} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</p>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</p>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button type="button" aria-label={`Giải thích điểm ${label}`} className="shrink-0 rounded-sm text-slate-400 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:text-slate-200">
+                              <CircleHelp className="h-4 w-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={8} className="max-w-xs leading-5">
+                            {scoreDescriptions[label]}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                       <span className={`text-sm font-semibold ${tone.text}`}>{score}</span>
                     </div>
                     <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-slate-800">

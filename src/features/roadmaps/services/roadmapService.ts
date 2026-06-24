@@ -418,11 +418,34 @@ export const roadmapService = {
     return roadmap ? normalizeBackendRoadmap(roadmap) : undefined
   },
 
-  async generateAIRoadmap(targetRole = 'Backend Developer', forceRegenerate = false): Promise<AIRecommendation> {
+  async generateAIRoadmap(targetRole = 'Backend Developer', forceRegenerate = false, repoId?: string): Promise<AIRecommendation> {
+    if (!repoId) {
+      throw new Error('Hãy phân tích một repository trước khi tạo roadmap.')
+    }
+
     const safeRole = roadmapTargetRoles.includes(targetRole as typeof roadmapTargetRoles[number])
       ? targetRole
       : 'Backend Developer'
-    const response = await apiClient.post('/roadmaps/generate', { targetRole: safeRole, forceRegenerate })
+    const roleIds: Record<string, string> = {
+      'Frontend Developer': 'frontend-developer',
+      'Backend Developer': 'backend-developer',
+      'Fullstack Developer': 'fullstack-developer',
+      'Mobile Developer': 'mobile-developer',
+      'Tester / QA Engineer': 'tester-qa-engineer',
+      'DevOps Beginner': 'devops-engineer',
+      'Data Analyst': 'data-analyst',
+      'AI / Machine Learning Beginner': 'ai-engineer'
+    }
+    const response = await apiClient.post('/roadmaps/generate', {
+      targetRole: safeRole,
+      repoId,
+      roleId: roleIds[safeRole] ?? 'backend-developer',
+      level: 'beginner',
+      durationWeeks: 6,
+      language: 'vi',
+      useRoleMatching: true,
+      forceRegenerate
+    })
     const roadmap = extractApiResource<BackendRoadmap>(response.data, ['roadmap'])
     return buildRecommendation(roadmap)
   },

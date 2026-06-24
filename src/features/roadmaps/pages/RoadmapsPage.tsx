@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { motion } from 'motion/react'
 import { Archive, BookmarkCheck, BrainCircuit, FolderOpen, Search, Sparkles } from 'lucide-react'
@@ -8,12 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Input } from '../../../app/components/ui/Input'
 import { RoadmapCard } from '../components/RoadmapCard'
 import { RoadmapSkeleton } from '../components/RoadmapSkeleton'
-import { roadmapTargetRoles } from '../constants/roadmapTargetRoles'
 import { useRepositoryStore } from '../../../app/stores/repositoryStore'
 import { useRoadmapStore } from '../stores/roadmapStore'
 import type { RoadmapCategory, RoadmapDifficulty } from '../types'
 import { buildRepositoryAnalysisOverview } from '../../../app/services/analysis/analysisOverview'
-import { recommendJobReadinessRoadmaps, recommendRoadmapRole, type RoadmapRoleRecommendation } from '../utils/roadmapRecommendation'
+import { getSuggestedRoadmapRoles, recommendJobReadinessRoadmaps, recommendRoadmapRole, type RoadmapRoleRecommendation } from '../utils/roadmapRecommendation'
 import { filterRoadmaps, formatCategoryFilter, formatDifficultyFilter, formatDurationFilter } from '../utils/roadmapUtils'
 
 const categories: (RoadmapCategory | 'All')[] = [
@@ -51,6 +50,8 @@ export const RoadmapsPage = () => {
   const analysisOverview = buildRepositoryAnalysisOverview(analyses)
   const recommendedRoadmap = recommendRoadmapRole(analyses)
   const jobReadinessRoadmaps = recommendJobReadinessRoadmaps(analyses)
+  const suggestedTargetRoles = useMemo(() => getSuggestedRoadmapRoles(analyses), [analyses])
+  const repositoryId = analyses[0]?.repositoryId
 
   useEffect(() => {
     fetchRoadmaps({ status: statusFilter })
@@ -60,8 +61,14 @@ export const RoadmapsPage = () => {
     fetchMyAnalyses()
   }, [fetchMyAnalyses])
 
+  useEffect(() => {
+    if (!suggestedTargetRoles.some((role) => role === targetRole)) {
+      setTargetRole(suggestedTargetRoles[0])
+    }
+  }, [suggestedTargetRoles, targetRole])
+
   const handleGenerate = async () => {
-    const recommendation = await generateAIRoadmap(targetRole, false)
+    const recommendation = await generateAIRoadmap(targetRole, false, repositoryId)
     if (recommendation) {
       navigate(`/roadmaps/${recommendation.roadmap.slug}`)
     }
@@ -70,14 +77,14 @@ export const RoadmapsPage = () => {
   const handleGenerateRecommended = async () => {
     if (!recommendedRoadmap) return
 
-    const recommendation = await generateAIRoadmap(recommendedRoadmap.role, false)
+    const recommendation = await generateAIRoadmap(recommendedRoadmap.role, false, repositoryId)
     if (recommendation) {
       navigate(`/roadmaps/${recommendation.roadmap.slug}`)
     }
   }
 
   const handleGenerateSuggestion = async (suggestion: RoadmapRoleRecommendation) => {
-    const recommendation = await generateAIRoadmap(suggestion.role, false)
+    const recommendation = await generateAIRoadmap(suggestion.role, false, repositoryId)
     if (recommendation) {
       navigate(`/roadmaps/${recommendation.roadmap.slug}`)
     }
@@ -163,7 +170,7 @@ export const RoadmapsPage = () => {
               onChange={(event) => setTargetRole(event.target.value)}
               className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
             >
-              {roadmapTargetRoles.map((role) => (
+              {suggestedTargetRoles.map((role) => (
                 <option key={role} value={role}>{role}</option>
               ))}
             </select>
