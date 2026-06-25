@@ -3,8 +3,8 @@ import { CheckCircle2, ChevronLeft, ChevronRight, GitBranch, Inbox, RefreshCw, S
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent } from '../../components/ui/Card'
-import { getApiErrorMessage } from '../../services/apis/apiClient'
-import { notificationApi } from '../../services/apis/notificationApi'
+import { getApiErrorMessage } from '../../services/apis/core'
+import { notificationApi } from '../../services/apis/notifications'
 import type { NotificationItem } from '../../types'
 
 type Pagination = {
@@ -16,7 +16,7 @@ type Pagination = {
 
 const defaultPagination: Pagination = {
   page: 1,
-  limit: 20,
+  limit: 10,
   total: 0,
   totalPages: 0
 }
@@ -109,7 +109,7 @@ export const NotificationsPage = () => {
     setError('')
 
     try {
-      const payload = await notificationApi.getMine({ page: nextPage, limit: 20 })
+      const payload = await notificationApi.getMine({ page: nextPage, limit: defaultPagination.limit })
       setItems(extractItems(payload).map(normalizeNotification).filter((item) => getNotificationMeta(item) !== null))
       setPagination(extractPagination(payload))
     } catch (err) {

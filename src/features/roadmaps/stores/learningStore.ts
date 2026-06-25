@@ -3,8 +3,8 @@ import {
   learningApi,
   type LearningContent,
   type LearningResource
-} from '../../../app/services/apis/learningApi'
-import { getApiErrorMessage } from '../../../app/services/apis/apiClient'
+} from '../../../app/services/apis/learning'
+import { getApiErrorMessage } from '../../../app/services/apis/core'
 
 export interface LearningState {
   learningContent: LearningContent | null

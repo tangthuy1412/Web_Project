@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { motion } from 'motion/react'
-import { Archive, BookmarkCheck, BrainCircuit, FolderOpen, Search, Sparkles } from 'lucide-react'
+import { Archive, BookmarkCheck, BrainCircuit, ChevronLeft, ChevronRight, FolderOpen, Search, Sparkles } from 'lucide-react'
 import { Badge } from '../../../app/components/ui/Badge'
 import { Button } from '../../../app/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../app/components/ui/Card'
@@ -30,6 +30,7 @@ const categories: (RoadmapCategory | 'All')[] = [
 ]
 const difficulties: (RoadmapDifficulty | 'All')[] = ['All', 'Beginner', 'Intermediate', 'Advanced']
 const durations = ['All', 'Short', 'Medium', 'Long'] as const
+const ROADMAPS_PER_PAGE = 3
 
 export const RoadmapsPage = () => {
   const navigate = useNavigate()
@@ -47,6 +48,7 @@ export const RoadmapsPage = () => {
   const { analyses, fetchMyAnalyses } = useRepositoryStore()
   const [targetRole, setTargetRole] = useState('Backend Developer')
   const [statusFilter, setStatusFilter] = useState<'active' | 'archived'>('active')
+  const [page, setPage] = useState(1)
   const analysisOverview = buildRepositoryAnalysisOverview(analyses)
   const recommendedRoadmap = recommendRoadmapRole(analyses)
   const jobReadinessRoadmaps = recommendJobReadinessRoadmaps(analyses)
@@ -96,6 +98,16 @@ export const RoadmapsPage = () => {
   const inProgressCount = roadmaps.filter((roadmap) => roadmap.status !== 'archived' && roadmap.progress > 0 && roadmap.progress < 100).length
   const completedNodeCount = learningStats.completedNodes
   const totalNodes = learningStats.totalNodes
+  const totalPages = Math.max(1, Math.ceil(filteredRoadmaps.length / ROADMAPS_PER_PAGE))
+  const visibleRoadmaps = filteredRoadmaps.slice((page - 1) * ROADMAPS_PER_PAGE, page * ROADMAPS_PER_PAGE)
+
+  useEffect(() => {
+    setPage(1)
+  }, [filters.search, filters.category, filters.difficulty, filters.duration, statusFilter])
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages))
+  }, [totalPages])
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -407,9 +419,28 @@ export const RoadmapsPage = () => {
             {[1, 2, 3].map((item) => <RoadmapSkeleton key={item} />)}
           </div>
         ) : filteredRoadmaps.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filteredRoadmaps.map((roadmap) => <RoadmapCard key={roadmap.id} roadmap={roadmap} />)}
-          </div>
+          <>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {visibleRoadmaps.map((roadmap) => <RoadmapCard key={roadmap.id} roadmap={roadmap} />)}
+            </div>
+            {filteredRoadmaps.length > ROADMAPS_PER_PAGE && (
+              <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Hiển thị {Math.min((page - 1) * ROADMAPS_PER_PAGE + 1, filteredRoadmaps.length)}-{Math.min(page * ROADMAPS_PER_PAGE, filteredRoadmaps.length)} / {filteredRoadmaps.length} lộ trình
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    Trước
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
+                    Sau
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         ) : roadmaps.length > 0 ? (
           <Card>
             <CardContent className="p-8 text-center">

@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import type { Profile, User } from '../types'
-import { authApi } from '../services/apis/authApi'
 import {
   clearStoredUser,
   clearToken,
@@ -10,10 +9,10 @@ import {
   getToken,
   setToken,
   setStoredUser
-} from '../services/apis/apiClient'
-import { githubApi } from '../services/apis/githubApi'
+} from '../services/apis/core'
+import { authApi, profileApi, type ProfilePayload } from '../services/apis/auth'
+import { githubApi } from '../services/apis/github'
 import { normalizeUser } from '../services/apis/normalizers'
-import { profileApi, type ProfilePayload } from '../services/apis/profileApi'
 import { API_ORIGIN, getGitHubAuthCallbackUrl, getGitHubConnectCallbackUrl } from '../config/api'
 
 type AuthState = {

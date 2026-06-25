@@ -5,15 +5,15 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
-import { getApiErrorMessage } from '../../services/apis/apiClient'
+import { getApiErrorMessage } from '../../services/apis/core'
 import {
   adminApi,
   type AdminAdminEntityRef,
   type AdminAiFeedback,
   type AdminPagination
-} from '../../services/apis/adminApi'
+} from '../../services/apis/admin'
 
-const defaultPagination: AdminPagination = { page: 1, limit: 20, total: 0, totalPages: 0 }
+const defaultPagination: AdminPagination = { page: 1, limit: 10, total: 0, totalPages: 0 }
 
 const formatDate = (value?: string) => {
   if (!value) return 'Chưa có'
@@ -53,7 +53,7 @@ export const AdminAiFeedbackPage = () => {
     setError('')
 
     try {
-      const payload = await adminApi.getAiFeedbacks({ page, limit: 20 })
+      const payload = await adminApi.getAiFeedbacks({ page, limit: defaultPagination.limit })
       setItems(payload.items ?? [])
       setPagination(payload.pagination ?? defaultPagination)
     } catch (err) {

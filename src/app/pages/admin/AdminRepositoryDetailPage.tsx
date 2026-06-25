@@ -4,12 +4,12 @@ import { ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
-import { getApiErrorMessage } from '../../services/apis/apiClient'
+import { getApiErrorMessage } from '../../services/apis/core'
 import {
   adminApi,
   type AdminRepository,
   type AdminRepositoryOwner
-} from '../../services/apis/adminApi'
+} from '../../services/apis/admin'
 
 const formatDate = (value?: string) => {
   if (!value) return 'Chưa có'

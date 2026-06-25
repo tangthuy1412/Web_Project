@@ -1,4 +1,4 @@
-import { apiClient, extractApiResource } from '../../../app/services/apis/apiClient'
+import { apiClient, extractApiResource } from '../../../app/services/apis/core'
 import { roadmapTargetRoles } from '../constants/roadmapTargetRoles'
 import type {
   AIRecommendation,

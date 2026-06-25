@@ -4,12 +4,15 @@ import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
-import { getApiErrorMessage } from '../../services/apis/apiClient'
+import { getApiErrorMessage } from '../../services/apis/core'
 import {
   adminApi,
   type AdminAdminEntityRef,
   type AdminAnalysis
-} from '../../services/apis/adminApi'
+} from '../../services/apis/admin'
+
+const DETAIL_LIST_LIMIT = 6
+const DETAIL_BADGE_LIMIT = 10
 
 const formatDate = (value?: string) => {
   if (!value) return 'Chưa có'
@@ -49,12 +52,15 @@ const TextList = ({ title, items, variant = 'default' }: { title: string; items?
     <CardContent className="space-y-2">
       {(items ?? []).length === 0 ? (
         <p className="text-sm text-slate-500">Chưa có nội dung.</p>
-      ) : items?.map((item) => (
+      ) : <>
+        {items?.slice(0, DETAIL_LIST_LIMIT).map((item) => (
         <div key={item} className="rounded-lg border border-slate-200 p-3 text-sm leading-6 text-slate-700 dark:border-slate-800 dark:text-slate-300">
           <Badge variant={variant} className="mb-2">Mục</Badge>
           <p>{item}</p>
         </div>
-      ))}
+        ))}
+        {(items ?? []).length > DETAIL_LIST_LIMIT && <p className="text-sm text-slate-500">+{(items ?? []).length - DETAIL_LIST_LIMIT} mục khác</p>}
+      </>}
     </CardContent>
   </Card>
 )
@@ -171,15 +177,15 @@ export const AdminAnalysisDetailPage = () => {
               <CardContent className="space-y-4">
                 <div>
                   <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Ngôn ngữ</p>
-                  <div className="flex flex-wrap gap-2">{(analysis.languages ?? []).map((item) => <Badge key={item} variant="info">{item}</Badge>)}</div>
+                  <div className="flex flex-wrap gap-2">{(analysis.languages ?? []).slice(0, DETAIL_BADGE_LIMIT).map((item) => <Badge key={item} variant="info">{item}</Badge>)}{(analysis.languages ?? []).length > DETAIL_BADGE_LIMIT && <Badge variant="info">+{(analysis.languages ?? []).length - DETAIL_BADGE_LIMIT}</Badge>}</div>
                 </div>
                 <div>
                   <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Framework</p>
-                  <div className="flex flex-wrap gap-2">{(analysis.frameworks ?? []).map((item) => <Badge key={item} variant="default">{item}</Badge>)}</div>
+                  <div className="flex flex-wrap gap-2">{(analysis.frameworks ?? []).slice(0, DETAIL_BADGE_LIMIT).map((item) => <Badge key={item} variant="default">{item}</Badge>)}{(analysis.frameworks ?? []).length > DETAIL_BADGE_LIMIT && <Badge variant="default">+{(analysis.frameworks ?? []).length - DETAIL_BADGE_LIMIT}</Badge>}</div>
                 </div>
                 <div>
                   <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Package nổi bật</p>
-                  <div className="flex flex-wrap gap-2">{(analysis.packages ?? []).slice(0, 24).map((item) => <Badge key={item} variant="default">{item}</Badge>)}</div>
+                  <div className="flex flex-wrap gap-2">{(analysis.packages ?? []).slice(0, DETAIL_BADGE_LIMIT).map((item) => <Badge key={item} variant="default">{item}</Badge>)}{(analysis.packages ?? []).length > DETAIL_BADGE_LIMIT && <Badge variant="default">+{(analysis.packages ?? []).length - DETAIL_BADGE_LIMIT}</Badge>}</div>
                 </div>
               </CardContent>
             </Card>

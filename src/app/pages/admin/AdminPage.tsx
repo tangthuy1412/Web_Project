@@ -5,7 +5,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
-import { getApiErrorMessage } from '../../services/apis/apiClient'
+import { getApiErrorMessage } from '../../services/apis/core'
 import {
   adminApi,
   type AdminDashboard,
@@ -13,11 +13,11 @@ import {
   type AdminUser,
   type AdminUserRole,
   type AdminUserStatus
-} from '../../services/apis/adminApi'
+} from '../../services/apis/admin'
 
 const defaultPagination: AdminPagination = {
   page: 1,
-  limit: 20,
+  limit: 10,
   total: 0,
   totalPages: 0
 }
@@ -118,7 +118,7 @@ export const AdminPage = () => {
         adminApi.getDashboard(),
         adminApi.getUsers({
           page,
-          limit: 20,
+          limit: defaultPagination.limit,
           search: search || undefined,
           role: role || undefined,
           status: status || undefined

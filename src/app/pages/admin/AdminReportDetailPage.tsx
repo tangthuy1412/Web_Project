@@ -4,13 +4,13 @@ import { ArrowLeft, CheckCircle2, Flag, RefreshCw, Send } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
-import { getApiErrorMessage } from '../../services/apis/apiClient'
+import { getApiErrorMessage } from '../../services/apis/core'
 import {
   adminApi,
   type AdminAdminEntityRef,
   type AdminReport,
   type AdminReportStatus
-} from '../../services/apis/adminApi'
+} from '../../services/apis/admin'
 
 const statusLabels: Record<string, string> = {
   pending: 'Chờ xử lý',

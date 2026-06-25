@@ -4,13 +4,13 @@ import { Archive, ArrowLeft, RefreshCw, RotateCcw } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
-import { getApiErrorMessage } from '../../services/apis/apiClient'
+import { getApiErrorMessage } from '../../services/apis/core'
 import {
   adminApi,
   type AdminRoadmap,
   type AdminRoadmapOwner,
   type AdminRoadmapStatus
-} from '../../services/apis/adminApi'
+} from '../../services/apis/admin'
 
 const statusLabels: Record<string, string> = {
   active: 'Đang hiển thị',

@@ -1,17 +1,17 @@
 import { create } from 'zustand'
 import type { AIFeedback, AnalysisResult, Repository } from '../types'
-import { aiFeedbackApi } from '../services/apis/aiFeedbackApi'
-import { analysisApi } from '../services/apis/analysisApi'
-import { getApiErrorMessage } from '../services/apis/apiClient'
-import { githubApi } from '../services/apis/githubApi'
+import { getApiErrorMessage } from '../services/apis/core'
 import {
+  aiFeedbackApi,
+  analysisApi,
+  githubApi,
   normalizeAnalyses,
   normalizeAnalysis,
   normalizeCommits,
   normalizeFiles,
   normalizeRepositories,
   normalizeRepository
-} from '../services/apis/normalizers'
+} from '../services/apis/repositories'
 
 type RepositoryState = {
   repositories: Repository[]

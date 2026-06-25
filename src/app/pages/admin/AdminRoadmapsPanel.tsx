@@ -5,18 +5,18 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
-import { getApiErrorMessage } from '../../services/apis/apiClient'
+import { getApiErrorMessage } from '../../services/apis/core'
 import {
   adminApi,
   type AdminPagination,
   type AdminRoadmap,
   type AdminRoadmapOwner,
   type AdminRoadmapStatus
-} from '../../services/apis/adminApi'
+} from '../../services/apis/admin'
 
 const defaultPagination: AdminPagination = {
   page: 1,
-  limit: 20,
+  limit: 10,
   total: 0,
   totalPages: 0
 }
@@ -96,7 +96,7 @@ export const AdminRoadmapsPanel = () => {
     try {
       const payload = await adminApi.getRoadmaps({
         page,
-        limit: 20,
+        limit: defaultPagination.limit,
         status: status || undefined
       })
       setRoadmaps(payload.items ?? [])

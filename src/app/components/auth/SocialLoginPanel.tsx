@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Github } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useAuthStore } from '../../stores/authStore'
-import { getApiErrorMessage } from '../../services/apis/apiClient'
+import { getApiErrorMessage } from '../../services/apis/core'
 
 declare global {
   interface Window {

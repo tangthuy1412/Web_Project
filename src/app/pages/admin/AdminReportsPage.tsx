@@ -5,15 +5,15 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
-import { getApiErrorMessage } from '../../services/apis/apiClient'
+import { getApiErrorMessage } from '../../services/apis/core'
 import {
   adminApi,
   type AdminAdminEntityRef,
   type AdminPagination,
   type AdminReport
-} from '../../services/apis/adminApi'
+} from '../../services/apis/admin'
 
-const defaultPagination: AdminPagination = { page: 1, limit: 20, total: 0, totalPages: 0 }
+const defaultPagination: AdminPagination = { page: 1, limit: 10, total: 0, totalPages: 0 }
 
 const statusLabels: Record<string, string> = {
   pending: 'Chờ xử lý',
@@ -72,7 +72,7 @@ export const AdminReportsPage = () => {
     try {
       const payload = await adminApi.getReports({
         page,
-        limit: 20,
+        limit: defaultPagination.limit,
         status: status || undefined
       })
       setReports(payload.items ?? [])

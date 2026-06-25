@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { roadmapService, type RoadmapListParams } from '../services/roadmapService'
 import type { AIRecommendation, LearningNodeStatus, Roadmap, RoadmapFilters, SkillProgress, UserLearningStats } from '../types'
-import { getApiErrorMessage } from '../../../app/services/apis/apiClient'
+import { getApiErrorMessage } from '../../../app/services/apis/core'
 
 interface RoadmapState {
   roadmaps: Roadmap[]

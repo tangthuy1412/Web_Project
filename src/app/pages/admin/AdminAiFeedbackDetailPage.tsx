@@ -4,12 +4,14 @@ import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
-import { getApiErrorMessage } from '../../services/apis/apiClient'
+import { getApiErrorMessage } from '../../services/apis/core'
 import {
   adminApi,
   type AdminAdminEntityRef,
   type AdminAiFeedback
-} from '../../services/apis/adminApi'
+} from '../../services/apis/admin'
+
+const DETAIL_LIST_LIMIT = 6
 
 const formatDate = (value?: string) => {
   if (!value) return 'Chưa có'
@@ -29,12 +31,15 @@ const TextList = ({ title, items, variant = 'default' }: { title: string; items?
     <CardContent className="space-y-2">
       {(items ?? []).length === 0 ? (
         <p className="text-sm text-slate-500">Chưa có nội dung.</p>
-      ) : items?.map((item) => (
+      ) : <>
+        {items?.slice(0, DETAIL_LIST_LIMIT).map((item) => (
         <div key={item} className="rounded-lg border border-slate-200 p-3 text-sm leading-6 text-slate-700 dark:border-slate-800 dark:text-slate-300">
           <Badge variant={variant} className="mb-2">Gợi ý</Badge>
           <p>{item}</p>
         </div>
-      ))}
+        ))}
+        {(items ?? []).length > DETAIL_LIST_LIMIT && <p className="text-sm text-slate-500">+{(items ?? []).length - DETAIL_LIST_LIMIT} mục khác</p>}
+      </>}
     </CardContent>
   </Card>
 )

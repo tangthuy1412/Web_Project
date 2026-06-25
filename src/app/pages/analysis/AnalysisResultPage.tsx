@@ -24,12 +24,17 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/too
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatDate } from '../../lib/utils'
 
+const BADGE_LIMIT = 10
+const TEXT_LIST_LIMIT = 6
+const RECOMMENDATION_LIMIT = 5
+
 const renderTextList = (items: string[], emptyText: string) => {
   if (items.length === 0) return <p className="text-sm text-slate-500">{emptyText}</p>
 
   return (
     <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
-      {items.map((item) => <li key={item}>- {item}</li>)}
+      {items.slice(0, TEXT_LIST_LIMIT).map((item) => <li key={item}>- {item}</li>)}
+      {items.length > TEXT_LIST_LIMIT && <li className="text-slate-500">+{items.length - TEXT_LIST_LIMIT} mục khác</li>}
     </ul>
   )
 }
@@ -309,13 +314,15 @@ export const AnalysisResultPage = () => {
             <div>
               <p className="mb-2 text-xs font-medium uppercase text-slate-500">Ngôn ngữ</p>
               <div className="flex flex-wrap gap-2">
-                {languages.length ? languages.map((item) => <Badge key={item} variant="default">{item}</Badge>) : <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
+                {languages.length ? languages.slice(0, BADGE_LIMIT).map((item) => <Badge key={item} variant="default">{item}</Badge>) : <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
+                {languages.length > BADGE_LIMIT && <Badge variant="default">+{languages.length - BADGE_LIMIT}</Badge>}
               </div>
             </div>
             <div>
               <p className="mb-2 text-xs font-medium uppercase text-slate-500">Frameworks</p>
               <div className="flex flex-wrap gap-2">
-                {frameworks.length ? frameworks.map((item) => <Badge key={item} variant="info">{item}</Badge>) : <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
+                {frameworks.length ? frameworks.slice(0, BADGE_LIMIT).map((item) => <Badge key={item} variant="info">{item}</Badge>) : <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
+                {frameworks.length > BADGE_LIMIT && <Badge variant="info">+{frameworks.length - BADGE_LIMIT}</Badge>}
               </div>
             </div>
           </CardContent>
@@ -325,7 +332,8 @@ export const AnalysisResultPage = () => {
           <CardHeader><CardTitle className="flex items-center gap-2"><Package className="h-5 w-5" />Packages</CardTitle></CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {packages.length ? packages.map((item) => <Badge key={item} variant="default">{item}</Badge>) : <span className="text-sm text-slate-500">Chưa phát hiện package/config nổi bật.</span>}
+              {packages.length ? packages.slice(0, BADGE_LIMIT).map((item) => <Badge key={item} variant="default">{item}</Badge>) : <span className="text-sm text-slate-500">Chưa phát hiện package/config nổi bật.</span>}
+              {packages.length > BADGE_LIMIT && <Badge variant="default">+{packages.length - BADGE_LIMIT}</Badge>}
             </div>
           </CardContent>
         </Card>
@@ -365,7 +373,8 @@ export const AnalysisResultPage = () => {
             <h3 className="mb-2 font-medium text-slate-900 dark:text-slate-100">Kỹ năng còn thiếu</h3>
             {analysis.missingSkills.length ? (
               <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                {analysis.missingSkills.map((item) => <li key={item.id}>- {item.name}</li>)}
+                {analysis.missingSkills.slice(0, TEXT_LIST_LIMIT).map((item) => <li key={item.id}>- {item.name}</li>)}
+                {analysis.missingSkills.length > TEXT_LIST_LIMIT && <li className="text-slate-500">+{analysis.missingSkills.length - TEXT_LIST_LIMIT} kỹ năng khác</li>}
               </ul>
             ) : <p className="text-sm text-slate-500">Chưa có missingSkills trong payload.</p>}
           </div>
@@ -379,12 +388,13 @@ export const AnalysisResultPage = () => {
             <p className="text-sm text-slate-500">Chưa có recommendations trong payload.</p>
           ) : (
             <div className="space-y-3">
-              {analysis.recommendations.map((item) => (
+              {analysis.recommendations.slice(0, RECOMMENDATION_LIMIT).map((item) => (
                 <div key={item.id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                   <h3 className="font-semibold text-slate-900 dark:text-slate-100">{item.title}</h3>
                   {item.description && <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{item.description}</p>}
                 </div>
               ))}
+              {analysis.recommendations.length > RECOMMENDATION_LIMIT && <p className="text-sm text-slate-500">Còn {analysis.recommendations.length - RECOMMENDATION_LIMIT} gợi ý khác trong dữ liệu phân tích.</p>}
             </div>
           )}
         </CardContent>

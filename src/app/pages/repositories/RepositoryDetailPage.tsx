@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { AlertCircle, ArrowLeft, BookOpen, Bot, CheckCircle2, ExternalLink, FileJson, Flag, GitCommit, GitFork, Lightbulb, Play, RefreshCw, Send, Star, Target } from 'lucide-react'
+import { AlertCircle, ArrowLeft, BookOpen, Bot, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, FileJson, Flag, GitCommit, GitFork, Lightbulb, Play, RefreshCw, Send, Star, Target } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatRelativeTime } from '../../lib/utils'
-import { reportApi } from '../../services/apis/reportApi'
-import { getApiErrorMessage } from '../../services/apis/apiClient'
+import { getApiErrorMessage } from '../../services/apis/core'
+import { reportApi } from '../../services/apis/repositories'
 
 const reportReasons = [
   'Nội dung không phù hợp',
@@ -17,10 +17,38 @@ const reportReasons = [
   'Thông tin repository không chính xác',
   'Khác'
 ]
+const COMMITS_PER_PAGE = 5
+const FEEDBACK_LIST_LIMIT = 5
+const TOPIC_LIMIT = 8
+const PACKAGE_BADGE_LIMIT = 10
 
-const preview = (value: unknown) => {
-  if (typeof value === 'string') return value
-  return JSON.stringify(value, null, 2)
+const asRecord = (value: unknown) => value && typeof value === 'object' ? value as Record<string, unknown> : {}
+const asArray = (value: unknown) => Array.isArray(value) ? value : []
+const asStringList = (value: unknown) => asArray(value).map(String).filter(Boolean)
+const textOf = (...values: unknown[]) => {
+  const found = values.find((value) => typeof value === 'string' && value.trim())
+  return typeof found === 'string' ? found : ''
+}
+
+const getPackageAnalysis = (items: unknown[]) => {
+  const first = asRecord(items[0])
+  return Array.isArray(first.detectedFiles) || Array.isArray(first.packages) || Array.isArray(first.frameworks)
+    ? first
+    : {}
+}
+
+const getCommitInfo = (item: unknown) => {
+  const record = asRecord(item)
+  return {
+    sha: textOf(record.sha, record.hash, record.id),
+    message: textOf(record.message).split('\n')[0] || 'Commit không có message',
+    authorName: textOf(record.authorName, record.author),
+    authorDate: textOf(record.authorDate, record.date, record.createdAt),
+    htmlUrl: textOf(record.htmlUrl, record.url),
+    additions: typeof record.additions === 'number' ? record.additions : 0,
+    deletions: typeof record.deletions === 'number' ? record.deletions : 0,
+    changedFiles: typeof record.changedFiles === 'number' ? record.changedFiles : 0
+  }
 }
 
 export const RepositoryDetailPage = () => {
@@ -50,6 +78,7 @@ export const RepositoryDetailPage = () => {
   const [isSubmittingReport, setIsSubmittingReport] = useState(false)
   const [reportMessage, setReportMessage] = useState('')
   const [reportError, setReportError] = useState('')
+  const [commitPage, setCommitPage] = useState(1)
 
   const repository = useMemo(() => {
     return repositories.find((repo) => repo.id === id) ?? selectedRepository
@@ -58,6 +87,14 @@ export const RepositoryDetailPage = () => {
   const commits = commitsByRepoId[id] ?? []
   const feedback = feedbackByRepoId[id]
   const analysisRoute = `/repositories/${id}/analysis`
+  const packageAnalysis = getPackageAnalysis(packages)
+  const packageFiles = asStringList(packageAnalysis.packageFiles)
+  const packageNames = asStringList(packageAnalysis.packages)
+  const frameworks = asStringList(packageAnalysis.frameworks)
+  const configs = asStringList(packageAnalysis.configs)
+  const detectedFiles = asArray(packageAnalysis.detectedFiles)
+  const totalCommitPages = Math.max(1, Math.ceil(commits.length / COMMITS_PER_PAGE))
+  const visibleCommits = commits.slice((commitPage - 1) * COMMITS_PER_PAGE, commitPage * COMMITS_PER_PAGE)
 
   useEffect(() => {
     if (!repository && id) fetchRepository(id)
@@ -65,6 +102,10 @@ export const RepositoryDetailPage = () => {
     fetchCommits(id).catch(() => undefined)
     fetchFeedback(id).catch(() => undefined)
   }, [fetchCommits, fetchFeedback, fetchPackages, fetchRepository, id, repository])
+
+  useEffect(() => {
+    setCommitPage(1)
+  }, [id, commits.length])
 
   const handleAnalyze = async () => {
     const result = await analyzeRepository(id)
@@ -292,18 +333,70 @@ export const RepositoryDetailPage = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><FileJson className="h-5 w-5" />Packages / file cấu hình</CardTitle>
           </CardHeader>
-          <CardContent>
-            {packages.length === 0 ? (
+          <CardContent className="space-y-4">
+            {!packageFiles.length && !packageNames.length && !detectedFiles.length ? (
               <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
                 Chưa có packages cached. Bấm Tải packages để đồng bộ.
               </div>
             ) : (
-              <div className="space-y-3">
-                {packages.slice(0, 8).map((item, index) => (
-                  <pre key={index} className="max-h-48 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
-                    {preview(item)}
-                  </pre>
-                ))}
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg bg-slate-50 p-3 text-center dark:bg-slate-900">
+                    <p className="text-lg font-semibold">{packageFiles.length}</p>
+                    <p className="text-xs text-slate-500">file phát hiện</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 p-3 text-center dark:bg-slate-900">
+                    <p className="text-lg font-semibold">{packageNames.length}</p>
+                    <p className="text-xs text-slate-500">package</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 p-3 text-center dark:bg-slate-900">
+                    <p className="text-lg font-semibold">{frameworks.length}</p>
+                    <p className="text-xs text-slate-500">framework</p>
+                  </div>
+                </div>
+
+                {frameworks.length ? (
+                  <div>
+                    <p className="mb-2 text-sm font-medium">Framework</p>
+                    <div className="flex flex-wrap gap-2">{frameworks.slice(0, PACKAGE_BADGE_LIMIT).map((item) => <Badge key={item} variant="info">{item}</Badge>)}{frameworks.length > PACKAGE_BADGE_LIMIT && <Badge variant="info">+{frameworks.length - PACKAGE_BADGE_LIMIT}</Badge>}</div>
+                  </div>
+                ) : null}
+
+                <div>
+                  <p className="mb-2 text-sm font-medium">Packages chính</p>
+                  <div className="flex flex-wrap gap-2">
+                    {packageNames.slice(0, PACKAGE_BADGE_LIMIT).map((item) => <Badge key={item} variant="default">{item}</Badge>)}
+                    {packageNames.length > PACKAGE_BADGE_LIMIT && <Badge variant="default">+{packageNames.length - PACKAGE_BADGE_LIMIT}</Badge>}
+                    {!packageNames.length && <span className="text-sm text-slate-500">Chưa phát hiện package.</span>}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">File liên quan</p>
+                  {detectedFiles.slice(0, 4).map((item) => {
+                    const file = asRecord(item)
+                    const scripts = asStringList(file.detectedScripts)
+                    const fileFrameworks = asStringList(file.detectedFrameworks)
+
+                    return (
+                      <div key={textOf(file.path, file.fileName)} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-medium">{textOf(file.path, file.fileName, 'File')}</p>
+                          <Badge variant="default">{textOf(file.type, 'config')}</Badge>
+                        </div>
+                        {(scripts.length || fileFrameworks.length) ? (
+                          <p className="mt-2 text-xs text-slate-500">
+                            {scripts.length ? `Scripts: ${scripts.join(', ')}` : ''}
+                            {scripts.length && fileFrameworks.length ? ' · ' : ''}
+                            {fileFrameworks.length ? `Framework: ${fileFrameworks.join(', ')}` : ''}
+                          </p>
+                        ) : null}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {configs.length ? <p className="text-xs text-slate-500">Config: {configs.join(', ')}</p> : null}
               </div>
             )}
           </CardContent>
@@ -313,18 +406,75 @@ export const RepositoryDetailPage = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><GitCommit className="h-5 w-5" />Lịch sử commit</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             {commits.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
                 Chưa có commits cached. Bấm Tải commits để đồng bộ.
               </div>
             ) : (
               <div className="space-y-3">
-                {commits.slice(0, 12).map((item, index) => (
-                  <pre key={index} className="max-h-36 overflow-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-700 dark:bg-slate-900 dark:text-slate-200">
-                    {preview(item)}
-                  </pre>
-                ))}
+                <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
+                  <div>
+                    <p className="text-lg font-semibold">{commits.length}</p>
+                    <p className="text-xs text-slate-500">commit đã lưu trong cache</p>
+                  </div>
+                  {commits.length > COMMITS_PER_PAGE && (
+                    <Badge variant="info">Trang {commitPage}/{totalCommitPages}</Badge>
+                  )}
+                </div>
+
+                {visibleCommits.map((item) => {
+                  const commit = getCommitInfo(item)
+
+                  return (
+                    <div key={commit.sha || commit.message} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{commit.message}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {commit.authorName || 'Không rõ tác giả'}{commit.authorDate ? ` · ${formatRelativeTime(commit.authorDate)}` : ''}{commit.sha ? ` · ${commit.sha.slice(0, 7)}` : ''}
+                          </p>
+                        </div>
+                        {commit.htmlUrl && (
+                          <a href={commit.htmlUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400" title="Mở commit trên GitHub">
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                        <Badge variant="success">+{commit.additions}</Badge>
+                        <Badge variant="danger">-{commit.deletions}</Badge>
+                        <Badge variant="default">{commit.changedFiles} file</Badge>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {commits.length > COMMITS_PER_PAGE && (
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-3 dark:border-slate-800">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCommitPage((page) => Math.max(1, page - 1))}
+                      disabled={commitPage === 1}
+                    >
+                      <ChevronLeft className="mr-1 h-4 w-4" />
+                      Trước
+                    </Button>
+                    <span className="text-xs text-slate-500">
+                      {Math.min((commitPage - 1) * COMMITS_PER_PAGE + 1, commits.length)}-{Math.min(commitPage * COMMITS_PER_PAGE, commits.length)} / {commits.length}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCommitPage((page) => Math.min(totalCommitPages, page + 1))}
+                      disabled={commitPage === totalCommitPages}
+                    >
+                      Sau
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
@@ -361,7 +511,8 @@ export const RepositoryDetailPage = () => {
                   </h4>
                   {feedback.strengthFeedback?.length ? (
                     <ul className="space-y-2">
-                      {feedback.strengthFeedback.map((item) => <li key={item}>- {item}</li>)}
+                      {feedback.strengthFeedback.slice(0, FEEDBACK_LIST_LIMIT).map((item) => <li key={item}>- {item}</li>)}
+                      {feedback.strengthFeedback.length > FEEDBACK_LIST_LIMIT && <li className="text-slate-500">+{feedback.strengthFeedback.length - FEEDBACK_LIST_LIMIT} mục khác</li>}
                     </ul>
                   ) : <p>Chưa có feedback điểm mạnh.</p>}
                 </div>
@@ -373,7 +524,8 @@ export const RepositoryDetailPage = () => {
                   </h4>
                   {feedback.weaknessFeedback?.length ? (
                     <ul className="space-y-2">
-                      {feedback.weaknessFeedback.map((item) => <li key={item}>- {item}</li>)}
+                      {feedback.weaknessFeedback.slice(0, FEEDBACK_LIST_LIMIT).map((item) => <li key={item}>- {item}</li>)}
+                      {feedback.weaknessFeedback.length > FEEDBACK_LIST_LIMIT && <li className="text-slate-500">+{feedback.weaknessFeedback.length - FEEDBACK_LIST_LIMIT} mục khác</li>}
                     </ul>
                   ) : <p>Chưa có feedback điểm yếu.</p>}
                 </div>
@@ -397,7 +549,8 @@ export const RepositoryDetailPage = () => {
                   </h4>
                   {feedback.nextSteps?.length ? (
                     <ul className="space-y-2">
-                      {feedback.nextSteps.map((item) => <li key={item}>- {item}</li>)}
+                      {feedback.nextSteps.slice(0, FEEDBACK_LIST_LIMIT).map((item) => <li key={item}>- {item}</li>)}
+                      {feedback.nextSteps.length > FEEDBACK_LIST_LIMIT && <li className="text-slate-500">+{feedback.nextSteps.length - FEEDBACK_LIST_LIMIT} bước khác</li>}
                     </ul>
                   ) : <p>Chưa có bước tiếp theo.</p>}
                 </div>
@@ -409,7 +562,8 @@ export const RepositoryDetailPage = () => {
                   </h4>
                   {feedback.recommendedTopics?.length ? (
                     <div className="flex flex-wrap gap-2">
-                      {feedback.recommendedTopics.map((item) => <Badge key={item} variant="default">{item}</Badge>)}
+                      {feedback.recommendedTopics.slice(0, TOPIC_LIMIT).map((item) => <Badge key={item} variant="default">{item}</Badge>)}
+                      {feedback.recommendedTopics.length > TOPIC_LIMIT && <Badge variant="default">+{feedback.recommendedTopics.length - TOPIC_LIMIT}</Badge>}
                     </div>
                   ) : <p>Chưa có chủ đề gợi ý.</p>}
                 </div>
@@ -436,7 +590,8 @@ export const RepositoryDetailPage = () => {
                 <div className="rounded-lg border border-red-200 bg-red-50/60 p-4 dark:border-red-900 dark:bg-red-950/20">
                   <h4 className="mb-3 font-semibold text-red-800 dark:text-red-300">Lưu ý rủi ro</h4>
                   <ul className="space-y-2">
-                    {feedback.riskNotes.map((item) => <li key={item}>- {item}</li>)}
+                    {feedback.riskNotes.slice(0, FEEDBACK_LIST_LIMIT).map((item) => <li key={item}>- {item}</li>)}
+                    {feedback.riskNotes.length > FEEDBACK_LIST_LIMIT && <li className="text-slate-500">+{feedback.riskNotes.length - FEEDBACK_LIST_LIMIT} lưu ý khác</li>}
                   </ul>
                 </div>
               ) : null}

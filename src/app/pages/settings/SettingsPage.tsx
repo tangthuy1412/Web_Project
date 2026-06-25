@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { useTheme } from '../../hooks/useTheme'
-import { getApiErrorMessage } from '../../services/apis/apiClient'
+import { getApiErrorMessage } from '../../services/apis/core'
 import { useAuthStore } from '../../stores/authStore'
 
 export const SettingsPage = () => {

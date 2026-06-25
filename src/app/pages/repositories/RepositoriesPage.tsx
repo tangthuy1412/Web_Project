@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { AlertCircle, ArrowRight, CheckCircle2, ExternalLink, GitFork, Loader2, Play, RefreshCw, Search, Star, XCircle } from 'lucide-react'
+import { AlertCircle, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, GitFork, Loader2, Play, RefreshCw, Search, Star, XCircle } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatRelativeTime } from '../../lib/utils'
 
+const REPOSITORIES_PER_PAGE = 10
+
 export const RepositoriesPage = () => {
   const navigate = useNavigate()
   const { repositories, analyses, fetchRepositories, fetchMyAnalyses, analyzeRepository, isLoading, error } = useRepositoryStore()
   const [search, setSearch] = useState('')
   const [analyzingRepoId, setAnalyzingRepoId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     fetchRepositories().catch(() => undefined)
@@ -38,6 +41,16 @@ export const RepositoriesPage = () => {
       {} as Record<string, typeof analyses[number]>
     )
   }, [analyses])
+  const totalPages = Math.max(1, Math.ceil(filteredRepositories.length / REPOSITORIES_PER_PAGE))
+  const visibleRepositories = filteredRepositories.slice((page - 1) * REPOSITORIES_PER_PAGE, page * REPOSITORIES_PER_PAGE)
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, repositories.length])
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages))
+  }, [totalPages])
 
   const handleAnalyze = async (repoId: string) => {
     try {
@@ -116,7 +129,7 @@ export const RepositoriesPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredRepositories.map((repo) => {
+                {visibleRepositories.map((repo) => {
                   const analysis = analysisByRepoId[repo.id]
                   const hasAnalysis = Boolean(analysis || repo.analyzed)
                   const isRepoAnalyzing = analyzingRepoId === repo.id
@@ -184,6 +197,24 @@ export const RepositoriesPage = () => {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {filteredRepositories.length > REPOSITORIES_PER_PAGE && (
+          <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Hiển thị {Math.min((page - 1) * REPOSITORIES_PER_PAGE + 1, filteredRepositories.length)}-{Math.min(page * REPOSITORIES_PER_PAGE, filteredRepositories.length)} / {filteredRepositories.length} repository
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Trước
+              </Button>
+              <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
+                Sau
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
       </Card>

@@ -1,8 +1,7 @@
 import { create } from 'zustand'
 import type { ChatMessage, ChatSession } from '../types'
-import { chatApi } from '../services/apis/chatApi'
-import { extractApiResource, getApiErrorMessage } from '../services/apis/apiClient'
-import { normalizeChatMessage, normalizeChatSession, normalizeChatSessions } from '../services/apis/normalizers'
+import { extractApiResource, getApiErrorMessage } from '../services/apis/core'
+import { chatApi, normalizeChatMessage, normalizeChatSession, normalizeChatSessions } from '../services/apis/chat'
 
 type ChatState = {
   sessions: ChatSession[]

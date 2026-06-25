@@ -188,8 +188,8 @@ export const snapshotApi = {
     return normalizeSnapshot(unwrapResponse(response.data))
   },
 
-  async compareSnapshots(firstSnapshotId: string, secondSnapshotId: string) {
-    const response = await apiClient.post('/snapshots/compare', { firstSnapshotId, secondSnapshotId })
+  async compareSnapshots(fromSnapshotId: string, toSnapshotId: string) {
+    const response = await apiClient.post('/snapshots/compare', { fromSnapshotId, toSnapshotId })
     return normalizeComparison(response.data)
   }
 }
