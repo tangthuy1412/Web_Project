@@ -133,6 +133,9 @@ export const RepositoriesPage = () => {
                   const analysis = analysisByRepoId[repo.id]
                   const hasAnalysis = Boolean(analysis || repo.analyzed)
                   const isRepoAnalyzing = analyzingRepoId === repo.id
+                  const analysisSummary = analysis?.summary
+                  const analysisOverall = Math.round(analysisSummary?.overallScore ?? analysis?.scores.overallScore ?? analysis?.scores.overall ?? 0)
+                  const analysisReadiness = Math.round(analysisSummary?.userReadinessScore ?? 0)
 
                   return (
                     <tr key={repo.id} className="border-b border-slate-200 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50">
@@ -160,6 +163,12 @@ export const RepositoriesPage = () => {
                         {repo.hasReadme ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : <XCircle className="h-5 w-5 text-slate-300 dark:text-slate-700" />}
                       </td>
                       <td className="px-4 py-4">
+                        {analysis && (
+                          <div className="mb-1.5 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                            <p className="max-w-40 truncate">{analysisSummary?.careerDirection || analysis.careerDirection.primary}</p>
+                            <p>Readiness {analysisReadiness}% / Tổng quan {analysisOverall}</p>
+                          </div>
+                        )}
                         {hasAnalysis ? <Badge variant="success">Đã phân tích</Badge> : <Badge variant="default">Chưa phân tích</Badge>}
                       </td>
                       <td className="px-4 py-4 text-sm text-slate-500 dark:text-slate-400">

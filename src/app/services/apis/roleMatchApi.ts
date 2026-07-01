@@ -1,9 +1,42 @@
-import type { RepositoryRoleMatches, RoleCatalogItem, SkillCatalogItem } from '../../types'
+import type { RepositoryRoleMatches, RoleCatalogItem, RoleMatch, SkillCatalogItem } from '../../types'
 import { apiClient, unwrapResponse } from './apiClient'
 
 type CatalogResponse<T> = {
   total: number
   items: T[]
+}
+
+type RoleMatchParams = {
+  limit?: number
+  targetRole?: string
+  includeDetails?: boolean
+}
+
+type RoleMatchSourceBody = {
+  sourceMode: 'single_repo' | 'selected_repos' | 'all_analyzed_repos'
+  repoId?: string
+  repoIds?: string[]
+  limit?: number
+  includeDetails?: boolean
+}
+
+type RoleMatchesResponse = {
+  sourceMode?: string
+  analysisSource?: {
+    type?: string
+    sourceMode?: string
+    totalRepositories?: number
+    totalUserCommits?: number
+    userLevel?: string
+    userReadinessScore?: number
+    repositoryNames?: string[]
+  }
+  repositoryId?: string
+  repoName?: string
+  fullName?: string
+  analyzedAt?: string
+  topRole?: Pick<RoleMatch, 'roleId' | 'roleName' | 'matchScore' | 'matchLevel' | 'matchLevelLabel'>
+  matches: RoleMatch[]
 }
 
 const asRecord = (value: unknown) => value && typeof value === 'object'
@@ -21,8 +54,13 @@ const normalizeCatalog = <T>(payload: unknown, key: string): CatalogResponse<T> 
 }
 
 export const roleMatchApi = {
-  async getRepositoryRoleMatches(repositoryId: string): Promise<RepositoryRoleMatches> {
-    const response = await apiClient.get(`/analysis/repositories/${repositoryId}/role-matches`)
+  async calculateRoleMatches(body: RoleMatchSourceBody): Promise<RoleMatchesResponse> {
+    const response = await apiClient.post('/analysis/role-matches', body)
+    return unwrapResponse<RoleMatchesResponse>(response.data)
+  },
+
+  async getRepositoryRoleMatches(repositoryId: string, params: RoleMatchParams = { limit: 3, includeDetails: true }): Promise<RepositoryRoleMatches> {
+    const response = await apiClient.get(`/analysis/repositories/${repositoryId}/role-matches`, { params })
     return unwrapResponse<RepositoryRoleMatches>(response.data)
   },
 

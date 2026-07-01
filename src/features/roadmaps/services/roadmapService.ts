@@ -7,6 +7,7 @@ import type {
   Roadmap,
   RoadmapCategory,
   RoadmapDifficulty,
+  RoadmapProgressRecord,
   SkillGapAnalysis
 } from '../types'
 
@@ -14,8 +15,18 @@ export { roadmapTargetRoles }
 
 type RoadmapTask = {
   _id?: string
+  itemId?: string
   title?: string
   description?: string
+  skillName?: string
+  canonicalSkillName?: string
+  targetRole?: string
+  category?: string
+  priority?: number
+  week?: number
+  level?: string
+  learningStatus?: 'available' | 'missing' | string
+  progressPercent?: number
   skillTags?: string[]
   status?: string
   estimatedHours?: number
@@ -41,9 +52,30 @@ type RoadmapPhase = {
 export type BackendRoadmap = {
   _id?: string
   id?: string
+  roadmapId?: string
+  title?: string
   targetRole?: string
+  roleId?: string
+  requestedLevel?: string
+  effectiveLevel?: string
+  durationWeeks?: number
+  language?: string
   currentGithubDirection?: string
   summary?: string
+  mainRoadmap?: {
+    title?: string
+    reason?: string
+    phases?: RoadmapPhase[]
+    tasks?: RoadmapTask[]
+  }
+  alternativeRoadmaps?: Array<{
+    _id?: string
+    id?: string
+    title?: string
+    reason?: string
+    skills?: string[]
+    suggestedTasks?: string[]
+  }>
   mainPath?: {
     title?: string
     reason?: string
@@ -63,14 +95,59 @@ export type BackendRoadmap = {
     missingSkills?: string[]
     latestAnalysisSnapshotId?: string
   }
+  roadmapSource?: Roadmap['roadmapSource']
+  roleMatch?: BackendRoadmapRoleMatch
+  skillGapSummary?: Roadmap['skillGapSummary'] | Array<{
+    totalGaps?: number
+    missingRequiredCount?: number
+    weakSkillCount?: number
+    recommendedNextSkills?: string[]
+    prioritySkills?: string[]
+    gaps?: Array<{
+      skillName?: string
+      canonicalSkillName?: string
+      category?: string
+      currentLevel?: string
+      targetLevel?: string
+      currentScore?: number
+      requiredScore?: number
+      gap?: number
+      priority?: string
+      reason?: string
+    }>
+  }>
+  progressSummary?: Roadmap['progressSummary']
   status?: 'active' | 'archived'
   createdAt?: string
   updatedAt?: string
 }
 
+type BackendRoadmapRoleMatch = {
+  roleId?: string
+  roleName?: string
+  matchScore?: number
+  matchLevel?: string
+  matchLevelLabel?: string
+}
+
 export type RoadmapListParams = {
   status?: 'active' | 'archived'
   targetRole?: string
+}
+
+export type RoadmapSourceMode = 'single_repo' | 'selected_repos' | 'all_analyzed_repos'
+
+export type GenerateRoadmapOptions = {
+  sourceMode?: RoadmapSourceMode
+  repoId?: string
+  roleId?: string
+  repoIds?: string[]
+  repositoryIds?: string[]
+  level?: 'beginner' | 'intermediate' | 'advanced' | string
+  durationWeeks?: number
+  language?: string
+  useRoleMatching?: boolean
+  forceRegenerate?: boolean
 }
 
 const roleLabels: Record<string, string> = {
@@ -247,6 +324,40 @@ const normalizeResourceType = (type?: string): ResourceType => {
   return 'article'
 }
 
+const normalizeProgress = (payload: unknown): RoadmapProgressRecord => {
+  const source = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>
+  const summary = (source.progressSummary && typeof source.progressSummary === 'object' ? source.progressSummary : {}) as Record<string, unknown>
+  const items = Array.isArray(source.items) ? source.items : []
+
+  return {
+    id: String(source._id ?? source.id ?? ''),
+    roadmapId: String(source.roadmapId ?? ''),
+    overallProgress: asNumber(summary.overallProgress, asNumber(source.overallProgress, 0)),
+    items: items.map((item) => {
+      const record = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>
+      return {
+        itemId: typeof record.itemId === 'string' ? record.itemId : undefined,
+        taskTitle: typeof record.taskTitle === 'string' ? record.taskTitle : typeof record.title === 'string' ? record.title : undefined,
+        skillName: String(record.skillName ?? ''),
+        normalizedSkillName: typeof record.normalizedSkillName === 'string' ? record.normalizedSkillName : undefined,
+        canonicalSkillName: typeof record.canonicalSkillName === 'string' ? record.canonicalSkillName : undefined,
+        category: typeof record.category === 'string' ? record.category : undefined,
+        targetRole: typeof record.targetRole === 'string' ? record.targetRole : undefined,
+        level: typeof record.level === 'string' ? record.level : undefined,
+        week: typeof record.week === 'number' ? record.week : undefined,
+        priority: typeof record.priority === 'number' || typeof record.priority === 'string' ? record.priority : undefined,
+        status: String(record.status ?? 'not_started'),
+        progressPercent: asNumber(record.progressPercent, 0),
+        startedAt: typeof record.startedAt === 'string' ? record.startedAt : null,
+        completedAt: typeof record.completedAt === 'string' ? record.completedAt : null,
+        updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : undefined
+      }
+    }).filter((item) => item.itemId || item.skillName),
+    createdAt: typeof source.createdAt === 'string' ? source.createdAt : undefined,
+    updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : undefined
+  }
+}
+
 const phaseTasks = (phase: RoadmapPhase, fallbackIndex: number): RoadmapTask[] => {
   if (phase.tasks?.length) return phase.tasks
 
@@ -261,9 +372,10 @@ const phaseTasks = (phase: RoadmapPhase, fallbackIndex: number): RoadmapTask[] =
 }
 
 export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
-  const id = backend._id ?? backend.id ?? `roadmap-${Date.now()}`
-  const phases = backend.mainPath?.phases ?? []
-  const standaloneTasks = backend.tasks ?? []
+  const id = backend.roadmapId ?? backend._id ?? backend.id ?? `roadmap-${Date.now()}`
+  const mainRoadmap = backend.mainRoadmap ?? backend.mainPath
+  const phases = mainRoadmap?.phases ?? []
+  const standaloneTasks = mainRoadmap?.tasks ?? backend.tasks ?? []
   const allTasks = [...phases.flatMap(phaseTasks), ...standaloneTasks]
   const targetRole = backend.targetRole ?? backend.currentGithubDirection ?? 'Developer'
   const skills = unique([
@@ -272,8 +384,8 @@ export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
     ...allTasks.flatMap((task) => task.skillTags ?? [])
   ])
   const missingSkills = unique(backend.sourceContextSummary?.missingSkills ?? [])
-  const title = toUserText(backend.mainPath?.title, `Roadmap ${targetRole}`)
-  const reason = toUserText(backend.mainPath?.reason)
+  const title = toUserText(backend.title ?? mainRoadmap?.title, `Roadmap ${targetRole}`)
+  const reason = toUserText(mainRoadmap?.reason)
   const summary = toUserText(backend.summary, reason || `Lộ trình cá nhân hóa cho ${targetRole}`)
   const estimatedHours = Math.max(
     allTasks.reduce((sum, task) => sum + asNumber(task.estimatedHours, 4), 0),
@@ -285,6 +397,22 @@ export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
   const category = inferCategory(targetRole, skills)
   const difficulty = inferDifficulty(phases, allTasks)
   const slug = `${slugify(title || targetRole)}-${id}`
+  const skillGapSummary = Array.isArray(backend.skillGapSummary)
+    ? {
+        totalGaps: backend.skillGapSummary.length,
+        missingRequiredCount: backend.skillGapSummary.filter((gap) => gap.priority === 'high' && gap.currentLevel === 'missing').length,
+        weakSkillCount: backend.skillGapSummary.filter((gap) => gap.currentLevel === 'weak' || gap.currentLevel === 'developing').length,
+        recommendedNextSkills: backend.skillGapSummary
+          .filter((gap) => gap.priority === 'high' || gap.priority === 'medium')
+          .map((gap) => gap.skillName || gap.canonicalSkillName)
+          .filter(Boolean) as string[],
+        prioritySkills: backend.skillGapSummary
+          .filter((gap) => gap.priority === 'high')
+          .map((gap) => gap.skillName || gap.canonicalSkillName)
+          .filter(Boolean) as string[],
+        gaps: backend.skillGapSummary
+      }
+    : backend.skillGapSummary
 
   const modules = (phases.length ? phases : [{ title: 'Lộ trình chính', goal: reason, tasks: standaloneTasks }]).map((phase, moduleIndex) => {
     const tasks = phaseTasks(phase, moduleIndex)
@@ -296,14 +424,24 @@ export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
       order: moduleIndex + 1,
       estimatedHours: tasks.reduce((sum, task) => sum + asNumber(task.estimatedHours, 4), 0),
       nodes: tasks.map((task, taskIndex) => ({
-        id: task._id ?? `${id}-node-${moduleIndex + 1}-${taskIndex + 1}`,
+        id: task.itemId ?? task._id ?? `${id}-node-${moduleIndex + 1}-${taskIndex + 1}`,
+        itemId: task.itemId ?? task._id ?? `${id}-node-${moduleIndex + 1}-${taskIndex + 1}`,
         title: toUserText(task.title, `Nhiệm vụ ${taskIndex + 1}`),
         description: toUserText(task.description, phase.goal ?? 'Hoàn thành nhiệm vụ này để tiến gần hơn tới mục tiêu nghề nghiệp.'),
         estimatedHours: asNumber(task.estimatedHours, 4),
         difficulty,
-        dependencies: taskIndex === 0 ? [] : [tasks[taskIndex - 1]?._id ?? `${id}-node-${moduleIndex + 1}-${taskIndex}`],
+        dependencies: taskIndex === 0 ? [] : [tasks[taskIndex - 1]?.itemId ?? tasks[taskIndex - 1]?._id ?? `${id}-node-${moduleIndex + 1}-${taskIndex}`],
         status: normalizeStatus(task.status, moduleIndex === 0 ? taskIndex : taskIndex + 1),
-        skills: unique([...(task.skillTags ?? []), ...(phase.skills ?? [])]),
+        skills: unique([task.canonicalSkillName, task.skillName, ...(task.skillTags ?? []), ...(phase.skills ?? [])]),
+        skillName: normalizeSkill(task.skillName ?? task.canonicalSkillName ?? task.skillTags?.[0]),
+        canonicalSkillName: normalizeSkill(task.canonicalSkillName ?? task.skillName ?? task.skillTags?.[0]),
+        targetRole: task.targetRole ?? targetRole,
+        category: task.category,
+        priority: task.priority,
+        week: task.week ?? moduleIndex + 1,
+        level: task.level,
+        learningStatus: task.learningStatus,
+        progressPercent: task.progressPercent,
         resources: (task.resources ?? []).map((resource, resourceIndex) => ({
           id: resource._id ?? `${id}-resource-${moduleIndex + 1}-${taskIndex + 1}-${resourceIndex + 1}`,
           title: toUserText(resource.title, 'Tài nguyên học tập'),
@@ -321,7 +459,7 @@ export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
         title: `Hoàn thành ${toUserText(phase.title, `giai đoạn ${moduleIndex + 1}`)}`,
         description: toUserText(phase.goal, 'Đạt mục tiêu chính của giai đoạn.'),
         targetWeek: Math.max(1, (moduleIndex + 1) * 2),
-        nodeIds: tasks.map((task, taskIndex) => task._id ?? `${id}-node-${moduleIndex + 1}-${taskIndex + 1}`),
+        nodeIds: tasks.map((task, taskIndex) => task.itemId ?? task._id ?? `${id}-node-${moduleIndex + 1}-${taskIndex + 1}`),
         rewardXp: 250,
         completed: tasks.every((task) => task.status === 'completed')
       }]
@@ -356,9 +494,18 @@ export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
     status: backend.status ?? 'active',
     createdAt: backend.createdAt,
     updatedAt: backend.updatedAt,
-    sourceRepositoriesCount: backend.sourceContextSummary?.repositoriesCount ?? 0,
+    sourceRepositoriesCount: backend.sourceContextSummary?.repositoriesCount ?? (backend.roadmapSource && typeof backend.roadmapSource === 'object' ? backend.roadmapSource.totalRepositories : 0) ?? 0,
+    roleId: backend.roleId,
+    requestedLevel: backend.requestedLevel,
+    effectiveLevel: backend.effectiveLevel,
+    durationWeeks: backend.durationWeeks,
+    language: backend.language,
     missingSkills,
-    supportingPaths: (backend.supportingPaths ?? []).map((path, index) => ({
+    roadmapSource: backend.roadmapSource,
+    roleMatch: backend.roleMatch,
+    progressSummary: backend.progressSummary,
+    skillGapSummary,
+    supportingPaths: ([...(backend.supportingPaths ?? []), ...(backend.alternativeRoadmaps ?? [])]).map((path, index) => ({
       id: path._id ?? `${id}-support-${index + 1}`,
       title: toUserText(path.title, `Hướng bổ trợ ${index + 1}`),
       reason: toUserText(path.reason),
@@ -418,9 +565,22 @@ export const roadmapService = {
     return roadmap ? normalizeBackendRoadmap(roadmap) : undefined
   },
 
-  async generateAIRoadmap(targetRole = 'Backend Developer', forceRegenerate = false, repoId?: string): Promise<AIRecommendation> {
-    if (!repoId) {
+  async generateAIRoadmap(targetRole = 'Backend Developer', optionsOrForce: GenerateRoadmapOptions | boolean = false, legacyRepoId?: string): Promise<AIRecommendation> {
+    if (false) {
       throw new Error('Hãy phân tích một repository trước khi tạo roadmap.')
+    }
+
+    const options: GenerateRoadmapOptions = typeof optionsOrForce === 'boolean'
+      ? { forceRegenerate: optionsOrForce, repoId: legacyRepoId, sourceMode: legacyRepoId ? 'single_repo' : 'all_analyzed_repos' }
+      : optionsOrForce
+    const selectedRepositoryIds = options.repositoryIds ?? options.repoIds ?? []
+    const sourceMode = options.sourceMode ?? (selectedRepositoryIds.length ? 'selected_repos' : options.repoId ? 'single_repo' : 'all_analyzed_repos')
+
+    if (sourceMode === 'single_repo' && !options.repoId) {
+      throw new Error('Hay chon mot repository da phan tich truoc khi tao roadmap.')
+    }
+    if (sourceMode === 'selected_repos' && !selectedRepositoryIds.length) {
+      throw new Error('Hay chon it nhat mot repository da phan tich.')
     }
 
     const safeRole = roadmapTargetRoles.includes(targetRole as typeof roadmapTargetRoles[number])
@@ -438,13 +598,16 @@ export const roadmapService = {
     }
     const response = await apiClient.post('/roadmaps/generate', {
       targetRole: safeRole,
-      repoId,
       roleId: roleIds[safeRole] ?? 'backend-developer',
-      level: 'beginner',
-      durationWeeks: 6,
-      language: 'vi',
-      useRoleMatching: true,
-      forceRegenerate
+      level: options.level ?? 'beginner',
+      durationWeeks: options.durationWeeks ?? 6,
+      language: options.language ?? 'vi',
+      useRoleMatching: options.useRoleMatching ?? true,
+      forceRegenerate: options.forceRegenerate ?? false,
+      sourceMode,
+      ...(sourceMode === 'single_repo' ? { repoId: options.repoId } : {}),
+      ...(sourceMode === 'selected_repos' ? { repoIds: selectedRepositoryIds } : {}),
+      ...(options.roleId ? { roleId: options.roleId } : {})
     })
     const roadmap = extractApiResource<BackendRoadmap>(response.data, ['roadmap'])
     return buildRecommendation(roadmap)
@@ -454,5 +617,23 @@ export const roadmapService = {
     const response = await apiClient.patch(`/roadmaps/${roadmapId}/archive`)
     const roadmap = extractApiResource<BackendRoadmap>(response.data, ['roadmap'])
     return normalizeBackendRoadmap(roadmap)
+  },
+
+  async getRoadmapProgress(roadmapId: string): Promise<RoadmapProgressRecord> {
+    const response = await apiClient.get(`/roadmaps/${roadmapId}/progress`)
+    return normalizeProgress(extractApiResource<unknown>(response.data, ['progress']))
+  },
+
+  async updateRoadmapProgressItem(
+    roadmapId: string,
+    data: { itemId?: string; skillName?: string; status: 'not_started' | 'in_progress' | 'completed' | string }
+  ): Promise<RoadmapProgressRecord> {
+    const response = await apiClient.patch(`/roadmaps/${roadmapId}/progress/items`, data)
+    return normalizeProgress(extractApiResource<unknown>(response.data, ['progress']))
+  },
+
+  async resetRoadmapProgress(roadmapId: string): Promise<RoadmapProgressRecord> {
+    const response = await apiClient.post(`/roadmaps/${roadmapId}/progress/reset`)
+    return normalizeProgress(extractApiResource<unknown>(response.data, ['progress']))
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { useNavigate } from 'react-router'
 import { motion } from 'motion/react'
-import { Archive, BookmarkCheck, BrainCircuit, ChevronLeft, ChevronRight, FolderOpen, Search, Sparkles } from 'lucide-react'
+import { Archive, BookmarkCheck, ChevronLeft, ChevronRight, FolderOpen, Search, Sparkles } from 'lucide-react'
 import { Badge } from '../../../app/components/ui/Badge'
 import { Button } from '../../../app/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../app/components/ui/Card'
@@ -9,10 +9,11 @@ import { Input } from '../../../app/components/ui/Input'
 import { RoadmapCard } from '../components/RoadmapCard'
 import { RoadmapSkeleton } from '../components/RoadmapSkeleton'
 import { useRepositoryStore } from '../../../app/stores/repositoryStore'
+import { roleMatchApi } from '../../../app/services/apis/analysis'
 import { useRoadmapStore } from '../stores/roadmapStore'
 import type { RoadmapCategory, RoadmapDifficulty } from '../types'
-import { buildRepositoryAnalysisOverview } from '../../../app/services/analysis/analysisOverview'
-import { getSuggestedRoadmapRoles, recommendJobReadinessRoadmaps, recommendRoadmapRole, type RoadmapRoleRecommendation } from '../utils/roadmapRecommendation'
+import type { RoadmapSourceMode } from '../services/roadmapService'
+import type { RoleMatch } from '../../../app/types'
 import { filterRoadmaps, formatCategoryFilter, formatDifficultyFilter, formatDurationFilter } from '../utils/roadmapUtils'
 
 const categories: (RoadmapCategory | 'All')[] = [
@@ -32,6 +33,17 @@ const difficulties: (RoadmapDifficulty | 'All')[] = ['All', 'Beginner', 'Interme
 const durations = ['All', 'Short', 'Medium', 'Long'] as const
 const ROADMAPS_PER_PAGE = 3
 
+const skillLabel = (value: unknown) => {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return String(record.skill ?? record.skillName ?? record.canonicalSkillName ?? record.name ?? '').trim()
+  }
+  return ''
+}
+
+const skillList = (value: unknown) => Array.isArray(value) ? value.map(skillLabel).filter(Boolean) : []
+
 export const RoadmapsPage = () => {
   const navigate = useNavigate()
   const {
@@ -47,13 +59,57 @@ export const RoadmapsPage = () => {
   } = useRoadmapStore()
   const { analyses, fetchMyAnalyses } = useRepositoryStore()
   const [targetRole, setTargetRole] = useState('Backend Developer')
+  const [sourceMode, setSourceMode] = useState<RoadmapSourceMode>('single_repo')
+  const [selectedRepoIds, setSelectedRepoIds] = useState<string[]>([])
+  const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner')
+  const [durationWeeks, setDurationWeeks] = useState(6)
+  const useRoleMatching = true
+  const [forceRegenerate, setForceRegenerate] = useState(true)
+  const [roleMatches, setRoleMatches] = useState<RoleMatch[]>([])
+  const [roleMatchSource, setRoleMatchSource] = useState<{
+    sourceMode?: string
+    totalRepositories?: number
+    totalUserCommits?: number
+    userLevel?: string
+    userReadinessScore?: number
+    repositoryNames?: string[]
+  } | null>(null)
+  const [isMatchingRoles, setIsMatchingRoles] = useState(false)
+  const [roleMatchError, setRoleMatchError] = useState('')
   const [statusFilter, setStatusFilter] = useState<'active' | 'archived'>('active')
   const [page, setPage] = useState(1)
-  const analysisOverview = buildRepositoryAnalysisOverview(analyses)
-  const recommendedRoadmap = recommendRoadmapRole(analyses)
-  const jobReadinessRoadmaps = recommendJobReadinessRoadmaps(analyses)
-  const suggestedTargetRoles = useMemo(() => getSuggestedRoadmapRoles(analyses), [analyses])
-  const repositoryId = analyses[0]?.repositoryId
+  const analyzedRepos = useMemo(() => {
+    const repos = new Map<string, { id: string; name: string; level?: string; commits?: number }>()
+
+    analyses.forEach((analysis) => {
+      if (!analysis.repositoryId || repos.has(analysis.repositoryId)) return
+      repos.set(analysis.repositoryId, {
+        id: analysis.repositoryId,
+        name: analysis.repositoryName || analysis.repoName || analysis.fullName || analysis.repositoryId,
+        level: analysis.summary?.userLevel,
+        commits: analysis.analysisScope?.userCommits
+      })
+    })
+
+    return Array.from(repos.values())
+  }, [analyses])
+  const repositoryId = selectedRepoIds[0] || analyzedRepos[0]?.id
+  const targetRoleOptions = useMemo(() => {
+    return Array.from(new Set(roleMatches.map((match) => match.roleName))).slice(0, 5)
+  }, [roleMatches])
+  const canGenerate = sourceMode === 'all_analyzed_repos'
+    ? analyzedRepos.length > 0
+    : sourceMode === 'single_repo'
+      ? Boolean(repositoryId)
+      : selectedRepoIds.length > 0
+  const effectiveTargetRole = targetRole || targetRoleOptions[0] || 'Backend Developer'
+  const isRoleMatchesLoading = isMatchingRoles
+
+  useEffect(() => {
+    if (!selectedRepoIds.length && analyzedRepos[0]?.id) {
+      setSelectedRepoIds([analyzedRepos[0].id])
+    }
+  }, [analyzedRepos, selectedRepoIds.length])
 
   useEffect(() => {
     fetchRoadmaps({ status: statusFilter })
@@ -64,29 +120,59 @@ export const RoadmapsPage = () => {
   }, [fetchMyAnalyses])
 
   useEffect(() => {
-    if (!suggestedTargetRoles.some((role) => role === targetRole)) {
-      setTargetRole(suggestedTargetRoles[0])
+    if (!targetRoleOptions.some((role) => role === targetRole)) {
+      setTargetRole(targetRoleOptions[0] ?? 'Backend Developer')
     }
-  }, [suggestedTargetRoles, targetRole])
+  }, [targetRole, targetRoleOptions])
 
-  const handleGenerate = async () => {
-    const recommendation = await generateAIRoadmap(targetRole, false, repositoryId)
-    if (recommendation) {
-      navigate(`/roadmaps/${recommendation.roadmap.slug}`)
+  useEffect(() => {
+    if (!canGenerate) {
+      setRoleMatches([])
+      setRoleMatchSource(null)
+      return
     }
-  }
 
-  const handleGenerateRecommended = async () => {
-    if (!recommendedRoadmap) return
+    let isCurrent = true
+    setIsMatchingRoles(true)
+    setRoleMatchError('')
 
-    const recommendation = await generateAIRoadmap(recommendedRoadmap.role, false, repositoryId)
-    if (recommendation) {
-      navigate(`/roadmaps/${recommendation.roadmap.slug}`)
-    }
-  }
+    roleMatchApi.calculateRoleMatches({
+      sourceMode,
+      ...(sourceMode === 'single_repo' ? { repoId: repositoryId } : {}),
+      ...(sourceMode === 'selected_repos' ? { repoIds: selectedRepoIds } : {}),
+      limit: 5,
+      includeDetails: true
+    }).then((response) => {
+      if (!isCurrent) return
+      const matches = response.matches ?? []
+      setRoleMatches(matches)
+      setRoleMatchSource(response.analysisSource ?? null)
+      if (matches[0]?.roleName) setTargetRole(matches[0].roleName)
+    }).catch((requestError) => {
+      if (!isCurrent) return
+      setRoleMatches([])
+      setRoleMatchSource(null)
+      setRoleMatchError(requestError instanceof Error ? requestError.message : 'Không thể tính role phù hợp.')
+    }).finally(() => {
+      if (isCurrent) setIsMatchingRoles(false)
+    })
 
-  const handleGenerateSuggestion = async (suggestion: RoadmapRoleRecommendation) => {
-    const recommendation = await generateAIRoadmap(suggestion.role, false, repositoryId)
+    return () => { isCurrent = false }
+  }, [canGenerate, repositoryId, selectedRepoIds, sourceMode])
+
+  const handleGenerate = async (role?: Pick<RoleMatch, 'roleId' | 'roleName'>) => {
+    const selectedRole = role ?? roleMatches.find((match) => match.roleName === effectiveTargetRole) ?? roleMatches[0]
+    const recommendation = await generateAIRoadmap(selectedRole?.roleName ?? effectiveTargetRole, {
+      sourceMode,
+      repoId: sourceMode === 'single_repo' ? repositoryId : undefined,
+      repoIds: sourceMode === 'selected_repos' ? selectedRepoIds : undefined,
+      roleId: selectedRole?.roleId,
+      level,
+      durationWeeks,
+      language: 'vi',
+      useRoleMatching,
+      forceRegenerate
+    })
     if (recommendation) {
       navigate(`/roadmaps/${recommendation.roadmap.slug}`)
     }
@@ -122,12 +208,6 @@ export const RoadmapsPage = () => {
             Quản lý các lộ trình học được tạo từ hồ sơ GitHub và mục tiêu nghề nghiệp của bạn.
           </p>
         </div>
-        <Link to="/roadmaps/ai">
-          <Button size="lg">
-            <BrainCircuit className="mr-2 h-5 w-5" />
-            Tạo roadmap mới
-          </Button>
-        </Link>
       </motion.div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -168,170 +248,207 @@ export const RoadmapsPage = () => {
 
       <Card className="overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-cyan-500 to-emerald-500" />
-        <CardContent className="grid gap-4 p-5 lg:grid-cols-[1fr_auto] lg:items-center">
-          <div>
-            <p className="font-semibold text-slate-950 dark:text-slate-50">Bạn muốn đi theo hướng nào tiếp theo?</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Chọn vai trò mục tiêu, hệ thống sẽ tạo hoặc mở lại roadmap phù hợp với tài khoản của bạn.
-            </p>
+        <CardContent className="space-y-5 p-5">
+          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
+            <div>
+              <p className="font-semibold text-slate-950 dark:text-slate-50">Tạo roadmap từ role phù hợp</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Chọn nguồn đánh giá, hệ thống lấy 5 role phù hợp nhất rồi tạo roadmap theo role bạn chọn.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <select
+                aria-label="Cấp độ roadmap"
+                value={level}
+                onChange={(event) => setLevel(event.target.value as typeof level)}
+                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+              >
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+              <select
+                aria-label="Thời lượng roadmap"
+                value={durationWeeks}
+                onChange={(event) => setDurationWeeks(Number(event.target.value))}
+                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+              >
+                <option value={4}>4 tuần</option>
+                <option value={6}>6 tuần</option>
+                <option value={8}>8 tuần</option>
+                <option value={12}>12 tuần</option>
+              </select>
+            </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-[minmax(260px,1fr)_auto]">
+
+          <div className="grid gap-2 md:grid-cols-3">
+            {[
+              { value: 'single_repo', label: 'Một repo', description: 'Match role theo 1 repo cụ thể.' },
+              { value: 'selected_repos', label: 'Một vài repo', description: 'Tổng hợp các repo bạn chọn.' },
+              { value: 'all_analyzed_repos', label: 'Tất cả repo', description: 'Dùng toàn bộ repo đã phân tích.' }
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`rounded-lg border p-3 text-left transition ${sourceMode === option.value ? 'border-indigo-500 bg-indigo-50 text-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100' : 'border-slate-200 hover:border-indigo-300 dark:border-slate-800'}`}
+                onClick={() => setSourceMode(option.value as RoadmapSourceMode)}
+              >
+                <span className="text-sm font-semibold">{option.label}</span>
+                <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{option.description}</span>
+              </button>
+            ))}
+          </div>
+
+          {sourceMode === 'single_repo' && (
             <select
-              aria-label="Vai trò mục tiêu"
-              value={targetRole}
-              onChange={(event) => setTargetRole(event.target.value)}
-              className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+              aria-label="Repository nguồn"
+              value={repositoryId ?? ''}
+              onChange={(event) => setSelectedRepoIds(event.target.value ? [event.target.value] : [])}
+              className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
             >
-              {suggestedTargetRoles.map((role) => (
-                <option key={role} value={role}>{role}</option>
+              {analyzedRepos.map((repo) => (
+                <option key={repo.id} value={repo.id}>{repo.name}{repo.level ? ` - ${repo.level}` : ''}{typeof repo.commits === 'number' ? ` - ${repo.commits} commits` : ''}</option>
               ))}
             </select>
-            <Button isLoading={isGenerating} onClick={handleGenerate}>
-              <Sparkles className="mr-2 h-4 w-4" />
-              Tạo lộ trình
-            </Button>
-          </div>
-          {error && (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200 lg:col-span-2">
-              {error}
-            </p>
           )}
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardContent className="space-y-5 p-5">
-          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div>
-              <p className="font-semibold text-slate-950 dark:text-slate-50">AI đề xuất roadmap phù hợp</p>
-              {recommendedRoadmap ? (
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Đề xuất chính: <span className="font-medium text-indigo-600 dark:text-indigo-300">{recommendedRoadmap.role}</span>. {recommendedRoadmap.reason}
-                </p>
-              ) : (
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Chưa có đủ dữ liệu phân tích repository. Hãy phân tích ít nhất một repository để AI đề xuất hướng đi phù hợp hơn.
-                </p>
-              )}
-            </div>
-            <Button isLoading={isGenerating} disabled={!recommendedRoadmap} onClick={handleGenerateRecommended}>
-              <Sparkles className="mr-2 h-4 w-4" />
-              Tạo theo đề xuất chính
-            </Button>
-          </div>
-
-          {jobReadinessRoadmaps.length > 0 && (
-            <div>
-              <div className="mb-3">
-                <p className="font-medium text-slate-900 dark:text-slate-100">2 đề xuất phụ để tăng khả năng xin việc</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Các lộ trình phụ tập trung vào những tín hiệu nhà tuyển dụng thường kiểm tra: kiểm thử, triển khai, CI/CD, tài liệu và chất lượng code.
-                </p>
-              </div>
-              <div className="grid gap-3 lg:grid-cols-2">
-                {jobReadinessRoadmaps.map((suggestion) => (
-                  <div key={suggestion.role} className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/60">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <Badge variant="warning">Phụ trợ xin việc</Badge>
-                        <p className="mt-2 font-semibold text-slate-950 dark:text-slate-50">{suggestion.title}</p>
-                        <p className="mt-1 text-sm font-medium text-indigo-600 dark:text-indigo-300">{suggestion.role}</p>
-                      </div>
-                      <Button size="sm" variant="outline" isLoading={isGenerating} onClick={() => handleGenerateSuggestion(suggestion)}>
-                        Tạo lộ trình
-                      </Button>
-                    </div>
-                    <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{suggestion.reason}</p>
-                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Trọng tâm: {suggestion.focus}</p>
-                  </div>
+          {sourceMode === 'selected_repos' && (
+            <div className="max-h-44 overflow-auto rounded-lg border border-slate-200 p-2 dark:border-slate-800">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {analyzedRepos.map((repo) => (
+                  <label key={repo.id} className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={selectedRepoIds.includes(repo.id)}
+                      onChange={(event) => setSelectedRepoIds((current) =>
+                        event.target.checked ? [...current, repo.id] : current.filter((repoId) => repoId !== repo.id)
+                      )}
+                    />
+                    <span className="min-w-0 truncate">{repo.name}</span>
+                  </label>
                 ))}
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Tổng quan từ các repository đã phân tích</CardTitle>
-          <CardDescription>
-            Đây là bức tranh chung được tổng hợp từ toàn bộ kết quả phân tích repository trong tài khoản của bạn.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {analysisOverview ? (
-            <div className="space-y-5">
-              <p className="text-sm text-slate-600 dark:text-slate-300">{analysisOverview.summary}</p>
-              <div className="grid gap-3 md:grid-cols-4">
-                <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                  <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{analysisOverview.repositoriesCount}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">repo đã phân tích</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                  <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{analysisOverview.averageOverallScore}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">điểm tổng quan TB</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                  <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{analysisOverview.averageTestingScore}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">testing TB</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                  <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{analysisOverview.averageDeploymentScore}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">deployment TB</p>
-                </div>
+          <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={forceRegenerate}
+              onChange={(event) => setForceRegenerate(event.target.checked)}
+            />
+            Tạo mới lại nếu đã có roadmap cùng role
+          </label>
+
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-900 dark:bg-indigo-950/20">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">5 role phù hợp nhất</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                  {isRoleMatchesLoading ? 'Đang tính role phù hợp...' : 'Role match và tạo roadmap luôn dùng cùng sourceMode.'}
+                </p>
               </div>
-              <div className="grid gap-4 lg:grid-cols-3">
-                <div>
-                  <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Ngôn ngữ nổi bật</p>
-                  <div className="flex flex-wrap gap-2">
-                    {analysisOverview.topLanguages.length ? analysisOverview.topLanguages.map((item) => (
-                      <Badge key={item.label} variant="default">{item.label} · {item.count}</Badge>
-                    )) : <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
-                  </div>
+              {roleMatches[0] && (
+                <div className="shrink-0 sm:text-right">
+                  <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{Math.round(roleMatches[0].matchScore)}%</p>
+                  <p className="text-xs text-slate-500">role tốt nhất</p>
                 </div>
-                <div>
-                  <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Framework nổi bật</p>
-                  <div className="flex flex-wrap gap-2">
-                    {analysisOverview.topFrameworks.length ? analysisOverview.topFrameworks.map((item) => (
-                      <Badge key={item.label} variant="info">{item.label} · {item.count}</Badge>
-                    )) : <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Hướng nghề nghiệp nổi bật</p>
-                  <div className="flex flex-wrap gap-2">
-                    {analysisOverview.topCareerDirections.length ? analysisOverview.topCareerDirections.map((item) => (
-                      <Badge key={item.label} variant="success">{item.label} · {item.count}</Badge>
-                    )) : <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
-                  </div>
-                </div>
-              </div>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div>
-                  <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Tín hiệu kỹ năng mạnh</p>
-                  <div className="flex flex-wrap gap-2">
-                    {analysisOverview.strongestSignals.length ? analysisOverview.strongestSignals.map((item) => (
-                      <Badge key={item.label} variant="success">{item.label}</Badge>
-                    )) : <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Kỹ năng nên bổ sung</p>
-                  <div className="flex flex-wrap gap-2">
-                    {analysisOverview.missingSkills.length ? analysisOverview.missingSkills.map((item) => (
-                      <Badge key={item.label} variant="warning">{item.label}</Badge>
-                    )) : <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center dark:border-slate-700">
-              <p className="font-medium text-slate-900 dark:text-slate-100">Chưa có dữ liệu tổng quan</p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Hãy phân tích repository trước, sau đó AI sẽ tổng hợp điểm mạnh, điểm thiếu và hướng nghề nghiệp nổi bật từ tất cả repo.
-              </p>
+            {roleMatchSource && (
+              <div className="mt-4 grid gap-2 sm:grid-cols-4">
+                <div className="rounded-md bg-white/70 p-2 dark:bg-slate-900/70">
+                  <p className="text-xs text-slate-500">Source mode</p>
+                  <p className="text-sm font-semibold">{roleMatchSource.sourceMode || sourceMode}</p>
+                </div>
+                <div className="rounded-md bg-white/70 p-2 dark:bg-slate-900/70">
+                  <p className="text-xs text-slate-500">Repo</p>
+                  <p className="text-sm font-semibold">{roleMatchSource.totalRepositories ?? (sourceMode === 'single_repo' ? 1 : selectedRepoIds.length)}</p>
+                </div>
+                <div className="rounded-md bg-white/70 p-2 dark:bg-slate-900/70">
+                  <p className="text-xs text-slate-500">User commits</p>
+                  <p className="text-sm font-semibold">{roleMatchSource.totalUserCommits ?? 0}</p>
+                </div>
+                <div className="rounded-md bg-white/70 p-2 dark:bg-slate-900/70">
+                  <p className="text-xs text-slate-500">Readiness</p>
+                  <p className="text-sm font-semibold">{roleMatchSource.userReadinessScore ?? 0}% · {roleMatchSource.userLevel || 'N/A'}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {roleMatchError && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+              {roleMatchError}
+            </p>
+          )}
+
+          {roleMatches.length > 0 ? (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {roleMatches.map((match) => {
+                const matchedSkills = [
+                  ...skillList(match.matchedSkillNames),
+                  ...skillList(match.topMatchedSkills),
+                  ...skillList(match.matchedSkills)
+                ].filter((skill, index, list) => list.indexOf(skill) === index)
+                const weakSkills = [
+                  ...skillList(match.weakSkillNames),
+                  ...skillList(match.weakSkills)
+                ].filter((skill, index, list) => list.indexOf(skill) === index)
+                const missingSkills = [
+                  ...skillList(match.missingSkillNames),
+                  ...skillList(match.topMissingSkills),
+                  ...skillList(match.missingRequiredSkills)
+                ].filter((skill, index, list) => list.indexOf(skill) === index)
+                const recommendedSkills = skillList(match.recommendedNextSkills)
+
+                return (
+                  <article key={match.roleId} className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-950 dark:text-slate-50">{match.roleName}</p>
+                        <p className="mt-1 text-xs text-slate-500">{match.matchLevelLabel}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{Math.round(match.matchScore)}%</p>
+                        <p className="text-xs text-slate-500">match</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs font-medium uppercase text-slate-500">Đã khớp</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {matchedSkills.slice(0, 4).map((skill) => <Badge key={skill} variant="success">{skill}</Badge>)}
+                        {!matchedSkills.length && <span className="text-xs text-slate-500">Chưa có kỹ năng khớp rõ.</span>}
+                      </div>
+                      <p className="text-xs font-medium uppercase text-slate-500">Cần bù đắp</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {weakSkills.slice(0, 3).map((skill) => <Badge key={skill} variant="warning">{skill}</Badge>)}
+                        {missingSkills.slice(0, 4).map((skill) => <Badge key={skill} variant="default">{skill}</Badge>)}
+                        {!weakSkills.length && !missingSkills.length && <span className="text-xs text-slate-500">Không có thiếu hụt nổi bật.</span>}
+                      </div>
+                      <p className="text-xs font-medium uppercase text-slate-500">Nên học tiếp</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {recommendedSkills.slice(0, 5).map((skill) => <Badge key={skill} variant="info">{skill}</Badge>)}
+                        {!recommendedSkills.length && <span className="text-xs text-slate-500">Chưa có đề xuất tiếp theo.</span>}
+                      </div>
+                    </div>
+                    <Button className="mt-4 w-full" size="sm" isLoading={isGenerating} disabled={!canGenerate} onClick={() => handleGenerate(match)}>
+                      Tạo roadmap
+                    </Button>
+                  </article>
+                )
+              })}
             </div>
+          ) : !isRoleMatchesLoading && (
+            <div className="rounded-lg border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+              Chưa có role match để tạo roadmap.
+            </div>
+          )}
+
+          {error && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+              {error}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -460,7 +577,7 @@ export const RoadmapsPage = () => {
             </CardHeader>
             {statusFilter === 'active' && (
               <CardContent className="flex justify-center pb-8">
-                <Button isLoading={isGenerating} onClick={handleGenerate}>
+                <Button isLoading={isGenerating} disabled={!canGenerate} onClick={() => handleGenerate()}>
                   <Sparkles className="mr-2 h-4 w-4" />
                   Tạo roadmap đầu tiên
                 </Button>

@@ -49,6 +49,19 @@ const clampScore = (value: number | undefined) => {
   return Math.min(100, Math.max(0, Math.round(value ?? 0)))
 }
 
+const formatConfidence = (value: number | string | undefined) => {
+  if (typeof value === 'number') return `${clampScore(value)}%`
+  if (!value) return 'N/A'
+
+  const labels: Record<string, string> = {
+    low: 'Thấp',
+    medium: 'Trung bình',
+    high: 'Cao'
+  }
+
+  return labels[value.toLowerCase()] ?? value
+}
+
 const getScoreTone = (score: number) => {
   if (score >= 75) return {
     text: 'text-emerald-700 dark:text-emerald-300',
@@ -70,6 +83,20 @@ const getScoreTone = (score: number) => {
     soft: 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-900',
     label: 'Ưu tiên cải thiện'
   }
+}
+
+const skillLevelLabels: Record<string, string> = {
+  strong: 'Mạnh',
+  developing: 'Đang phát triển',
+  weak: 'Cần củng cố',
+  missing: 'Thiếu'
+}
+
+const skillLevelVariants: Record<string, 'success' | 'info' | 'warning' | 'danger' | 'default'> = {
+  strong: 'success',
+  developing: 'info',
+  weak: 'warning',
+  missing: 'danger'
 }
 
 export const AnalysisResultPage = () => {
@@ -174,14 +201,14 @@ export const AnalysisResultPage = () => {
   const overallScore = clampScore(analysis.scores.overallScore ?? analysis.scores.overall)
   const overallTone = getScoreTone(overallScore)
   const scoreItems = [
-    ['Tech stack', clampScore(analysis.scores.techStackScore)],
-    ['Tài liệu', clampScore(analysis.scores.documentationScore ?? analysis.scores.documentation)],
-    ['Chất lượng commit', clampScore(analysis.scores.commitQualityScore ?? analysis.scores.commitQuality)],
-    ['Triển khai', clampScore(analysis.scores.deploymentScore)],
-    ['Testing', clampScore(analysis.scores.testingScore)],
-    ['Độ sẵn sàng portfolio', clampScore(analysis.scores.portfolioReadinessScore)]
-  ] as const
-  const scoreDescriptions: Record<(typeof scoreItems)[number][0], string> = {
+    ['Tech stack', analysis.scores.techStackScore],
+    ['Tài liệu', analysis.scores.documentationScore],
+    ['Chất lượng commit', analysis.scores.commitQualityScore],
+    ['Triển khai', analysis.scores.deploymentScore],
+    ['Testing', analysis.scores.testingScore],
+    ['Độ sẵn sàng portfolio', analysis.scores.portfolioReadinessScore]
+  ].filter((item): item is [string, number] => typeof item[1] === 'number' && Number.isFinite(item[1]))
+  const scoreDescriptions: Record<string, string> = {
     'Tech stack': 'Mức độ phù hợp và tính hiện đại của ngôn ngữ, framework, thư viện được sử dụng trong repository.',
     'Tài liệu': 'Chất lượng README, hướng dẫn cài đặt, cấu hình và mức độ dễ hiểu khi người khác tiếp cận dự án.',
     'Chất lượng commit': 'Mức độ rõ ràng, đều đặn và có ý nghĩa của lịch sử commit.',
@@ -189,6 +216,17 @@ export const AnalysisResultPage = () => {
     'Testing': 'Mức độ hiện diện của unit test, integration test hoặc end-to-end test trong dự án.',
     'Độ sẵn sàng portfolio': 'Mức độ hoàn chỉnh và thuyết phục của dự án khi dùng để giới thiệu năng lực với nhà tuyển dụng.'
   }
+
+  const skillVector = analysis.skillVector ?? []
+  const topSkills = analysis.topSkills ?? []
+  const scope = analysis.analysisScope
+  const summary = analysis.summary
+  const breakdown = analysis.scoreBreakdown
+  const hasBreakdown = Boolean(breakdown && Object.values(breakdown).some((value) => typeof value === 'number' && Number.isFinite(value) && value !== 0))
+  const groupedSkillVector = ['strong', 'developing', 'weak', 'missing'].map((level) => ({
+    level,
+    items: skillVector.filter((skill) => skill.level === level)
+  })).filter((group) => group.items.length > 0)
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -240,6 +278,114 @@ export const AnalysisResultPage = () => {
 
       <RoleMatchPanel repositoryId={analysis.repositoryId || id} />
 
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Phạm vi phân tích</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+              <p className="text-xs text-slate-500">GitHub user</p>
+              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{scope?.githubUsername || 'N/A'}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+              <p className="text-xs text-slate-500">Commit của bạn / repo</p>
+              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{scope?.userCommits ?? commitSummary.totalCommits}/{scope?.totalRepoCommits ?? commitSummary.totalCommits}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+              <p className="text-xs text-slate-500">Ngày hoạt động</p>
+              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{scope?.activeDays ?? commitSummary.activeDays}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+              <p className="text-xs text-slate-500">Level / readiness</p>
+              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{summary?.userLevel || 'N/A'} - {clampScore(summary?.userReadinessScore)}%</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Kỹ năng nổi bật</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {topSkills.length ? (
+              <div className="space-y-2">
+                {topSkills.slice(0, 5).map((skill) => (
+                  <div key={skill.canonicalSkillName || skill.skill} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-slate-900 dark:text-slate-100">{skill.skill}</p>
+                      <p className="text-xs text-slate-500">{skill.category || skill.level || 'Detected skill'}</p>
+                    </div>
+                    <Badge variant="success">{Math.round(skill.score <= 1 ? skill.score * 100 : skill.score)}%</Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">Chưa có topSkills trong payload.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {hasBreakdown && breakdown && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Thành phần điểm readiness</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {[
+              ['Skill', breakdown.skillScore],
+              ['Đóng góp', breakdown.contributionScore],
+              ['Commit', breakdown.commitQualityScore],
+              ['Hoàn thiện', breakdown.projectCompletenessScore],
+              ['Penalty', breakdown.missingCriticalPenalty]
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                <p className="text-xs text-slate-500">{label}</p>
+                <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{typeof value === 'number' ? Math.round(value) : 0}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {skillVector.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Code2 className="h-5 w-5" />
+              Skill vector
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 lg:grid-cols-4">
+            {groupedSkillVector.map((group) => (
+              <div key={group.level} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{skillLevelLabels[group.level] ?? group.level}</p>
+                  <Badge variant={skillLevelVariants[group.level] ?? 'default'}>{group.items.length}</Badge>
+                </div>
+                <div className="space-y-2">
+                  {group.items.slice(0, 5).map((skill) => (
+                    <div key={skill.canonicalSkillName} className="rounded-md bg-slate-50 px-3 py-2 dark:bg-slate-900">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">{skill.canonicalSkillName}</p>
+                        <span className="text-xs font-semibold text-slate-500">{Math.round((skill.score <= 1 ? skill.score * 100 : skill.score) || 0)}%</span>
+                      </div>
+                      {(skill.category || skill.evidence?.length) && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          {skill.category || 'Tín hiệu kỹ năng'}{skill.evidence?.length ? ` · ${skill.evidence.length} bằng chứng` : ''}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                  {group.items.length > 5 && <p className="text-xs text-slate-500">+{group.items.length - 5} kỹ năng khác</p>}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -266,35 +412,57 @@ export const AnalysisResultPage = () => {
               <div className={`mt-3 text-5xl font-bold ${overallTone.text}`}>{overallScore}</div>
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{overallTone.label}</p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              {scoreItems.map(([label, score]) => {
-                const tone = getScoreTone(score)
+            {scoreItems.length ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {scoreItems.map(([label, rawScore]) => {
+                  const score = clampScore(rawScore)
+                  const tone = getScoreTone(score)
 
-                return (
-                  <div key={label} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</p>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button type="button" aria-label={`Giải thích điểm ${label}`} className="shrink-0 rounded-sm text-slate-400 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:text-slate-200">
-                              <CircleHelp className="h-4 w-4" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" sideOffset={8} className="max-w-xs leading-5">
-                            {scoreDescriptions[label]}
-                          </TooltipContent>
-                        </Tooltip>
+                  return (
+                    <div key={label} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</p>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button type="button" aria-label={`Giải thích điểm ${label}`} className="shrink-0 rounded-sm text-slate-400 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:text-slate-200">
+                                <CircleHelp className="h-4 w-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" sideOffset={8} className="max-w-xs leading-5">
+                              {scoreDescriptions[label]}
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <span className={`text-sm font-semibold ${tone.text}`}>{score}</span>
                       </div>
-                      <span className={`text-sm font-semibold ${tone.text}`}>{score}</span>
+                      <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-slate-800">
+                        <div className={`h-2 rounded-full ${tone.bg}`} style={{ width: `${score}%` }} />
+                      </div>
                     </div>
-                    <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-slate-800">
-                      <div className={`h-2 rounded-full ${tone.bg}`} style={{ width: `${score}%` }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                  <p className="text-xs text-slate-500">Readiness người dùng</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{clampScore(summary?.userReadinessScore)}%</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                  <p className="text-xs text-slate-500">Độ tin cậy phân tích</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{formatConfidence(summary?.confidence)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                  <p className="text-xs text-slate-500">Loại dự án</p>
+                  <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{summary?.projectType || analysis.projectType}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                  <p className="text-xs text-slate-500">Định hướng</p>
+                  <p className="mt-1 font-semibold text-indigo-600 dark:text-indigo-400">{summary?.careerDirection || analysis.careerDirection.primary}</p>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -405,12 +573,16 @@ export const AnalysisResultPage = () => {
           <CardHeader><CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" />Hoạt động commit</CardTitle></CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-              <p className="text-xs text-slate-500">Tổng số commit</p>
-              <p className="mt-1 text-lg font-semibold">{commitSummary.totalCommits}</p>
+              <p className="text-xs text-slate-500">Commit của bạn</p>
+              <p className="mt-1 text-lg font-semibold">{scope?.userCommits ?? commitSummary.totalCommits}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+              <p className="text-xs text-slate-500">Tổng commit repo</p>
+              <p className="mt-1 text-lg font-semibold">{scope?.totalRepoCommits ?? commitSummary.totalCommits}</p>
             </div>
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
               <p className="text-xs text-slate-500">Số ngày hoạt động</p>
-              <p className="mt-1 text-lg font-semibold">{commitSummary.activeDays}</p>
+              <p className="mt-1 text-lg font-semibold">{scope?.activeDays ?? commitSummary.activeDays}</p>
             </div>
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
               <p className="text-xs text-slate-500">Tỷ lệ commit mơ hồ</p>
@@ -422,11 +594,11 @@ export const AnalysisResultPage = () => {
             </div>
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
               <p className="text-xs text-slate-500">Commit đầu tiên</p>
-              <p className="mt-1 text-sm font-medium">{commitSummary.firstCommitDate ? formatDate(commitSummary.firstCommitDate) : 'N/A'}</p>
+              <p className="mt-1 text-sm font-medium">{(scope?.firstCommitDate || commitSummary.firstCommitDate) ? formatDate(scope?.firstCommitDate || commitSummary.firstCommitDate || '') : 'N/A'}</p>
             </div>
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
               <p className="text-xs text-slate-500">Commit gần nhất</p>
-              <p className="mt-1 text-sm font-medium">{commitSummary.lastCommitDate ? formatDate(commitSummary.lastCommitDate) : 'N/A'}</p>
+              <p className="mt-1 text-sm font-medium">{(scope?.lastCommitDate || commitSummary.lastCommitDate) ? formatDate(scope?.lastCommitDate || commitSummary.lastCommitDate || '') : 'N/A'}</p>
             </div>
           </CardContent>
         </Card>

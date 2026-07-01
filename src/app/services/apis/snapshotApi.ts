@@ -1,4 +1,5 @@
 import { apiClient, unwrapResponse } from './apiClient'
+import type { SkillVectorItem } from '../../types'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -8,6 +9,8 @@ export type AnalysisSnapshot = {
   createdAt: string
   careerDirection?: string
   missingSkills: string[]
+  skillVector?: SkillVectorItem[]
+  skillVectorSummary?: SkillVectorSummary
   overallScore: number
   techStackScore?: number
   documentationScore?: number
@@ -15,6 +18,15 @@ export type AnalysisSnapshot = {
   testingScore?: number
   deploymentScore?: number
   portfolioReadinessScore?: number
+}
+
+export type SkillVectorSummary = {
+  totalSkills: number
+  missingCount: number
+  weakCount: number
+  developingCount: number
+  strongCount: number
+  averageScore: number
 }
 
 export type SnapshotScoreChange = {
@@ -39,8 +51,14 @@ export type SkillComparisonSummary = {
   totalComparedSkills: number
   improvedCount: number
   regressedCount: number
+  unchangedCount: number
+  newSkillCount: number
   resolvedMissingCount: number
   remainingMissingCount: number
+  newMissingCount: number
+  averageBeforeScore: number
+  averageAfterScore: number
+  averageChange: number
 }
 
 export type SnapshotComparison = {
@@ -57,7 +75,10 @@ export type SnapshotComparison = {
   alreadyPresentChecklist: string[]
   remainingMissingSkills: string[]
   resolvedMissingSkills: string[]
+  newMissingSkills: string[]
   topImprovedSkills: SkillComparisonItem[]
+  topRegressedSkills: SkillComparisonItem[]
+  newSkills: SkillComparisonItem[]
   skillComparisonSummary: SkillComparisonSummary
   skillComparisonText: string
   raw: unknown
@@ -66,6 +87,11 @@ export type SnapshotComparison = {
 const asRecord = (value: unknown): UnknownRecord => value && typeof value === 'object' ? value as UnknownRecord : {}
 const asNumber = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : Number(value) || 0
 const asArray = (value: unknown) => Array.isArray(value) ? value : []
+
+type SnapshotQueryParams = {
+  includeEvidence?: boolean
+  includeSkillDetails?: boolean
+}
 
 const getScore = (source: UnknownRecord, ...keys: string[]) => {
   const scores = asRecord(source.scores ?? source.score)
@@ -78,12 +104,33 @@ const getScore = (source: UnknownRecord, ...keys: string[]) => {
 
 const normalizeSnapshot = (payload: unknown): AnalysisSnapshot => {
   const source = asRecord(payload)
+  const skillVectorSummary = asRecord(source.skillVectorSummary)
   return {
     id: String(source.snapshotId ?? source.id ?? source._id ?? source.analysisSnapshotId ?? ''),
     repositoryId: String(source.repositoryId ?? source.repoId ?? ''),
     createdAt: String(source.createdAt ?? source.analyzedAt ?? source.timestamp ?? source.generatedAt ?? ''),
     careerDirection: typeof source.careerDirection === 'string' ? source.careerDirection : undefined,
     missingSkills: asArray(source.missingSkills).map(String),
+    skillVector: asArray(source.skillVector).map((item) => {
+      const record = asRecord(item)
+      return {
+        canonicalSkillName: String(record.canonicalSkillName ?? record.skillName ?? record.name ?? ''),
+        normalizedSkillName: typeof record.normalizedSkillName === 'string' ? record.normalizedSkillName : undefined,
+        category: typeof record.category === 'string' ? record.category : undefined,
+        score: asNumber(record.score),
+        level: String(record.level ?? 'missing'),
+        evidence: asArray(record.evidence).map(String),
+        sources: asArray(record.sources).map(String)
+      } satisfies SkillVectorItem
+    }).filter((item) => item.canonicalSkillName),
+    skillVectorSummary: Object.keys(skillVectorSummary).length ? {
+      totalSkills: asNumber(skillVectorSummary.totalSkills ?? skillVectorSummary.total),
+      missingCount: asNumber(skillVectorSummary.missingCount),
+      weakCount: asNumber(skillVectorSummary.weakCount),
+      developingCount: asNumber(skillVectorSummary.developingCount),
+      strongCount: asNumber(skillVectorSummary.strongCount),
+      averageScore: asNumber(skillVectorSummary.averageScore)
+    } : undefined,
     overallScore: getScore(source, 'overallScore', 'overall'),
     techStackScore: getScore(source, 'techStackScore'),
     documentationScore: getScore(source, 'documentationScore', 'documentation'),
@@ -159,13 +206,22 @@ const normalizeComparison = (payload: unknown): SnapshotComparison => {
     alreadyPresentChecklist: asArray(data.alreadyPresentChecklist).map(String),
     remainingMissingSkills: asArray(data.remainingMissingSkills).map(String),
     resolvedMissingSkills: asArray(data.resolvedMissingSkills).map(String),
+    newMissingSkills: asArray(data.newMissingSkills).map(String),
     topImprovedSkills: asArray(skillVectorComparison.topImprovedSkills).map(toSkillComparison),
+    topRegressedSkills: asArray(skillVectorComparison.topRegressedSkills).map(toSkillComparison),
+    newSkills: asArray(skillVectorComparison.newSkills).map(toSkillComparison),
     skillComparisonSummary: {
       totalComparedSkills: asNumber(skillSummary.totalComparedSkills),
       improvedCount: asNumber(skillSummary.improvedCount),
       regressedCount: asNumber(skillSummary.regressedCount),
+      unchangedCount: asNumber(skillSummary.unchangedCount),
+      newSkillCount: asNumber(skillSummary.newSkillCount),
       resolvedMissingCount: asNumber(skillSummary.resolvedMissingCount),
-      remainingMissingCount: asNumber(skillSummary.remainingMissingCount)
+      remainingMissingCount: asNumber(skillSummary.remainingMissingCount),
+      newMissingCount: asNumber(skillSummary.newMissingCount),
+      averageBeforeScore: asNumber(skillSummary.averageBeforeScore),
+      averageAfterScore: asNumber(skillSummary.averageAfterScore),
+      averageChange: asNumber(skillSummary.averageChange)
     },
     skillComparisonText: String(skillVectorComparison.summary ?? ''),
     raw: payload
@@ -173,8 +229,8 @@ const normalizeComparison = (payload: unknown): SnapshotComparison => {
 }
 
 export const snapshotApi = {
-  async getProgressComparison(repositoryId: string) {
-    const response = await apiClient.get(`/repositories/${repositoryId}/progress-comparison`)
+  async getProgressComparison(repositoryId: string, params: SnapshotQueryParams = { includeSkillDetails: true }) {
+    const response = await apiClient.get(`/repositories/${repositoryId}/progress-comparison`, { params })
     return normalizeComparison(response.data)
   },
 
@@ -183,13 +239,13 @@ export const snapshotApi = {
     return getSnapshotList(response.data)
   },
 
-  async getSnapshot(snapshotId: string) {
-    const response = await apiClient.get(`/snapshots/${snapshotId}`)
+  async getSnapshot(snapshotId: string, params: SnapshotQueryParams = { includeEvidence: true }) {
+    const response = await apiClient.get(`/snapshots/${snapshotId}`, { params })
     return normalizeSnapshot(unwrapResponse(response.data))
   },
 
-  async compareSnapshots(fromSnapshotId: string, toSnapshotId: string) {
-    const response = await apiClient.post('/snapshots/compare', { fromSnapshotId, toSnapshotId })
+  async compareSnapshots(fromSnapshotId: string, toSnapshotId: string, params: SnapshotQueryParams = { includeSkillDetails: true }) {
+    const response = await apiClient.post('/snapshots/compare', { fromSnapshotId, toSnapshotId }, { params })
     return normalizeComparison(response.data)
   }
 }

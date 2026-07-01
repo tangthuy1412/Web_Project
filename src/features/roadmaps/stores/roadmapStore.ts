@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import { roadmapService, type RoadmapListParams } from '../services/roadmapService'
-import type { AIRecommendation, LearningNodeStatus, Roadmap, RoadmapFilters, SkillProgress, UserLearningStats } from '../types'
+import { roadmapService, type GenerateRoadmapOptions, type RoadmapListParams } from '../services/roadmapService'
+import type { AIRecommendation, LearningNodeStatus, Roadmap, RoadmapFilters, RoadmapProgressRecord, SkillProgress, UserLearningStats } from '../types'
 import { getApiErrorMessage } from '../../../app/services/apis/core'
 
 interface RoadmapState {
@@ -14,11 +14,13 @@ interface RoadmapState {
   error: string | null
   fetchRoadmaps: (params?: RoadmapListParams) => Promise<void>
   fetchRoadmapDetail: (idOrSlug: string) => Promise<Roadmap | undefined>
-  generateAIRoadmap: (targetRole?: string, forceRegenerate?: boolean, repoId?: string) => Promise<AIRecommendation | null>
+  generateAIRoadmap: (targetRole?: string, options?: GenerateRoadmapOptions | boolean, repoId?: string) => Promise<AIRecommendation | null>
   archiveRoadmap: (roadmapId: string) => Promise<void>
+  resetRoadmapProgress: (roadmapId: string) => Promise<void>
+  updateSkillProgress: (roadmapId: string, skillName: string, status: 'not_started' | 'in_progress' | 'completed' | string) => Promise<void>
   setFilters: (filters: Partial<RoadmapFilters>) => void
   getRoadmapById: (idOrSlug: string) => Roadmap | undefined
-  updateNodeStatus: (roadmapId: string, nodeId: string, status: LearningNodeStatus) => void
+  updateNodeStatus: (roadmapId: string, nodeId: string, status: LearningNodeStatus) => Promise<void>
   toggleBookmark: (roadmapId: string, nodeId: string) => void
 }
 
@@ -39,6 +41,35 @@ const emptyLearningStats: UserLearningStats = {
 }
 
 const getRoadmapNodes = (roadmap: Roadmap) => roadmap.modules.flatMap((module) => module.nodes)
+
+const normalizeSkillKey = (value?: string) => (value ?? '').trim().toLowerCase()
+const normalizeItemKey = (value?: string) => (value ?? '').trim()
+const getNodeProgressSkill = (node: Roadmap['modules'][number]['nodes'][number]) =>
+  node.canonicalSkillName || node.skillName || node.skills[0] || node.title
+
+const getNodeProgressKeys = (node: Roadmap['modules'][number]['nodes'][number]) => {
+  const primarySkill = getNodeProgressSkill(node)
+  return [
+    primarySkill,
+    node.canonicalSkillName,
+    node.skillName
+  ].map(normalizeSkillKey).filter(Boolean)
+}
+
+const getNodeProgressItemId = (node: Roadmap['modules'][number]['nodes'][number]) =>
+  node.itemId || node.id
+
+const toBackendProgressStatus = (status: LearningNodeStatus) => {
+  if (status === 'completed') return 'completed'
+  if (status === 'in-progress' || status === 'unlocked') return 'in_progress'
+  return 'not_started'
+}
+
+const toNodeStatus = (status: string, progressPercent: number): LearningNodeStatus => {
+  if (status === 'completed' || progressPercent >= 100) return 'completed'
+  if (status === 'in_progress' || progressPercent > 0) return 'in-progress'
+  return 'locked'
+}
 
 const buildLearningStats = (roadmaps: Roadmap[], bookmarkedNodeIds: string[] = []): UserLearningStats => {
   const nodes = roadmaps.flatMap(getRoadmapNodes)
@@ -94,24 +125,92 @@ const updateRoadmapNode = (
 })
 
 const normalizeRoadmapProgress = (roadmap: Roadmap): Roadmap => {
-  const orderedNodeIds = roadmap.modules.flatMap((module) => module.nodes.map((node) => node.id))
-  const firstOpenNodeId = orderedNodeIds.find((nodeId) =>
-    roadmap.modules.some((module) =>
-      module.nodes.some((node) => node.id === nodeId && node.status !== 'completed')
-    )
-  )
-
   return {
     ...roadmap,
     modules: roadmap.modules.map((module) => ({
       ...module,
       nodes: module.nodes.map((node) => {
         if (node.status === 'completed') return node
-        if (node.id === firstOpenNodeId) return { ...node, status: 'unlocked' }
-        return { ...node, status: 'locked' }
+        if (node.status === 'in-progress') return node
+        return { ...node, status: 'unlocked' }
       })
     }))
   }
+}
+
+const applyRoadmapProgress = (roadmap: Roadmap, progress: RoadmapProgressRecord): Roadmap => {
+  const mergedItems = (() => {
+    const items = new Map<string, RoadmapProgressRecord['items'][number]>()
+    ;(roadmap.progressItems ?? []).forEach((item) => {
+      items.set(item.itemId ? `item:${normalizeItemKey(item.itemId)}` : `skill:${normalizeSkillKey(item.normalizedSkillName || item.skillName)}`, item)
+    })
+    progress.items.forEach((item) => {
+      items.set(item.itemId ? `item:${normalizeItemKey(item.itemId)}` : `skill:${normalizeSkillKey(item.normalizedSkillName || item.skillName)}`, item)
+    })
+    return Array.from(items.values())
+  })()
+  const itemIdMap = new Map<string, RoadmapProgressRecord['items'][number]>()
+  const itemMap = new Map<string, RoadmapProgressRecord['items'][number]>()
+  mergedItems.forEach((item) => {
+    if (item.itemId) itemIdMap.set(normalizeItemKey(item.itemId), item)
+    itemMap.set(normalizeSkillKey(item.skillName), item)
+    if (item.normalizedSkillName) itemMap.set(normalizeSkillKey(item.normalizedSkillName), item)
+    if (item.canonicalSkillName) itemMap.set(normalizeSkillKey(item.canonicalSkillName), item)
+  })
+
+  return {
+    ...roadmap,
+    progressRecordId: progress.id || roadmap.progressRecordId,
+    progress: Math.max(0, Math.min(100, Math.round(progress.overallProgress))),
+    progressSummary: {
+      ...roadmap.progressSummary,
+      overallProgress: progress.overallProgress,
+      totalItems: progress.items.length || roadmap.progressSummary?.totalItems,
+      completedItems: progress.items.filter((item) => item.status === 'completed').length,
+      inProgressItems: progress.items.filter((item) => item.status === 'in_progress').length
+    },
+    progressItems: mergedItems,
+    modules: roadmap.modules.map((module) => ({
+      ...module,
+      nodes: module.nodes.map((node) => {
+        const item = itemIdMap.get(normalizeItemKey(getNodeProgressItemId(node))) ??
+          getNodeProgressKeys(node).map((key) => itemMap.get(key)).find(Boolean)
+
+        if (!item) return node
+
+        return {
+          ...node,
+          title: item.taskTitle || node.title,
+          skillName: item.skillName || node.skillName,
+          canonicalSkillName: item.canonicalSkillName || node.canonicalSkillName,
+          category: item.category || node.category,
+          targetRole: item.targetRole || node.targetRole,
+          level: item.level || node.level,
+          week: item.week ?? node.week,
+          priority: item.priority ?? node.priority,
+          skills: [
+            item.canonicalSkillName || item.skillName,
+            ...node.skills
+          ].filter((skill, index, list): skill is string => Boolean(skill) && list.indexOf(skill) === index),
+          status: toNodeStatus(item.status, item.progressPercent),
+          progressPercent: item.progressPercent
+        }
+      })
+    }))
+  }
+}
+
+const hydrateRoadmapsProgress = async (roadmaps: Roadmap[]) => {
+  const hydrated = await Promise.all(roadmaps.map(async (roadmap) => {
+    try {
+      const progress = await roadmapService.getRoadmapProgress(roadmap.id)
+      return applyRoadmapProgress(roadmap, progress)
+    } catch {
+      return roadmap
+    }
+  }))
+
+  return hydrated
 }
 
 const refreshDerivedState = (roadmaps: Roadmap[], bookmarkedNodeIds: string[] = []) => ({
@@ -140,8 +239,9 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 
     try {
       const roadmaps = await roadmapService.getRoadmaps(params)
+      const hydratedRoadmaps = await hydrateRoadmapsProgress(roadmaps)
       set({
-        ...refreshDerivedState(roadmaps, get().learningStats.bookmarkedNodeIds),
+        ...refreshDerivedState(hydratedRoadmaps, get().learningStats.bookmarkedNodeIds),
         isLoading: false
       })
     } catch (error) {
@@ -169,16 +269,18 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
         return undefined
       }
 
-      const roadmaps = get().roadmaps.some((item) => item.id === roadmap.id)
-        ? get().roadmaps.map((item) => (item.id === roadmap.id ? roadmap : item))
-        : [roadmap, ...get().roadmaps]
+      const progress = await roadmapService.getRoadmapProgress(roadmap.id).catch(() => null)
+      const hydratedRoadmap = progress ? applyRoadmapProgress(roadmap, progress) : roadmap
+      const roadmaps = get().roadmaps.some((item) => item.id === hydratedRoadmap.id)
+        ? get().roadmaps.map((item) => (item.id === hydratedRoadmap.id ? hydratedRoadmap : item))
+        : [hydratedRoadmap, ...get().roadmaps]
 
       set({
         ...refreshDerivedState(roadmaps, get().learningStats.bookmarkedNodeIds),
         isLoading: false
       })
 
-      return roadmap
+      return hydratedRoadmap
     } catch (error) {
       set({
         isLoading: false,
@@ -188,22 +290,25 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
     }
   },
 
-  generateAIRoadmap: async (targetRole, forceRegenerate = false, repoId) => {
+  generateAIRoadmap: async (targetRole, options = false, repoId) => {
     set({ isGenerating: true, error: null })
 
     try {
-      const aiRecommendation = await roadmapService.generateAIRoadmap(targetRole, forceRegenerate, repoId)
-      const roadmaps = get().roadmaps.some((roadmap) => roadmap.id === aiRecommendation.roadmap.id)
-        ? get().roadmaps.map((roadmap) => (roadmap.id === aiRecommendation.roadmap.id ? aiRecommendation.roadmap : roadmap))
-        : [aiRecommendation.roadmap, ...get().roadmaps]
+      const aiRecommendation = await roadmapService.generateAIRoadmap(targetRole, options, repoId)
+      const progress = await roadmapService.getRoadmapProgress(aiRecommendation.roadmap.id).catch(() => null)
+      const syncedRoadmap = progress ? applyRoadmapProgress(aiRecommendation.roadmap, progress) : aiRecommendation.roadmap
+      const syncedRecommendation = { ...aiRecommendation, roadmap: syncedRoadmap }
+      const roadmaps = get().roadmaps.some((roadmap) => roadmap.id === syncedRoadmap.id)
+        ? get().roadmaps.map((roadmap) => (roadmap.id === syncedRoadmap.id ? syncedRoadmap : roadmap))
+        : [syncedRoadmap, ...get().roadmaps]
 
       set({
-        aiRecommendation,
+        aiRecommendation: syncedRecommendation,
         ...refreshDerivedState(roadmaps, get().learningStats.bookmarkedNodeIds),
         isGenerating: false
       })
 
-      return aiRecommendation
+      return syncedRecommendation
     } catch (error) {
       set({
         isGenerating: false,
@@ -231,6 +336,45 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
     }
   },
 
+  resetRoadmapProgress: async (roadmapId) => {
+    set({ error: null })
+
+    try {
+      const roadmap = get().getRoadmapById(roadmapId)
+      if (!roadmap) return
+
+      const progress = await roadmapService.resetRoadmapProgress(roadmap.id)
+      const roadmaps = get().roadmaps.map((item) =>
+        item.id === roadmap.id || item.slug === roadmapId
+          ? applyRoadmapProgress(item, progress)
+          : item
+      )
+      set(refreshDerivedState(roadmaps, get().learningStats.bookmarkedNodeIds))
+    } catch (error) {
+      set({ error: getApiErrorMessage(error) })
+    }
+  },
+
+  updateSkillProgress: async (roadmapId, skillName, status) => {
+    set({ error: null })
+
+    const roadmap = get().getRoadmapById(roadmapId)
+    if (!roadmap || !skillName) return
+
+    try {
+      const progress = await roadmapService.updateRoadmapProgressItem(roadmap.id, { skillName, status })
+      const roadmaps = get().roadmaps.map((item) =>
+        item.id === roadmap.id || item.slug === roadmapId
+          ? applyRoadmapProgress(item, progress)
+          : item
+      )
+
+      set(refreshDerivedState(roadmaps, get().learningStats.bookmarkedNodeIds))
+    } catch (error) {
+      set({ error: getApiErrorMessage(error) })
+    }
+  },
+
   setFilters: (filters) => {
     set((state) => ({ filters: { ...state.filters, ...filters } }))
   },
@@ -238,16 +382,35 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
   getRoadmapById: (idOrSlug) =>
     get().roadmaps.find((roadmap) => roadmap.id === idOrSlug || roadmap.slug === idOrSlug),
 
-  updateNodeStatus: (roadmapId, nodeId, status) => {
-    set((state) => {
-      const roadmaps = state.roadmaps.map((roadmap) =>
-        roadmap.id === roadmapId || roadmap.slug === roadmapId
-          ? normalizeRoadmapProgress(updateRoadmapNode(roadmap, nodeId, (node) => ({ ...node, status })))
-          : roadmap
+  updateNodeStatus: async (roadmapId, nodeId, status) => {
+    set({ error: null })
+
+    const roadmap = get().getRoadmapById(roadmapId)
+    const node = roadmap?.modules.flatMap((module) => module.nodes).find((item) => item.id === nodeId)
+    const itemId = node ? getNodeProgressItemId(node) : ''
+    const skillName = node ? getNodeProgressSkill(node) : ''
+
+    if (!roadmap || !node || (!itemId && !skillName)) return
+
+    try {
+      const progress = await roadmapService.updateRoadmapProgressItem(roadmap.id, {
+        ...(itemId ? { itemId } : { skillName }),
+        status: toBackendProgressStatus(status)
+      })
+      const roadmaps = get().roadmaps.map((item) =>
+        item.id === roadmap.id || item.slug === roadmapId
+          ? applyRoadmapProgress(updateRoadmapNode(item, nodeId, (currentNode) => ({
+            ...currentNode,
+            status,
+            progressPercent: status === 'completed' ? 100 : status === 'in-progress' ? Math.max(currentNode.progressPercent ?? 0, 1) : 0
+          })), progress)
+          : item
       )
 
-      return refreshDerivedState(roadmaps, state.learningStats.bookmarkedNodeIds)
-    })
+      set(refreshDerivedState(roadmaps, get().learningStats.bookmarkedNodeIds))
+    } catch (error) {
+      set({ error: getApiErrorMessage(error) })
+    }
   },
 
   toggleBookmark: (roadmapId, nodeId) => {

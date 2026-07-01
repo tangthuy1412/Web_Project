@@ -19,10 +19,24 @@ const getTone = (level: string) => {
 }
 
 const clampScore = (score: number) => Math.max(0, Math.min(100, Math.round(score || 0)))
+const skillLabel = (value: unknown) => {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return String(record.skill ?? record.skillName ?? record.canonicalSkillName ?? record.name ?? '').trim()
+  }
+  return ''
+}
+const asStringList = (value: unknown) => Array.isArray(value) ? value.map(skillLabel).filter(Boolean) : []
 
 const RoleRow = ({ match, skillMap, catalog }: { match: RoleMatch; skillMap: Map<string, SkillCatalogItem>; catalog?: RoleCatalogItem }) => {
   const tone = getTone(match.matchLevel)
-  const nextSkills = match.recommendedNextSkills.slice(0, 5)
+  const nextSkills = asStringList(match.recommendedNextSkills).slice(0, 5)
+  const matchedSkills = [
+    ...asStringList(match.matchedSkillNames),
+    ...asStringList(match.topMatchedSkills),
+    ...asStringList(match.matchedSkills)
+  ].filter((skill, index, list) => list.indexOf(skill) === index)
 
   return (
     <article className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
@@ -66,8 +80,8 @@ const RoleRow = ({ match, skillMap, catalog }: { match: RoleMatch; skillMap: Map
         <div>
           <p className="mb-2 text-xs font-medium uppercase text-slate-500">Kỹ năng đã thể hiện</p>
           <div className="flex flex-wrap gap-2">
-            {match.topMatchedSkills.length
-              ? match.topMatchedSkills.slice(0, 5).map((skill) => <Badge key={skill} variant="success">{skill}</Badge>)
+            {matchedSkills.length
+              ? matchedSkills.slice(0, 5).map((skill) => <Badge key={skill} variant="success">{skill}</Badge>)
               : <span className="text-sm text-slate-500">Chưa phát hiện kỹ năng nổi bật.</span>}
           </div>
         </div>
@@ -178,7 +192,7 @@ export const RoleMatchPanel = ({ repositoryId }: RoleMatchPanelProps) => {
                   <p className="font-medium">Ưu tiên tiếp theo</p>
                 </div>
                 <p className="mt-2 text-sm text-amber-800 dark:text-amber-300">
-                  Bổ sung {matches[0].recommendedNextSkills.slice(0, 3).join(', ') || 'các kỹ năng còn thiếu'} để cải thiện độ sẵn sàng cho {data.topRole.roleName}.
+                  Bổ sung {asStringList(matches[0].recommendedNextSkills).slice(0, 3).join(', ') || 'các kỹ năng còn thiếu'} để cải thiện độ sẵn sàng cho {data.topRole.roleName}.
                 </p>
               </div>
             )}

@@ -174,15 +174,20 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     set({ isAnalyzing: true, error: null })
 
     try {
-      await githubApi.syncPackages(id)
-      await githubApi.syncCommits(id)
-      const result = normalizeAnalysis(await analysisApi.analyzeRepository(id))
+      await Promise.allSettled([
+        githubApi.syncPackages(id),
+        githubApi.syncCommits(id)
+      ])
+      const result = normalizeAnalysis(await analysisApi.analyzeRepository(id, { includeEvidence: true }))
 
       set((state) => ({
         analyses: [result, ...state.analyses.filter((analysis) => analysis.repositoryId !== id && analysis.id !== result.id)],
         repositories: state.repositories.map((repo) =>
           repo.id === id ? { ...repo, analyzed: true, analysisId: result.id } : repo
         ),
+        selectedRepository: state.selectedRepository?.id === id
+          ? { ...state.selectedRepository, analyzed: true, analysisId: result.id }
+          : state.selectedRepository,
         isAnalyzing: false
       }))
 
@@ -195,7 +200,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
 
   fetchAnalysis: async (repoId) => {
     try {
-      const result = normalizeAnalysis(await analysisApi.getResult(repoId))
+      const result = normalizeAnalysis(await analysisApi.getResult(repoId, { includeEvidence: true }))
       if (!result.id && !result.repositoryId) return null
 
       set((state) => ({

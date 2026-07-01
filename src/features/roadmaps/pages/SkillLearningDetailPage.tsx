@@ -26,8 +26,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../app/components/ui/tabs'
 
 export const SkillLearningDetailPage = () => {
-  const { id, skillName } = useParams<{ id: string; skillName: string }>()
-  const { getRoadmapById, fetchRoadmapDetail, isLoading: isLoadingRoadmap } = useRoadmapStore()
+  const { id, skillName, itemId } = useParams<{ id: string; skillName?: string; itemId?: string }>()
+  const { getRoadmapById, fetchRoadmapDetail, updateNodeStatus, isLoading: isLoadingRoadmap } = useRoadmapStore()
   
   const {
     learningContent,
@@ -37,6 +37,8 @@ export const SkillLearningDetailPage = () => {
     isLoadingResources,
     error,
     fetchSkillContent,
+    fetchRoadmapItemContent,
+    generateRoadmapItemContent,
     generateSkillContent,
     fetchSkillResources,
     searchSkillResources,
@@ -48,8 +50,16 @@ export const SkillLearningDetailPage = () => {
   const [activeTab, setActiveTab] = useState<string>('lessons')
 
   const roadmap = id ? getRoadmapById(id) : undefined
+  const taskNode = itemId
+    ? roadmap?.modules.flatMap((module) => module.nodes).find((node) => node.itemId === itemId || node.id === itemId)
+    : undefined
   const targetRole = roadmap?.careerOutcome || roadmap?.title || 'Software Engineer'
   const level = (roadmap?.difficulty || 'Beginner').toLowerCase()
+  const decodedSkillName = skillName
+    ? decodeURIComponent(skillName)
+    : taskNode?.canonicalSkillName || taskNode?.skillName || taskNode?.skills[0] || ''
+  const decodedItemId = itemId ? decodeURIComponent(itemId) : ''
+  const isRoadmapItemLearning = Boolean(id && decodedItemId)
 
   // 1. Fetch roadmap detail if not present
   useEffect(() => {
@@ -60,14 +70,45 @@ export const SkillLearningDetailPage = () => {
 
   // 2. Fetch learning content & resources once roadmap is loaded
   useEffect(() => {
-    if (skillName && targetRole && level) {
-      fetchSkillContent(skillName, { targetRole, level, language: 'vi' })
-      fetchSkillResources(skillName, { targetRole, level, type: 'video', language: 'vi' })
+    if (isRoadmapItemLearning && id && decodedItemId) {
+      fetchRoadmapItemContent(id, decodedItemId)
+      return () => {
+        clearStore()
+      }
+    }
+
+    if (decodedSkillName && targetRole && level) {
+      fetchSkillContent(decodedSkillName, { targetRole, level, language: 'vi' })
+      fetchSkillResources(decodedSkillName, { targetRole, level, type: 'video', language: 'vi' })
     }
     return () => {
       clearStore()
     }
-  }, [skillName, targetRole, level, fetchSkillContent, fetchSkillResources, clearStore])
+  }, [clearStore, decodedItemId, decodedSkillName, fetchRoadmapItemContent, fetchSkillContent, fetchSkillResources, id, isRoadmapItemLearning, level, targetRole])
+
+  const handleGenerateLearning = () => {
+    if (isRoadmapItemLearning && id && decodedItemId) {
+      void generateRoadmapItemContent(id, decodedItemId, { forceRegenerate: false, includeResources: true })
+      return
+    }
+
+    void generateSkillContent({ skillName: decodedSkillName, targetRole, level, language: 'vi' })
+  }
+
+  const handleRefreshResources = () => {
+    if (isRoadmapItemLearning && id && decodedItemId) {
+      void generateRoadmapItemContent(id, decodedItemId, { forceRegenerate: true, includeResources: true })
+      return
+    }
+
+    void searchSkillResources(learningContent?.canonicalSkillName || decodedSkillName, { targetRole, level, language: 'vi' })
+  }
+
+  const handleCompleteTask = () => {
+    if (roadmap && taskNode) {
+      void updateNodeStatus(roadmap.id, taskNode.id, taskNode.status === 'completed' ? 'in-progress' : 'completed')
+    }
+  }
 
   const handleCopy = (code: string, index: number) => {
     navigator.clipboard.writeText(code)
@@ -163,11 +204,11 @@ export const SkillLearningDetailPage = () => {
               Chưa Có Bài Học Cho Kỹ Năng Này
             </CardTitle>
             <CardDescription className="mt-3 max-w-lg text-slate-500 dark:text-slate-400 text-base leading-relaxed">
-              Hệ thống chưa tìm thấy giáo trình biên soạn sẵn cho kỹ năng <span className="font-semibold text-indigo-600 dark:text-indigo-400">"{skillName}"</span> với vai trò <span className="font-semibold text-slate-900 dark:text-slate-200">{targetRole}</span> ở trình độ <span className="capitalize font-semibold text-slate-900 dark:text-slate-200">{level}</span>.
+              Hệ thống chưa tìm thấy giáo trình biên soạn sẵn cho kỹ năng <span className="font-semibold text-indigo-600 dark:text-indigo-400">"{decodedSkillName}"</span> với vai trò <span className="font-semibold text-slate-900 dark:text-slate-200">{targetRole}</span> ở trình độ <span className="capitalize font-semibold text-slate-900 dark:text-slate-200">{level}</span>.
             </CardDescription>
             <Button
               className="mt-8 px-6 py-5 bg-gradient-to-r from-indigo-600 via-violet-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 flex items-center gap-2"
-              onClick={() => generateSkillContent({ skillName: skillName!, targetRole, level, language: 'vi' })}
+              onClick={handleGenerateLearning}
             >
               <Sparkles className="h-5 w-5" />
               Biên soạn bài học bằng AI
@@ -213,11 +254,27 @@ export const SkillLearningDetailPage = () => {
               <Badge variant="default" className="px-3 py-1 font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                 {targetRole}
               </Badge>
+              {taskNode?.status && (
+                <Badge variant={taskNode.status === 'completed' ? 'success' : taskNode.status === 'in-progress' ? 'info' : 'default'} className="px-3 py-1 font-medium">
+                  {taskNode.status === 'completed' ? 'Đã hoàn thành' : taskNode.status === 'in-progress' ? 'Đang học' : 'Chưa học'}
+                </Badge>
+              )}
             </div>
             <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
-              {learningContent.title || skillName}
+              {learningContent.title || learningContent.canonicalSkillName || decodedSkillName}
             </h1>
+            {taskNode?.title && (
+              <p className="max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+                Nhiệm vụ: {taskNode.title}
+              </p>
+            )}
           </div>
+          {taskNode && (
+            <Button variant={taskNode.status === 'completed' ? 'outline' : 'default'} onClick={handleCompleteTask}>
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              {taskNode.status === 'completed' ? 'Mở lại tiến độ' : 'Đánh dấu hoàn thành'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -565,7 +622,7 @@ export const SkillLearningDetailPage = () => {
                 </CardDescription>
                 <Button
                   className="mt-6 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all shadow-md flex items-center gap-2"
-                  onClick={() => searchSkillResources(skillName!, { targetRole, level, language: 'vi' })}
+                  onClick={handleRefreshResources}
                 >
                   <Play className="h-4 w-4 fill-current" />
                   Tìm kiếm video bài học từ YouTube

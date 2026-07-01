@@ -56,6 +56,7 @@ export const RepositoryDetailPage = () => {
   const navigate = useNavigate()
   const {
     repositories,
+    analyses,
     selectedRepository,
     packagesByRepoId,
     commitsByRepoId,
@@ -63,6 +64,7 @@ export const RepositoryDetailPage = () => {
     fetchRepository,
     fetchPackages,
     fetchCommits,
+    fetchMyAnalyses,
     analyzeRepository,
     generateFeedback,
     fetchFeedback,
@@ -95,13 +97,22 @@ export const RepositoryDetailPage = () => {
   const detectedFiles = asArray(packageAnalysis.detectedFiles)
   const totalCommitPages = Math.max(1, Math.ceil(commits.length / COMMITS_PER_PAGE))
   const visibleCommits = commits.slice((commitPage - 1) * COMMITS_PER_PAGE, commitPage * COMMITS_PER_PAGE)
+  const latestAnalysis = useMemo(() => {
+    return analyses.find((analysis) => analysis.repositoryId === id)
+  }, [analyses, id])
+  const latestSummary = latestAnalysis?.summary
+  const latestScope = latestAnalysis?.analysisScope
+  const latestOverallScore = Math.round(latestSummary?.overallScore ?? latestAnalysis?.scores.overallScore ?? latestAnalysis?.scores.overall ?? 0)
+  const latestReadinessScore = Math.round(latestSummary?.userReadinessScore ?? 0)
+  const latestTopSkills = latestAnalysis?.topSkills ?? []
 
   useEffect(() => {
     if (!repository && id) fetchRepository(id)
     fetchPackages(id).catch(() => undefined)
     fetchCommits(id).catch(() => undefined)
+    fetchMyAnalyses().catch(() => undefined)
     fetchFeedback(id).catch(() => undefined)
-  }, [fetchCommits, fetchFeedback, fetchPackages, fetchRepository, id, repository])
+  }, [fetchCommits, fetchFeedback, fetchMyAnalyses, fetchPackages, fetchRepository, id, repository])
 
   useEffect(() => {
     setCommitPage(1)
@@ -201,7 +212,7 @@ export const RepositoryDetailPage = () => {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {repository.analyzed && (
+            {(repository.analyzed || latestAnalysis) && (
               <Link to={analysisRoute}>
                 <Button variant="outline">
                   Xem phân tích
@@ -248,15 +259,15 @@ export const RepositoryDetailPage = () => {
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge variant={repository.private ? 'warning' : 'success'}>{repository.private ? 'Private' : 'Public'}</Badge>
                 <Badge variant={repository.hasReadme ? 'success' : 'default'}>{repository.hasReadme ? 'Có README' : 'Thiếu README'}</Badge>
-                <Badge variant={repository.analyzed ? 'success' : 'default'}>{repository.analyzed ? 'Đã có phân tích' : 'Chưa có phân tích'}</Badge>
+                <Badge variant={repository.analyzed || latestAnalysis ? 'success' : 'default'}>{repository.analyzed || latestAnalysis ? 'Đã có phân tích' : 'Chưa có phân tích'}</Badge>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button onClick={handleAnalyze} isLoading={isAnalyzing}>
                 <Play className="mr-2 h-4 w-4" />
-                {repository.analyzed ? 'Phân tích lại' : 'Phân tích ngay'}
+                {repository.analyzed || latestAnalysis ? 'Phân tích lại' : 'Phân tích ngay'}
               </Button>
-              {repository.analyzed && (
+              {(repository.analyzed || latestAnalysis) && (
                 <Link to={analysisRoute}>
                   <Button variant="outline">Xem kết quả</Button>
                 </Link>
@@ -265,6 +276,78 @@ export const RepositoryDetailPage = () => {
           </div>
         </CardContent>
       </Card>
+
+      {latestAnalysis && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Phân tích gần nhất</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                <p className="text-xs text-slate-500">Định hướng</p>
+                <p className="mt-1 truncate font-semibold text-slate-900 dark:text-slate-100">
+                  {latestSummary?.careerDirection || latestAnalysis.careerDirection.primary}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                <p className="text-xs text-slate-500">Readiness / tổng quan</p>
+                <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
+                  {latestReadinessScore}% / {latestOverallScore}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                <p className="text-xs text-slate-500">Commit của bạn / repo</p>
+                <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
+                  {latestScope?.userCommits ?? latestAnalysis.commitSummary?.totalCommits ?? 0}/{latestScope?.totalRepoCommits ?? latestAnalysis.commitSummary?.totalCommits ?? 0}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                <p className="text-xs text-slate-500">Ngày hoạt động</p>
+                <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
+                  {latestScope?.activeDays ?? latestAnalysis.commitSummary?.activeDays ?? 0}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div>
+                <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Kỹ năng nổi bật</p>
+                <div className="flex flex-wrap gap-2">
+                  {latestTopSkills.length ? latestTopSkills.slice(0, 6).map((skill) => (
+                    <Badge key={skill.canonicalSkillName || skill.skill} variant="success">
+                      {skill.skill}
+                    </Badge>
+                  )) : <span className="text-sm text-slate-500">Chưa có topSkills.</span>}
+                  {latestTopSkills.length > 6 && <Badge variant="success">+{latestTopSkills.length - 6}</Badge>}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Kỹ năng cần bổ sung</p>
+                <div className="flex flex-wrap gap-2">
+                  {latestAnalysis.missingSkills.length ? latestAnalysis.missingSkills.slice(0, 6).map((skill) => (
+                    <Badge key={skill.id} variant={skill.importance === 'high' ? 'danger' : 'warning'}>
+                      {skill.name}
+                    </Badge>
+                  )) : <span className="text-sm text-slate-500">Chưa có missingSkills.</span>}
+                  {latestAnalysis.missingSkills.length > 6 && <Badge variant="warning">+{latestAnalysis.missingSkills.length - 6}</Badge>}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Link to={analysisRoute}>
+                <Button variant="outline">Xem chi tiết phân tích</Button>
+              </Link>
+              <Button onClick={handleAnalyze} isLoading={isAnalyzing}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Phân tích lại
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
         <CardHeader>

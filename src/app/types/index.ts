@@ -58,18 +58,25 @@ export interface RepositoryCommit {
 
 export interface AnalysisResult {
   id: string;
+  snapshotId?: string;
   repositoryId: string;
   repositoryName: string;
   repoName?: string;
   fullName?: string;
   createdAt: string;
+  analyzedAt?: string;
   projectType: string;
+  analysisScope?: AnalysisScopeSummary;
+  summary?: AnalysisResponseSummary;
+  topSkills?: AnalysisCompactSkill[];
+  scoreBreakdown?: AnalysisScoreBreakdown;
   techStack: string[];
   languages?: string[];
   frameworks?: string[];
   packages?: string[];
   skillSignals?: string[];
   careerSignals?: string[];
+  skillVector?: SkillVectorItem[];
   scores: {
     architecture: number;
     completeness: number;
@@ -93,6 +100,61 @@ export interface AnalysisResult {
   commitSummary?: CommitSummary;
   checklist?: AnalysisChecklist;
   portfolioReadiness: PortfolioChecklist;
+}
+
+export interface AnalysisScopeSummary {
+  type?: string;
+  githubUsername?: string;
+  totalRepoCommits?: number;
+  userCommits?: number;
+  activeDays?: number;
+  firstCommitDate?: string;
+  lastCommitDate?: string;
+}
+
+export interface AnalysisCompactSkill {
+  skill: string;
+  canonicalSkillName?: string;
+  category?: string;
+  score: number;
+  level?: string;
+}
+
+export interface AnalysisMissingSkill {
+  skill: string;
+  canonicalSkillName?: string;
+  category?: string;
+  priority?: 'high' | 'medium' | 'low' | string;
+}
+
+export interface AnalysisResponseSummary {
+  careerDirection?: string;
+  userLevel?: string;
+  userReadinessScore?: number;
+  overallScore?: number;
+  projectType?: string;
+  confidence?: number | string;
+}
+
+export interface AnalysisScoreBreakdown {
+  skillScore?: number;
+  contributionScore?: number;
+  commitQualityScore?: number;
+  projectCompletenessScore?: number;
+  missingCriticalPenalty?: number;
+  confidence?: number;
+}
+
+export type SkillVectorLevel = 'missing' | 'weak' | 'developing' | 'strong' | string;
+
+export interface SkillVectorItem {
+  canonicalSkillName: string;
+  normalizedSkillName?: string;
+  category?: string;
+  score: number;
+  level: SkillVectorLevel;
+  evidence?: string[];
+  sources?: string[];
 }
 
 export interface CommitSummary {
@@ -243,6 +305,13 @@ export interface RoleMatch {
   recommendedNextSkills: string[];
   topMatchedSkills: string[];
   topMissingSkills: string[];
+  matchedSkillNames?: string[];
+  weakSkillNames?: string[];
+  missingSkillNames?: string[];
+  matchedSkills?: string[];
+  weakSkills?: string[];
+  missingRequiredSkills?: string[];
+  missingOptionalSkills?: string[];
   summary: string;
 }
 

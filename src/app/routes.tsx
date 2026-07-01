@@ -95,6 +95,7 @@ export const router = createBrowserRouter([
               { path: 'roadmaps', element: <RoadmapsPage /> },
               { path: 'roadmaps/ai', element: <AIRoadmapPage /> },
               { path: 'roadmaps/:id', element: <RoadmapDetailPage /> },
+              { path: 'roadmaps/:id/learning/items/:itemId', element: <SkillLearningDetailPage /> },
               { path: 'roadmaps/:id/skills/:skillName', element: <SkillLearningDetailPage /> },
               { path: 'progress', element: <RepositoryProgressPage /> }
             ]

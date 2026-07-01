@@ -11,7 +11,7 @@ import { formatLearningStatus, formatRoadmapDifficulty, getDifficultyTone, getSt
 interface LearningNodeProps {
   node: LearningNodeType
   roadmapId?: string
-  onStatusChange?: (nodeId: string, status: LearningNodeStatus) => void
+  onStatusChange?: (nodeId: string, status: LearningNodeStatus) => void | Promise<void>
   onBookmarkToggle?: (nodeId: string) => void
 }
 
@@ -25,6 +25,12 @@ const StatusIcon = ({ status }: { status: LearningNodeStatus }) => {
 export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle }: LearningNodeProps) => {
   const [expanded, setExpanded] = useState(node.status === 'in-progress')
   const isLocked = node.status === 'locked'
+  const primarySkill = node.canonicalSkillName || node.skillName || node.skills[0] || ''
+  const skillRoute = primarySkill ? encodeURIComponent(primarySkill) : ''
+  const itemRoute = node.itemId || node.id
+  const learningPath = roadmapId ? `/roadmaps/${roadmapId}/learning/items/${encodeURIComponent(itemRoute)}` : ''
+  const progressPercent = Math.max(0, Math.min(100, Math.round(node.progressPercent ?? (node.status === 'completed' ? 100 : node.status === 'in-progress' ? 1 : 0))))
+  const statusLabel = node.status === 'completed' ? 'Hoàn thành' : node.status === 'in-progress' ? 'Đang học' : 'Chưa học'
 
   return (
     <motion.div layout className={cn('relative rounded-lg border bg-white/80 p-4 dark:bg-slate-900/80', isLocked ? 'border-slate-200 opacity-70 dark:border-slate-800' : 'border-slate-200 hover:border-indigo-300 dark:border-slate-800 dark:hover:border-indigo-700')}>
@@ -38,7 +44,7 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
           onClick={() => setExpanded((value) => !value)}
           aria-expanded={expanded}
         >
-          <div>
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h4 className="font-semibold text-slate-950 dark:text-slate-50">{node.title}</h4>
               <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', getStatusTone(node.status))}>
@@ -51,6 +57,45 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
         </button>
       </div>
 
+      <div className="ml-8 mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/60">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={node.status === 'completed' ? 'success' : node.status === 'in-progress' ? 'info' : 'default'}>{statusLabel}</Badge>
+              {primarySkill && <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{primarySkill}</span>}
+              {node.category && <span className="text-xs text-slate-500">{node.category}</span>}
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white dark:bg-slate-800">
+              <div className="h-full rounded-full bg-indigo-500" style={{ width: `${progressPercent}%` }} />
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {roadmapId && (
+              <Link to={learningPath || `/roadmaps/${roadmapId}/skills/${skillRoute}`}>
+                <Button size="sm" variant="outline" disabled={isLocked}>
+                  Học
+                </Button>
+              </Link>
+            )}
+            {!isLocked && node.status !== 'in-progress' && node.status !== 'completed' && (
+              <Button size="sm" variant="ghost" onClick={() => void onStatusChange?.(node.id, 'in-progress')}>
+                Đang học
+              </Button>
+            )}
+            {!isLocked && node.status !== 'completed' && (
+              <Button size="sm" onClick={() => void onStatusChange?.(node.id, 'completed')}>
+                Xong
+              </Button>
+            )}
+            {!isLocked && node.status === 'completed' && (
+              <Button size="sm" variant="ghost" onClick={() => void onStatusChange?.(node.id, 'in-progress')}>
+                Mở lại
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {expanded && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
@@ -60,21 +105,27 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
         >
           <div className="flex flex-wrap gap-2">
             <Badge variant={getDifficultyTone(node.difficulty)}>{formatRoadmapDifficulty(node.difficulty)}</Badge>
+            {primarySkill && <Badge variant="info">Kỹ năng: {primarySkill}</Badge>}
             <Badge variant="default">
               <Clock className="mr-1 h-3 w-3" />
               {node.estimatedHours}h
             </Badge>
+            {typeof node.progressPercent === 'number' && (
+              <Badge variant={node.progressPercent >= 100 ? 'success' : node.progressPercent > 0 ? 'info' : 'default'}>
+                {Math.round(node.progressPercent)}%
+              </Badge>
+            )}
           </div>
 
           {node.skills.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Kỹ năng cần học</p>
+              <p className="mb-2 text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Kỹ năng liên quan</p>
               <ul className="divide-y divide-slate-200 overflow-hidden rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
-                {node.skills.map((skill) => (
+                {node.skills.slice(0, 4).map((skill) => (
                   <li key={skill}>
                     {roadmapId ? (
                       <Link
-                        to={`/roadmaps/${roadmapId}/skills/${skill}`}
+                        to={learningPath || `/roadmaps/${roadmapId}/skills/${encodeURIComponent(node.canonicalSkillName || skill)}`}
                         className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:text-slate-200 dark:hover:bg-slate-800/70 dark:hover:text-indigo-300"
                       >
                         <span>
@@ -93,6 +144,9 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
                     )}
                   </li>
                 ))}
+                {node.skills.length > 4 && (
+                  <li className="px-3 py-2 text-xs text-slate-500">+{node.skills.length - 4} kỹ năng liên quan khác</li>
+                )}
               </ul>
             </div>
           )}
@@ -100,6 +154,12 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
           {node.dependencies.length > 0 && (
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Nên hoàn thành trước: {node.dependencies.length} nhiệm vụ liên quan
+            </p>
+          )}
+
+          {false && primarySkill && (
+            <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
+              Tiến độ của nhiệm vụ này dùng chung với kỹ năng {primarySkill}. Khi cập nhật, các nhiệm vụ khác cùng kỹ năng cũng sẽ phản ánh trạng thái đó.
             </p>
           )}
 
@@ -133,16 +193,8 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
           )}
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              disabled={isLocked}
-              onClick={() => onStatusChange?.(node.id, node.status === 'completed' ? 'in-progress' : 'completed')}
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              {node.status === 'completed' ? 'Mở lại' : 'Đánh dấu hoàn thành'}
-            </Button>
             {roadmapId && node.skills.length > 0 ? (
-              <Link to={`/roadmaps/${roadmapId}/skills/${node.skills[0]}`}>
+              <Link to={learningPath || `/roadmaps/${roadmapId}/skills/${skillRoute}`}>
                 <Button size="sm" variant="outline" disabled={isLocked}>
                   Tiếp tục
                 </Button>

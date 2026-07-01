@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { Archive, ArrowLeft, Clock, GitBranch, Target } from 'lucide-react'
+import { Archive, ArrowLeft, Clock, GitBranch, RotateCcw, Sparkles, Target } from 'lucide-react'
 import { Badge } from '../../../app/components/ui/Badge'
 import { Button } from '../../../app/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../app/components/ui/Card'
@@ -17,12 +17,14 @@ export const RoadmapDetailPage = () => {
     getRoadmapById,
     fetchRoadmapDetail,
     archiveRoadmap,
+    resetRoadmapProgress,
     updateNodeStatus,
     toggleBookmark,
     isLoading,
     error
   } = useRoadmapStore()
   const [isArchiving, setIsArchiving] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
   const roadmap = id ? getRoadmapById(id) : undefined
   const { completion, hoursRemaining } = useRoadmapProgress(roadmap)
 
@@ -39,6 +41,14 @@ export const RoadmapDetailPage = () => {
     await archiveRoadmap(roadmap.id)
     setIsArchiving(false)
     navigate('/roadmaps')
+  }
+
+  const handleResetProgress = async () => {
+    if (!roadmap) return
+
+    setIsResetting(true)
+    await resetRoadmapProgress(roadmap.id)
+    setIsResetting(false)
   }
 
   if (!roadmap) {
@@ -67,6 +77,46 @@ export const RoadmapDetailPage = () => {
   const isArchived = roadmap.status === 'archived'
   const nodes = getRoadmapNodes(roadmap)
   const completedNodes = nodes.filter((node) => node.status === 'completed').length
+  const roleMatch = roadmap.roleMatch
+  const skillGapSummary = roadmap.skillGapSummary
+  const prioritySkills = [
+    ...(skillGapSummary?.prioritySkills ?? []),
+    ...(skillGapSummary?.recommendedNextSkills ?? [])
+  ].filter((skill, index, list) => skill && list.indexOf(skill) === index).slice(0, 6)
+  const completedTaskCount = roadmap.progressSummary?.completedItems ?? completedNodes
+  const totalTaskCount = roadmap.progressSummary?.totalItems ?? nodes.length
+  const roadmapSource = roadmap.roadmapSource && typeof roadmap.roadmapSource === 'object' ? roadmap.roadmapSource : undefined
+  const sourceMode = roadmapSource?.sourceMode || roadmapSource?.type || ''
+  const sourceRepositoryCount = roadmapSource?.totalRepositories ?? roadmap.sourceRepositoriesCount
+  const sourceUserCommits = roadmapSource?.userCommits ?? roadmapSource?.totalUserCommits
+  const sourceTotalCommits = roadmapSource?.totalRepoCommits
+  const sourceModeLabel = sourceMode === 'single_repo'
+    ? 'Một repository'
+    : sourceMode === 'selected_repos'
+      ? 'Một vài repository đã chọn'
+      : sourceMode === 'all_analyzed_repos'
+        ? 'Tất cả repository đã phân tích'
+        : 'Dữ liệu phân tích GitHub'
+  const sourceRepositoryLabel = roadmapSource?.fullName || roadmapSource?.repoName || (
+    sourceRepositoryCount
+      ? `${sourceRepositoryCount} repository đã phân tích`
+      : 'Tổng hợp từ các repo'
+  )
+  const sourceCommitText = typeof sourceUserCommits === 'number'
+    ? typeof sourceTotalCommits === 'number' && sourceTotalCommits !== sourceUserCommits
+      ? `${sourceUserCommits} commit của bạn trong ${sourceTotalCommits} commit của nguồn`
+      : `${sourceUserCommits} commit của bạn`
+    : typeof sourceTotalCommits === 'number'
+      ? `${sourceTotalCommits} commit trong nguồn phân tích`
+      : 'Chưa có thống kê commit'
+  const sourceLevelText = roadmap.effectiveLevel || roadmapSource?.userLevel || roadmap.difficulty
+  const sourceDescription = sourceMode === 'all_analyzed_repos'
+    ? 'Roadmap này được cá nhân hóa từ toàn bộ repository đã có kết quả phân tích trong tài khoản của bạn.'
+    : sourceMode === 'selected_repos'
+      ? 'Roadmap này được cá nhân hóa từ nhóm repository bạn đã chọn khi tạo lộ trình.'
+      : sourceMode === 'single_repo'
+        ? 'Roadmap này được cá nhân hóa từ một repository cụ thể.'
+        : 'Roadmap này được cá nhân hóa từ dữ liệu phân tích GitHub hiện có.'
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -78,10 +128,16 @@ export const RoadmapDetailPage = () => {
           </Button>
         </Link>
         {!isArchived && (
-          <Button variant="outline" isLoading={isArchiving} onClick={handleArchive}>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" isLoading={isResetting} onClick={handleResetProgress}>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Reset tiến độ
+            </Button>
+            <Button variant="outline" isLoading={isArchiving} onClick={handleArchive}>
             <Archive className="mr-2 h-4 w-4" />
             Lưu trữ roadmap
-          </Button>
+            </Button>
+          </div>
         )}
       </div>
 
@@ -138,6 +194,11 @@ export const RoadmapDetailPage = () => {
                 <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
                   <div className={`h-full rounded-full ${isArchived ? 'bg-slate-400' : 'bg-gradient-to-r from-indigo-500 to-cyan-500'}`} style={{ width: `${completion}%` }} />
                 </div>
+                {totalTaskCount > 0 ? (
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    {completedTaskCount}/{totalTaskCount} bài học hoàn thành
+                  </p>
+                ) : null}
                 <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                   {completedNodes}/{nodes.length} nhiệm vụ đã hoàn thành - còn {hoursRemaining} giờ
                 </p>
@@ -146,6 +207,91 @@ export const RoadmapDetailPage = () => {
           </div>
         </CardContent>
       </Card>
+
+      {(roadmapSource || roadmap.effectiveLevel || roadmap.requestedLevel) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cơ sở cá nhân hóa roadmap</CardTitle>
+            <CardDescription>{sourceDescription}</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+              <p className="text-xs text-slate-500">Phạm vi đánh giá</p>
+              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{sourceModeLabel}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+              <p className="text-xs text-slate-500">Nguồn phân tích</p>
+              <p className="mt-1 truncate font-semibold text-slate-900 dark:text-slate-100">{sourceRepositoryLabel}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+              <p className="text-xs text-slate-500">Đóng góp được tính</p>
+              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{sourceCommitText}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+              <p className="text-xs text-slate-500">Trình độ dùng để tạo</p>
+              <p className="mt-1 font-semibold capitalize text-slate-900 dark:text-slate-100">{sourceLevelText}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {(roleMatch || skillGapSummary || prioritySkills.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-indigo-500" />
+              Cá nhân hóa theo role match
+            </CardTitle>
+            <CardDescription>
+              Roadmap này được ưu tiên theo mức phù hợp của repository và các khoảng trống kỹ năng quan trọng nhất.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 lg:grid-cols-[280px_1fr]">
+            <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+              <p className="text-sm text-slate-500">Vai trò mục tiêu</p>
+              <p className="mt-1 font-semibold text-slate-950 dark:text-slate-50">{roleMatch?.roleName || roadmap.careerOutcome}</p>
+              {typeof roleMatch?.matchScore === 'number' && (
+                <div className="mt-3">
+                  <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
+                    <span>Mức phù hợp</span>
+                    <span>{Math.round(roleMatch.matchScore)}%</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.max(0, Math.min(100, roleMatch.matchScore))}%` }} />
+                  </div>
+                  {roleMatch.matchLevelLabel && <Badge className="mt-3" variant="info">{roleMatch.matchLevelLabel}</Badge>}
+                </div>
+              )}
+            </div>
+            <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+              <div className="grid grid-cols-3 gap-2 md:grid-cols-1">
+                <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
+                  <p className="text-lg font-semibold">{skillGapSummary?.totalGaps ?? roadmap.missingSkills?.length ?? 0}</p>
+                  <p className="text-xs text-slate-500">khoảng trống</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
+                  <p className="text-lg font-semibold">{skillGapSummary?.missingRequiredCount ?? 0}</p>
+                  <p className="text-xs text-slate-500">thiếu cốt lõi</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
+                  <p className="text-lg font-semibold">{skillGapSummary?.weakSkillCount ?? 0}</p>
+                  <p className="text-xs text-slate-500">cần củng cố</p>
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Kỹ năng ưu tiên</p>
+                {prioritySkills.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {prioritySkills.map((skill) => <Badge key={skill} variant="warning">{skill}</Badge>)}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">Chưa có danh sách kỹ năng ưu tiên trong dữ liệu roadmap.</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="roadmap">
         <TabsList className="bg-white/90 dark:bg-slate-900/90">

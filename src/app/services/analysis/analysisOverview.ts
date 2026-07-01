@@ -46,17 +46,19 @@ export const buildRepositoryAnalysisOverview = (analyses: AnalysisResult[]): Rep
 
   const topLanguages = countItems(analyses.flatMap((analysis) => analysis.languages ?? []))
   const topFrameworks = countItems(analyses.flatMap((analysis) => analysis.frameworks ?? []))
-  const topCareerDirections = countItems(analyses.map((analysis) => analysis.careerDirection?.primary).filter(Boolean))
+  const topCareerDirections = countItems(analyses.map((analysis) => analysis.summary?.careerDirection || analysis.careerDirection?.primary).filter(Boolean))
+  const topSkillNames = analyses.flatMap((analysis) => (analysis.topSkills ?? []).map((skill) => skill.canonicalSkillName || skill.skill))
   const strongestSignals = countItems(analyses.flatMap((analysis) => [
+    ...(analysis.topSkills ?? []).map((skill) => skill.canonicalSkillName || skill.skill),
     ...(analysis.skillSignals ?? []),
     ...(analysis.careerSignals ?? [])
   ]))
   const missingSkills = countItems(analyses.flatMap((analysis) => analysis.missingSkills.map((skill) => skill.name)))
-  const averageOverallScore = average(analyses.map((analysis) => analysis.scores.overallScore ?? analysis.scores.overall))
+  const averageOverallScore = average(analyses.map((analysis) => analysis.summary?.overallScore ?? analysis.scores.overallScore ?? analysis.scores.overall))
   const averageTestingScore = average(analyses.map((analysis) => analysis.scores.testingScore ?? 0))
   const averageDeploymentScore = average(analyses.map((analysis) => analysis.scores.deploymentScore ?? 0))
   const primaryDirection = topCareerDirections[0]?.label ?? 'Software Engineer'
-  const mainStrength = strongestSignals[0]?.label ?? topLanguages[0]?.label ?? 'nền tảng dự án GitHub'
+  const mainStrength = strongestSignals[0]?.label ?? topSkillNames[0] ?? topLanguages[0]?.label ?? 'nền tảng dự án GitHub'
   const mainGap = missingSkills[0]?.label
 
   return {

@@ -22,6 +22,15 @@ export const AIRoadmapPage = () => {
   const jobReadinessRoadmaps = recommendJobReadinessRoadmaps(analyses)
   const suggestedTargetRoles = useMemo(() => getSuggestedRoadmapRoles(analyses), [analyses])
   const repositoryId = analyses[0]?.repositoryId
+  const defaultGenerateOptions = (forceRegenerate: boolean) => ({
+    sourceMode: repositoryId ? 'single_repo' as const : 'all_analyzed_repos' as const,
+    repoId: repositoryId,
+    level: 'beginner',
+    durationWeeks: 6,
+    language: 'vi',
+    useRoleMatching: true,
+    forceRegenerate
+  })
 
   useEffect(() => {
     fetchMyAnalyses()
@@ -34,18 +43,18 @@ export const AIRoadmapPage = () => {
   }, [suggestedTargetRoles, targetRole])
 
   const handleGenerate = async (forceRegenerate = false) => {
-    await generateAIRoadmap(targetRole, forceRegenerate, repositoryId)
+    await generateAIRoadmap(targetRole, defaultGenerateOptions(forceRegenerate))
   }
 
   const handleUseRecommendation = async () => {
     if (!recommendedRoadmap) return
     setTargetRole(recommendedRoadmap.role)
-    await generateAIRoadmap(recommendedRoadmap.role, false, repositoryId)
+    await generateAIRoadmap(recommendedRoadmap.role, defaultGenerateOptions(false))
   }
 
   const handleUseJobSuggestion = async (suggestion: RoadmapRoleRecommendation) => {
     setTargetRole(suggestion.role)
-    await generateAIRoadmap(suggestion.role, false, repositoryId)
+    await generateAIRoadmap(suggestion.role, defaultGenerateOptions(false))
   }
 
   if (!aiRecommendation) {
@@ -87,7 +96,7 @@ export const AIRoadmapPage = () => {
                   <option key={role} value={role}>{role}</option>
                 ))}
               </select>
-              <Button isLoading={isGenerating} onClick={() => handleGenerate(false)}>
+              <Button isLoading={isGenerating} onClick={() => handleGenerate(true)}>
                 <Sparkles className="mr-2 h-4 w-4" />
                 Tạo roadmap
               </Button>

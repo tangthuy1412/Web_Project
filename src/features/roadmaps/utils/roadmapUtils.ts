@@ -4,6 +4,8 @@ export const getRoadmapNodes = (roadmap: Roadmap): LearningNode[] =>
   roadmap.modules.flatMap((module) => module.nodes)
 
 export const getRoadmapCompletion = (roadmap: Roadmap): number => {
+  if (Number.isFinite(roadmap.progress)) return Math.max(0, Math.min(100, Math.round(roadmap.progress)))
+
   const nodes = getRoadmapNodes(roadmap)
   if (nodes.length === 0) return 0
   const completed = nodes.filter((node) => node.status === 'completed').length
