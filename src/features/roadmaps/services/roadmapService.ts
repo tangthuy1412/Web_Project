@@ -158,9 +158,32 @@ const roleLabels: Record<string, string> = {
   'Tester / QA Engineer': 'Tester / QA Engineer',
   'DevOps Beginner': 'DevOps Beginner',
   'Data Analyst': 'Data Analyst',
+  'AI Engineer': 'AI Engineer',
   'AI / Machine Learning Beginner': 'AI / Machine Learning Beginner',
   'Generalist Software Engineer': 'Kỹ sư phần mềm đa hướng'
 }
+
+const roleLabelsById: Record<string, string> = {
+  'frontend-developer': 'Frontend Developer',
+  'backend-developer': 'Backend Developer',
+  'fullstack-developer': 'Fullstack Developer',
+  'mobile-developer': 'Mobile Developer',
+  'tester-qa-engineer': 'Tester / QA Engineer',
+  'devops-engineer': 'DevOps Beginner',
+  'data-analyst': 'Data Analyst',
+  'ai-engineer': 'AI Engineer'
+}
+
+const levelTitle = (level?: string) => {
+  const normalized = level?.trim().toLowerCase()
+  if (normalized === 'beginner') return 'cơ bản'
+  if (normalized === 'intermediate') return 'trung cấp'
+  if (normalized === 'advanced') return 'nâng cao'
+  return 'cá nhân hóa'
+}
+
+const roadmapTitleForRole = (targetRole: string, level?: string) =>
+  `Lộ trình ${roleLabels[targetRole] ?? targetRole} ${levelTitle(level)}`
 
 const textMap: Record<string, string> = {
   'Backend Developer MVP Path': 'Lộ trình Backend Developer cơ bản',
@@ -286,15 +309,73 @@ const slugify = (value: string) =>
 const asNumber = (value: unknown, fallback: number) =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback
 
+const resolveTargetRole = (backend: BackendRoadmap) =>
+  backend.roleMatch?.roleName ||
+  (backend.roleId ? roleLabelsById[backend.roleId] : undefined) ||
+  backend.targetRole ||
+  backend.currentGithubDirection ||
+  'Developer'
+
+const hasRoleMismatch = (text: string | undefined, targetRole: string) => {
+  if (!text) return false
+  const normalizedText = text.toLowerCase()
+  const normalizedRole = targetRole.toLowerCase()
+
+  return normalizedText.includes('backend developer') && !normalizedRole.includes('backend')
+}
+
+const roleSafeText = (text: string, targetRole: string) => {
+  if (!targetRole || targetRole === 'Backend Developer') return text
+
+  return text
+    .replace(/Backend Developer/g, targetRole)
+    .replace(/backend developer/g, targetRole)
+}
+
+const phaseTitleForRole = (phase: RoadmapPhase, tasks: RoadmapTask[], targetRole: string, index: number) => {
+  const text = `${phase.title ?? ''} ${phase.goal ?? ''} ${(phase.skills ?? []).join(' ')} ${tasks.map((task) => `${task.skillName ?? ''} ${task.canonicalSkillName ?? ''}`).join(' ')}`.toLowerCase()
+
+  if (targetRole.toLowerCase().includes('ai')) {
+    if (text.includes('prompt')) return 'Prompt Engineering và dữ liệu'
+    if (text.includes('llm') || text.includes('ai')) return 'Nền tảng AI ứng dụng'
+    if (text.includes('api') || text.includes('backend') || text.includes('node') || text.includes('express')) return 'Tích hợp API cho sản phẩm AI'
+    if (text.includes('test') || text.includes('docker') || text.includes('ci/cd')) return 'Kiểm thử và triển khai sản phẩm AI'
+  }
+
+  return `Giai đoạn ${index + 1} cho ${targetRole}`
+}
+
+const phaseDescriptionForRole = (phase: RoadmapPhase, tasks: RoadmapTask[], targetRole: string) => {
+  const skills = unique([
+    ...(phase.skills ?? []),
+    ...tasks.flatMap((task) => [task.canonicalSkillName, task.skillName, ...(task.skillTags ?? [])])
+  ]).slice(0, 4)
+
+  if (!skills.length) return `Hoàn thành các kỹ năng trọng tâm để tiến gần hơn tới vai trò ${targetRole}.`
+  return `Tập trung vào ${skills.join(', ')} để bổ sung năng lực cho vai trò ${targetRole}.`
+}
+
+const taskTitleForRole = (task: RoadmapTask, targetRole: string) => {
+  const primarySkill = normalizeSkill(task.canonicalSkillName ?? task.skillName ?? task.skillTags?.[0])
+  if (primarySkill) return `Học và thực hành ${primarySkill}`
+  return `Nhiệm vụ thực hành cho ${targetRole}`
+}
+
+const taskDescriptionForRole = (task: RoadmapTask, targetRole: string) => {
+  const primarySkill = normalizeSkill(task.canonicalSkillName ?? task.skillName ?? task.skillTags?.[0])
+  if (primarySkill) return `Hoàn thành bài thực hành nhỏ để chứng minh kỹ năng ${primarySkill} trong lộ trình ${targetRole}.`
+  return `Hoàn thành nhiệm vụ này để tiến gần hơn tới mục tiêu ${targetRole}.`
+}
+
 const inferCategory = (targetRole = '', skills: string[] = []): RoadmapCategory => {
   const text = `${targetRole} ${skills.join(' ')}`.toLowerCase()
 
   if (text.includes('fullstack') || text.includes('full stack')) return 'Fullstack'
   if (text.includes('frontend') || text.includes('react') || text.includes('vue')) return 'Frontend'
+  if (text.includes('ai') || text.includes('machine learning') || text.includes('ml')) return 'AI/ML'
   if (text.includes('backend') || text.includes('node') || text.includes('express') || text.includes('api')) return 'Backend'
   if (text.includes('devops') || text.includes('docker') || text.includes('cloud') || text.includes('ci/cd')) return 'DevOps'
   if (text.includes('mobile') || text.includes('react native') || text.includes('flutter')) return 'Mobile'
-  if (text.includes('ai') || text.includes('machine learning') || text.includes('ml')) return 'AI/ML'
   if (text.includes('tester') || text.includes('test') || text.includes('qa')) return 'Testing'
 
   return 'Backend'
@@ -307,6 +388,14 @@ const inferDifficulty = (phases: RoadmapPhase[], tasks: RoadmapTask[]): RoadmapD
   if (totalItems >= 12 || totalHours >= 80) return 'Advanced'
   if (totalItems >= 6 || totalHours >= 32) return 'Intermediate'
   return 'Beginner'
+}
+
+const levelToDifficulty = (level?: string): RoadmapDifficulty | undefined => {
+  const normalized = level?.trim().toLowerCase()
+  if (normalized === 'beginner') return 'Beginner'
+  if (normalized === 'intermediate') return 'Intermediate'
+  if (normalized === 'advanced') return 'Advanced'
+  return undefined
 }
 
 const normalizeStatus = (status?: string, index = 0): LearningNodeStatus => {
@@ -377,25 +466,30 @@ export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
   const phases = mainRoadmap?.phases ?? []
   const standaloneTasks = mainRoadmap?.tasks ?? backend.tasks ?? []
   const allTasks = [...phases.flatMap(phaseTasks), ...standaloneTasks]
-  const targetRole = backend.targetRole ?? backend.currentGithubDirection ?? 'Developer'
+  const targetRole = resolveTargetRole(backend)
   const skills = unique([
     ...(backend.sourceContextSummary?.detectedSkills ?? []),
     ...phases.flatMap((phase) => phase.skills ?? []),
     ...allTasks.flatMap((task) => task.skillTags ?? [])
   ])
   const missingSkills = unique(backend.sourceContextSummary?.missingSkills ?? [])
-  const title = toUserText(backend.title ?? mainRoadmap?.title, `Roadmap ${targetRole}`)
-  const reason = toUserText(mainRoadmap?.reason)
-  const summary = toUserText(backend.summary, reason || `Lộ trình cá nhân hóa cho ${targetRole}`)
+  const rawTitle = backend.title ?? mainRoadmap?.title
+  const titleMatchesResolvedRole = rawTitle?.toLowerCase().includes(targetRole.toLowerCase())
+  const title = titleMatchesResolvedRole
+    ? toUserText(rawTitle, roadmapTitleForRole(targetRole, backend.effectiveLevel ?? backend.requestedLevel))
+    : roadmapTitleForRole(targetRole, backend.effectiveLevel ?? backend.requestedLevel)
+  const reason = roleSafeText(toUserText(mainRoadmap?.reason), targetRole)
+  const summary = roleSafeText(toUserText(backend.summary, reason || `Lộ trình cá nhân hóa cho ${targetRole}`), targetRole)
   const estimatedHours = Math.max(
     allTasks.reduce((sum, task) => sum + asNumber(task.estimatedHours, 4), 0),
     phases.length * 8,
     12
   )
   const completedTasks = allTasks.filter((task) => task.status === 'completed').length
-  const progress = allTasks.length ? Math.round((completedTasks / allTasks.length) * 100) : 0
+  const taskProgress = allTasks.length ? Math.round((completedTasks / allTasks.length) * 100) : 0
+  const progress = Math.max(0, Math.min(100, Math.round(backend.progressSummary?.overallProgress ?? taskProgress)))
   const category = inferCategory(targetRole, skills)
-  const difficulty = inferDifficulty(phases, allTasks)
+  const difficulty = levelToDifficulty(backend.effectiveLevel ?? backend.requestedLevel) ?? inferDifficulty(phases, allTasks)
   const slug = `${slugify(title || targetRole)}-${id}`
   const skillGapSummary = Array.isArray(backend.skillGapSummary)
     ? {
@@ -416,18 +510,29 @@ export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
 
   const modules = (phases.length ? phases : [{ title: 'Lộ trình chính', goal: reason, tasks: standaloneTasks }]).map((phase, moduleIndex) => {
     const tasks = phaseTasks(phase, moduleIndex)
+    const phaseHasMismatch = hasRoleMismatch(`${phase.title ?? ''} ${phase.goal ?? ''}`, targetRole)
+    const phaseTitle = phaseHasMismatch
+      ? phaseTitleForRole(phase, tasks, targetRole, moduleIndex)
+      : roleSafeText(toUserText(phase.title, `Giai Ä‘oáº¡n ${moduleIndex + 1}`), targetRole)
+    const phaseDescription = phaseHasMismatch
+      ? phaseDescriptionForRole(phase, tasks, targetRole)
+      : roleSafeText(toUserText(phase.goal, reason || 'CÃ¡c nhiá»‡m vá»¥ há»c táº­p Ä‘Æ°á»£c cÃ¡ nhÃ¢n hÃ³a theo phÃ¢n tÃ­ch GitHub.'), targetRole)
 
     return {
       id: phase._id ?? `${id}-module-${moduleIndex + 1}`,
-      title: toUserText(phase.title, `Giai đoạn ${moduleIndex + 1}`),
-      description: toUserText(phase.goal, reason || 'Các nhiệm vụ học tập được cá nhân hóa theo phân tích GitHub.'),
+      title: phaseTitle,
+      description: phaseDescription,
       order: moduleIndex + 1,
       estimatedHours: tasks.reduce((sum, task) => sum + asNumber(task.estimatedHours, 4), 0),
       nodes: tasks.map((task, taskIndex) => ({
         id: task.itemId ?? task._id ?? `${id}-node-${moduleIndex + 1}-${taskIndex + 1}`,
         itemId: task.itemId ?? task._id ?? `${id}-node-${moduleIndex + 1}-${taskIndex + 1}`,
-        title: toUserText(task.title, `Nhiệm vụ ${taskIndex + 1}`),
-        description: toUserText(task.description, phase.goal ?? 'Hoàn thành nhiệm vụ này để tiến gần hơn tới mục tiêu nghề nghiệp.'),
+        title: hasRoleMismatch(`${task.title ?? ''} ${task.description ?? ''} ${task.targetRole ?? ''}`, targetRole)
+          ? taskTitleForRole(task, targetRole)
+          : roleSafeText(toUserText(task.title, `Nhiệm vụ ${taskIndex + 1}`), targetRole),
+        description: hasRoleMismatch(`${task.title ?? ''} ${task.description ?? ''} ${task.targetRole ?? ''}`, targetRole)
+          ? taskDescriptionForRole(task, targetRole)
+          : roleSafeText(toUserText(task.description, phase.goal ?? 'Hoàn thành nhiệm vụ này để tiến gần hơn tới mục tiêu nghề nghiệp.'), targetRole),
         estimatedHours: asNumber(task.estimatedHours, 4),
         difficulty,
         dependencies: taskIndex === 0 ? [] : [tasks[taskIndex - 1]?.itemId ?? tasks[taskIndex - 1]?._id ?? `${id}-node-${moduleIndex + 1}-${taskIndex}`],
@@ -435,7 +540,7 @@ export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
         skills: unique([task.canonicalSkillName, task.skillName, ...(task.skillTags ?? []), ...(phase.skills ?? [])]),
         skillName: normalizeSkill(task.skillName ?? task.canonicalSkillName ?? task.skillTags?.[0]),
         canonicalSkillName: normalizeSkill(task.canonicalSkillName ?? task.skillName ?? task.skillTags?.[0]),
-        targetRole: task.targetRole ?? targetRole,
+        targetRole,
         category: task.category,
         priority: task.priority,
         week: task.week ?? moduleIndex + 1,
@@ -450,14 +555,16 @@ export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
           provider: resource.provider ?? 'AI Mentor',
           estimatedMinutes: asNumber(resource.estimatedMinutes, 30)
         })),
-        project: toUserText(task.description),
+        project: hasRoleMismatch(`${task.title ?? ''} ${task.description ?? ''} ${task.targetRole ?? ''}`, targetRole)
+          ? taskDescriptionForRole(task, targetRole)
+          : roleSafeText(toUserText(task.description), targetRole),
         bookmarked: false,
         xp: Math.max(80, asNumber(task.estimatedHours, 4) * 30)
       })),
       milestones: [{
         id: `${id}-milestone-${moduleIndex + 1}`,
-        title: `Hoàn thành ${toUserText(phase.title, `giai đoạn ${moduleIndex + 1}`)}`,
-        description: toUserText(phase.goal, 'Đạt mục tiêu chính của giai đoạn.'),
+        title: `Hoàn thành ${phaseTitle}`,
+        description: phaseDescription,
         targetWeek: Math.max(1, (moduleIndex + 1) * 2),
         nodeIds: tasks.map((task, taskIndex) => task.itemId ?? task._id ?? `${id}-node-${moduleIndex + 1}-${taskIndex + 1}`),
         rewardXp: 250,
@@ -474,7 +581,7 @@ export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
     description: summary,
     category,
     difficulty,
-    estimatedWeeks: Math.max(1, Math.ceil(estimatedHours / 8)),
+    estimatedWeeks: backend.durationWeeks ?? Math.max(1, Math.ceil(estimatedHours / 8)),
     estimatedHours,
     requiredSkills: skills,
     objectives: [
@@ -594,6 +701,7 @@ export const roadmapService = {
       'Tester / QA Engineer': 'tester-qa-engineer',
       'DevOps Beginner': 'devops-engineer',
       'Data Analyst': 'data-analyst',
+      'AI Engineer': 'ai-engineer',
       'AI / Machine Learning Beginner': 'ai-engineer'
     }
     const response = await apiClient.post('/roadmaps/generate', {

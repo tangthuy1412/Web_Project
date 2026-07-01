@@ -10,6 +10,19 @@ import { useRoadmapProgress } from '../hooks/useRoadmapProgress'
 import { useRoadmapStore } from '../stores/roadmapStore'
 import { formatRoadmapDifficulty, getDifficultyTone, getRoadmapNodes } from '../utils/roadmapUtils'
 
+const formatLevel = (level?: string) => {
+  switch (level?.trim().toLowerCase()) {
+    case 'beginner':
+      return 'Cơ bản'
+    case 'intermediate':
+      return 'Trung cấp'
+    case 'advanced':
+      return 'Nâng cao'
+    default:
+      return level
+  }
+}
+
 export const RoadmapDetailPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -109,7 +122,8 @@ export const RoadmapDetailPage = () => {
     : typeof sourceTotalCommits === 'number'
       ? `${sourceTotalCommits} commit trong nguồn phân tích`
       : 'Chưa có thống kê commit'
-  const sourceLevelText = roadmap.effectiveLevel || roadmapSource?.userLevel || roadmap.difficulty
+  const requestedLevelText = formatLevel(roadmap.requestedLevel)
+  const effectiveLevelText = formatLevel(roadmap.effectiveLevel || roadmapSource?.userLevel || roadmap.difficulty)
   const sourceDescription = sourceMode === 'all_analyzed_repos'
     ? 'Roadmap này được cá nhân hóa từ toàn bộ repository đã có kết quả phân tích trong tài khoản của bạn.'
     : sourceMode === 'selected_repos'
@@ -229,7 +243,12 @@ export const RoadmapDetailPage = () => {
             </div>
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
               <p className="text-xs text-slate-500">Trình độ dùng để tạo</p>
-              <p className="mt-1 font-semibold capitalize text-slate-900 dark:text-slate-100">{sourceLevelText}</p>
+              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
+                {requestedLevelText ? `Yêu cầu: ${requestedLevelText}` : 'Yêu cầu: không có dữ liệu'}
+              </p>
+              <p className="mt-1 font-semibold text-indigo-700 dark:text-indigo-300">
+                {effectiveLevelText ? `Áp dụng: ${effectiveLevelText}` : 'Áp dụng: không có dữ liệu'}
+              </p>
             </div>
           </CardContent>
         </Card>

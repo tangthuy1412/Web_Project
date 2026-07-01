@@ -65,6 +65,7 @@ export const RepositoryDetailPage = () => {
     fetchPackages,
     fetchCommits,
     fetchMyAnalyses,
+    fetchMyFeedbacks,
     analyzeRepository,
     generateFeedback,
     fetchFeedback,
@@ -111,8 +112,9 @@ export const RepositoryDetailPage = () => {
     fetchPackages(id).catch(() => undefined)
     fetchCommits(id).catch(() => undefined)
     fetchMyAnalyses().catch(() => undefined)
+    fetchMyFeedbacks().catch(() => undefined)
     fetchFeedback(id).catch(() => undefined)
-  }, [fetchCommits, fetchFeedback, fetchMyAnalyses, fetchPackages, fetchRepository, id, repository])
+  }, [fetchCommits, fetchFeedback, fetchMyAnalyses, fetchMyFeedbacks, fetchPackages, fetchRepository, id, repository])
 
   useEffect(() => {
     setCommitPage(1)
@@ -142,6 +144,10 @@ export const RepositoryDetailPage = () => {
   }
 
   const handleGenerateFeedback = async () => {
+    if (feedback) return
+    const existingFeedback = await fetchFeedback(id)
+    if (existingFeedback) return
+
     await generateFeedback(id)
   }
 
@@ -251,10 +257,10 @@ export const RepositoryDetailPage = () => {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Phân tích repository này
+                Phân tích dự án này
               </h2>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                Hệ thống sẽ đồng bộ packages, commits, chạy phân tích và lấy kết quả mới nhất cho repo đang mở: {repository.fullName || repository.name}.
+                Hệ thống sẽ đồng bộ gói thư viện, đóng góp, chạy phân tích và lấy kết quả mới nhất cho dự án đang mở: {repository.fullName || repository.name}.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge variant={repository.private ? 'warning' : 'success'}>{repository.private ? 'Private' : 'Public'}</Badge>
@@ -291,13 +297,13 @@ export const RepositoryDetailPage = () => {
                 </p>
               </div>
               <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                <p className="text-xs text-slate-500">Readiness / tổng quan</p>
+                <p className="text-xs text-slate-500">Mức sẵn sàng / tổng quan</p>
                 <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
                   {latestReadinessScore}% / {latestOverallScore}
                 </p>
               </div>
               <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                <p className="text-xs text-slate-500">Commit của bạn / repo</p>
+                <p className="text-xs text-slate-500">Đóng góp của bạn / toàn dự án</p>
                 <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
                   {latestScope?.userCommits ?? latestAnalysis.commitSummary?.totalCommits ?? 0}/{latestScope?.totalRepoCommits ?? latestAnalysis.commitSummary?.totalCommits ?? 0}
                 </p>
@@ -318,7 +324,7 @@ export const RepositoryDetailPage = () => {
                     <Badge key={skill.canonicalSkillName || skill.skill} variant="success">
                       {skill.skill}
                     </Badge>
-                  )) : <span className="text-sm text-slate-500">Chưa có topSkills.</span>}
+                  )) : <span className="text-sm text-slate-500">Chưa có kỹ năng nổi bật.</span>}
                   {latestTopSkills.length > 6 && <Badge variant="success">+{latestTopSkills.length - 6}</Badge>}
                 </div>
               </div>
@@ -330,7 +336,7 @@ export const RepositoryDetailPage = () => {
                     <Badge key={skill.id} variant={skill.importance === 'high' ? 'danger' : 'warning'}>
                       {skill.name}
                     </Badge>
-                  )) : <span className="text-sm text-slate-500">Chưa có missingSkills.</span>}
+                  )) : <span className="text-sm text-slate-500">Chưa có kỹ năng cần bổ sung.</span>}
                   {latestAnalysis.missingSkills.length > 6 && <Badge variant="warning">+{latestAnalysis.missingSkills.length - 6}</Badge>}
                 </div>
               </div>
@@ -353,12 +359,12 @@ export const RepositoryDetailPage = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Flag className="h-5 w-5" />
-            Báo cáo repository
+            Báo cáo dự án
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-            Nếu repository này có nội dung không phù hợp hoặc thông tin bất thường, bạn có thể gửi báo cáo để quản trị viên xem xét.
+            Nếu dự án này có nội dung không phù hợp hoặc thông tin bất thường, bạn có thể gửi báo cáo để quản trị viên xem xét.
           </p>
 
           {reportMessage && (

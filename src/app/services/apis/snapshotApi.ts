@@ -6,9 +6,26 @@ type UnknownRecord = Record<string, unknown>
 export type AnalysisSnapshot = {
   id: string
   repositoryId: string
+  repoName?: string
+  fullName?: string
+  analysisId?: string
+  analysisScope?: {
+    type?: string
+    githubUsername?: string
+    totalRepoCommits?: number
+    userCommits?: number
+    activeDays?: number
+    firstCommitDate?: string
+    lastCommitDate?: string
+  }
   createdAt: string
+  analyzedAt?: string
+  userLevel?: string
+  projectType?: string
+  confidence?: string | number
   careerDirection?: string
   missingSkills: string[]
+  topSkills?: SkillVectorItem[]
   skillVector?: SkillVectorItem[]
   skillVectorSummary?: SkillVectorSummary
   overallScore: number
@@ -38,9 +55,24 @@ export type SnapshotScoreChange = {
   status: 'improved' | 'regressed' | 'unchanged' | string
 }
 
+export type SnapshotDelta = {
+  userReadinessScore: number
+  levelChanged: boolean
+  fromLevel?: string
+  toLevel?: string
+  userCommitsDelta: number
+  activeDaysDelta: number
+}
+
 export type SkillComparisonItem = {
   skill: string
+  skillName?: string
+  canonicalSkillName?: string
   category?: string
+  fromScore?: number
+  toScore?: number
+  delta?: number
+  trend?: string
   beforePercent?: number
   afterPercent?: number
   changePercent?: number
@@ -62,8 +94,15 @@ export type SkillComparisonSummary = {
 }
 
 export type SnapshotComparison = {
+  repositoryId?: string
+  repoName?: string
+  fullName?: string
+  analysisScopeType?: string
+  enoughData?: boolean
   firstSnapshot: AnalysisSnapshot | null
   latestSnapshot: AnalysisSnapshot | null
+  delta?: SnapshotDelta
+  skillChanges: SkillComparisonItem[]
   overallChange: number
   scoreChanges: SnapshotScoreChange[]
   summary: string
@@ -87,6 +126,7 @@ export type SnapshotComparison = {
 const asRecord = (value: unknown): UnknownRecord => value && typeof value === 'object' ? value as UnknownRecord : {}
 const asNumber = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : Number(value) || 0
 const asArray = (value: unknown) => Array.isArray(value) ? value : []
+const asString = (value: unknown) => typeof value === 'string' && value.trim() ? value : undefined
 
 type SnapshotQueryParams = {
   includeEvidence?: boolean
@@ -103,26 +143,52 @@ const getScore = (source: UnknownRecord, ...keys: string[]) => {
 }
 
 const normalizeSnapshot = (payload: unknown): AnalysisSnapshot => {
-  const source = asRecord(payload)
+  const sourcePayload = asRecord(payload)
+  const source = asRecord(sourcePayload.snapshot ?? payload)
+  const repository = asRecord(source.repository)
+  const analysisScope = asRecord(source.analysisScope)
+  const summary = asRecord(source.summary)
   const skillVectorSummary = asRecord(source.skillVectorSummary)
+  const normalizeSkill = (item: unknown): SkillVectorItem => {
+    const record = asRecord(item)
+    return {
+      canonicalSkillName: String(record.canonicalSkillName ?? record.skillName ?? record.name ?? ''),
+      normalizedSkillName: typeof record.normalizedSkillName === 'string' ? record.normalizedSkillName : undefined,
+      category: typeof record.category === 'string' ? record.category : undefined,
+      score: asNumber(record.score),
+      level: String(record.level ?? 'missing'),
+      evidence: asArray(record.evidence).map(String),
+      sources: asArray(record.sources).map(String)
+    } satisfies SkillVectorItem
+  }
+
   return {
     id: String(source.snapshotId ?? source.id ?? source._id ?? source.analysisSnapshotId ?? ''),
-    repositoryId: String(source.repositoryId ?? source.repoId ?? ''),
+    analysisId: asString(source.analysisId),
+    repositoryId: String(source.repositoryId ?? source.repoId ?? repository.repositoryId ?? repository.id ?? repository._id ?? ''),
+    repoName: asString(source.repoName) ?? asString(repository.repoName) ?? asString(repository.name),
+    fullName: asString(source.fullName) ?? asString(repository.fullName),
+    analysisScope: Object.keys(analysisScope).length ? {
+      type: asString(analysisScope.type),
+      githubUsername: asString(analysisScope.githubUsername),
+      totalRepoCommits: asNumber(analysisScope.totalRepoCommits),
+      userCommits: asNumber(analysisScope.userCommits),
+      activeDays: asNumber(analysisScope.activeDays),
+      firstCommitDate: asString(analysisScope.firstCommitDate),
+      lastCommitDate: asString(analysisScope.lastCommitDate)
+    } : undefined,
     createdAt: String(source.createdAt ?? source.analyzedAt ?? source.timestamp ?? source.generatedAt ?? ''),
-    careerDirection: typeof source.careerDirection === 'string' ? source.careerDirection : undefined,
-    missingSkills: asArray(source.missingSkills).map(String),
-    skillVector: asArray(source.skillVector).map((item) => {
+    analyzedAt: asString(source.analyzedAt),
+    userLevel: asString(source.userLevel) ?? asString(summary.userLevel),
+    projectType: asString(source.projectType) ?? asString(summary.projectType),
+    confidence: asString(source.confidence) ?? asString(summary.confidence) ?? (typeof summary.confidence === 'number' ? summary.confidence : undefined),
+    careerDirection: asString(source.careerDirection) ?? asString(summary.careerDirection),
+    missingSkills: asArray(source.missingSkills).map((item) => {
       const record = asRecord(item)
-      return {
-        canonicalSkillName: String(record.canonicalSkillName ?? record.skillName ?? record.name ?? ''),
-        normalizedSkillName: typeof record.normalizedSkillName === 'string' ? record.normalizedSkillName : undefined,
-        category: typeof record.category === 'string' ? record.category : undefined,
-        score: asNumber(record.score),
-        level: String(record.level ?? 'missing'),
-        evidence: asArray(record.evidence).map(String),
-        sources: asArray(record.sources).map(String)
-      } satisfies SkillVectorItem
-    }).filter((item) => item.canonicalSkillName),
+      return String(record.skillName ?? record.canonicalSkillName ?? record.name ?? item)
+    }).filter(Boolean),
+    topSkills: asArray(source.topSkills).map(normalizeSkill).filter((item) => item.canonicalSkillName),
+    skillVector: asArray(source.skillVector).map(normalizeSkill).filter((item) => item.canonicalSkillName),
     skillVectorSummary: Object.keys(skillVectorSummary).length ? {
       totalSkills: asNumber(skillVectorSummary.totalSkills ?? skillVectorSummary.total),
       missingCount: asNumber(skillVectorSummary.missingCount),
@@ -131,7 +197,7 @@ const normalizeSnapshot = (payload: unknown): AnalysisSnapshot => {
       strongCount: asNumber(skillVectorSummary.strongCount),
       averageScore: asNumber(skillVectorSummary.averageScore)
     } : undefined,
-    overallScore: getScore(source, 'overallScore', 'overall'),
+    overallScore: getScore(source, 'overallScore', 'overall', 'userReadinessScore') || asNumber(summary.userReadinessScore),
     techStackScore: getScore(source, 'techStackScore'),
     documentationScore: getScore(source, 'documentationScore', 'documentation'),
     commitQualityScore: getScore(source, 'commitQualityScore', 'commitQuality'),
@@ -156,6 +222,7 @@ const getSnapshotList = (payload: unknown): AnalysisSnapshot[] => {
 
 const normalizeComparison = (payload: unknown): SnapshotComparison => {
   const data = asRecord(unwrapResponse<unknown>(payload))
+  const delta = asRecord(data.delta)
   const scoreChanges = asArray(data.scoreChanges).map((item) => {
     const source = asRecord(item)
     return {
@@ -168,31 +235,73 @@ const normalizeComparison = (payload: unknown): SnapshotComparison => {
     } satisfies SnapshotScoreChange
   })
   const scoreValue = (key: string, side: 'before' | 'after') => scoreChanges.find((item) => item.key === key)?.[side] ?? 0
-  const first = data.firstSnapshot ?? data.baseSnapshot ?? data.beforeSnapshot ?? data.oldSnapshot
-  const latest = data.latestSnapshot ?? data.currentSnapshot ?? data.afterSnapshot ?? data.newSnapshot
+  const first = data.firstSnapshot ?? data.baseSnapshot ?? data.beforeSnapshot ?? data.oldSnapshot ?? data.fromSnapshot
+  const latest = data.latestSnapshot ?? data.currentSnapshot ?? data.afterSnapshot ?? data.newSnapshot ?? data.toSnapshot
   const firstSnapshot = first ? normalizeSnapshot(first) : data.fromSnapshotId ? {
     id: String(data.fromSnapshotId), repositoryId: String(data.repositoryId ?? ''), createdAt: String(data.fromDate ?? ''), missingSkills: [],
-    overallScore: asNumber(data.overallBefore), techStackScore: scoreValue('techStackScore', 'before'), documentationScore: scoreValue('documentationScore', 'before'),
+    overallScore: asNumber(data.overallBefore ?? data.fromUserReadinessScore), techStackScore: scoreValue('techStackScore', 'before'), documentationScore: scoreValue('documentationScore', 'before'),
     commitQualityScore: scoreValue('commitQualityScore', 'before'), deploymentScore: scoreValue('deploymentScore', 'before'),
     testingScore: scoreValue('testingScore', 'before'), portfolioReadinessScore: scoreValue('portfolioReadinessScore', 'before')
   } : null
   const latestSnapshot = latest ? normalizeSnapshot(latest) : data.toSnapshotId ? {
     id: String(data.toSnapshotId), repositoryId: String(data.repositoryId ?? ''), createdAt: String(data.toDate ?? ''), missingSkills: [],
-    overallScore: asNumber(data.overallAfter), techStackScore: scoreValue('techStackScore', 'after'), documentationScore: scoreValue('documentationScore', 'after'),
+    overallScore: asNumber(data.overallAfter ?? data.toUserReadinessScore), techStackScore: scoreValue('techStackScore', 'after'), documentationScore: scoreValue('documentationScore', 'after'),
     commitQualityScore: scoreValue('commitQualityScore', 'after'), deploymentScore: scoreValue('deploymentScore', 'after'),
     testingScore: scoreValue('testingScore', 'after'), portfolioReadinessScore: scoreValue('portfolioReadinessScore', 'after')
   } : null
-  const explicitChange = data.overallChange ?? data.overallScoreChange ?? asRecord(data.changes).overallScore
+  const explicitChange = data.overallChange ?? data.overallScoreChange ?? delta.userReadinessScore ?? asRecord(data.changes).overallScore
   const skillVectorComparison = asRecord(data.skillVectorComparison)
   const skillSummary = asRecord(skillVectorComparison.skillSummary)
   const toSkillComparison = (item: unknown): SkillComparisonItem => {
     const source = asRecord(item)
-    return { skill: String(source.skill ?? source.canonicalSkillName ?? ''), category: typeof source.category === 'string' ? source.category : undefined, beforePercent: asNumber(source.beforePercent), afterPercent: asNumber(source.afterPercent), changePercent: asNumber(source.changePercent), status: String(source.status ?? '') }
+    const fromScore = source.fromScore !== undefined ? asNumber(source.fromScore) : undefined
+    const toScore = source.toScore !== undefined ? asNumber(source.toScore) : undefined
+    const rawDelta = source.delta !== undefined ? asNumber(source.delta) : undefined
+    return {
+      skill: String(source.skill ?? source.skillName ?? source.canonicalSkillName ?? ''),
+      skillName: asString(source.skillName),
+      canonicalSkillName: asString(source.canonicalSkillName),
+      category: asString(source.category),
+      fromScore,
+      toScore,
+      delta: rawDelta,
+      trend: asString(source.trend),
+      beforePercent: source.beforePercent !== undefined ? asNumber(source.beforePercent) : fromScore !== undefined ? fromScore * 100 : undefined,
+      afterPercent: source.afterPercent !== undefined ? asNumber(source.afterPercent) : toScore !== undefined ? toScore * 100 : undefined,
+      changePercent: source.changePercent !== undefined ? asNumber(source.changePercent) : rawDelta !== undefined ? rawDelta * 100 : undefined,
+      status: String(source.status ?? source.trend ?? '')
+    }
   }
+  const skillChanges = asArray(data.skillChanges).map(toSkillComparison).filter((item) => item.skill)
+  const improvedSkills = asArray(data.improvedSkills).map(toSkillComparison).filter((item) => item.skill)
+  const weakerSkills = asArray(data.weakerSkills).map(toSkillComparison).filter((item) => item.skill)
+  const newSkills = asArray(data.newSkills).map(toSkillComparison).filter((item) => item.skill)
+  const resolvedMissingSkills = asArray(data.resolvedMissingSkills).map((item) => {
+    const record = asRecord(item)
+    return String(record.skillName ?? record.canonicalSkillName ?? record.name ?? item)
+  }).filter(Boolean)
+  const newMissingSkills = asArray(data.newMissingSkills).map((item) => {
+    const record = asRecord(item)
+    return String(record.skillName ?? record.canonicalSkillName ?? record.name ?? item)
+  }).filter(Boolean)
 
   return {
+    repositoryId: asString(data.repositoryId),
+    repoName: asString(data.repoName),
+    fullName: asString(data.fullName),
+    analysisScopeType: asString(data.analysisScopeType),
+    enoughData: typeof data.enoughData === 'boolean' ? data.enoughData : undefined,
     firstSnapshot,
     latestSnapshot,
+    delta: Object.keys(delta).length ? {
+      userReadinessScore: asNumber(delta.userReadinessScore),
+      levelChanged: Boolean(delta.levelChanged),
+      fromLevel: asString(delta.fromLevel),
+      toLevel: asString(delta.toLevel),
+      userCommitsDelta: asNumber(delta.userCommitsDelta),
+      activeDaysDelta: asNumber(delta.activeDaysDelta)
+    } : undefined,
+    skillChanges,
     overallChange: explicitChange === undefined
       ? (latestSnapshot?.overallScore ?? 0) - (firstSnapshot?.overallScore ?? 0)
       : asNumber(explicitChange),
@@ -205,20 +314,20 @@ const normalizeComparison = (payload: unknown): SnapshotComparison => {
     stillMissingChecklist: asArray(data.stillMissingChecklist).map(String),
     alreadyPresentChecklist: asArray(data.alreadyPresentChecklist).map(String),
     remainingMissingSkills: asArray(data.remainingMissingSkills).map(String),
-    resolvedMissingSkills: asArray(data.resolvedMissingSkills).map(String),
-    newMissingSkills: asArray(data.newMissingSkills).map(String),
-    topImprovedSkills: asArray(skillVectorComparison.topImprovedSkills).map(toSkillComparison),
-    topRegressedSkills: asArray(skillVectorComparison.topRegressedSkills).map(toSkillComparison),
-    newSkills: asArray(skillVectorComparison.newSkills).map(toSkillComparison),
+    resolvedMissingSkills,
+    newMissingSkills,
+    topImprovedSkills: improvedSkills.length ? improvedSkills : asArray(skillVectorComparison.topImprovedSkills).map(toSkillComparison),
+    topRegressedSkills: weakerSkills.length ? weakerSkills : asArray(skillVectorComparison.topRegressedSkills).map(toSkillComparison),
+    newSkills: newSkills.length ? newSkills : asArray(skillVectorComparison.newSkills).map(toSkillComparison),
     skillComparisonSummary: {
-      totalComparedSkills: asNumber(skillSummary.totalComparedSkills),
-      improvedCount: asNumber(skillSummary.improvedCount),
-      regressedCount: asNumber(skillSummary.regressedCount),
-      unchangedCount: asNumber(skillSummary.unchangedCount),
-      newSkillCount: asNumber(skillSummary.newSkillCount),
-      resolvedMissingCount: asNumber(skillSummary.resolvedMissingCount),
+      totalComparedSkills: asNumber(skillSummary.totalComparedSkills) || skillChanges.length,
+      improvedCount: asNumber(skillSummary.improvedCount) || improvedSkills.length,
+      regressedCount: asNumber(skillSummary.regressedCount) || weakerSkills.length,
+      unchangedCount: asNumber(skillSummary.unchangedCount) || skillChanges.filter((item) => (item.trend || item.status) === 'unchanged').length,
+      newSkillCount: asNumber(skillSummary.newSkillCount) || newSkills.length,
+      resolvedMissingCount: asNumber(skillSummary.resolvedMissingCount) || resolvedMissingSkills.length,
       remainingMissingCount: asNumber(skillSummary.remainingMissingCount),
-      newMissingCount: asNumber(skillSummary.newMissingCount),
+      newMissingCount: asNumber(skillSummary.newMissingCount) || newMissingSkills.length,
       averageBeforeScore: asNumber(skillSummary.averageBeforeScore),
       averageAfterScore: asNumber(skillSummary.averageAfterScore),
       averageChange: asNumber(skillSummary.averageChange)

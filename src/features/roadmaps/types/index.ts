@@ -164,6 +164,14 @@ export interface RoadmapSourceRepository {
   fullName?: string
   snapshotId?: string
   analysisId?: string
+  githubUsername?: string
+  totalRepoCommits?: number
+  userCommits?: number
+  activeDays?: number
+  userLevel?: string
+  userReadinessScore?: number
+  careerDirection?: string
+  projectType?: string
 }
 
 export interface RoadmapSource {

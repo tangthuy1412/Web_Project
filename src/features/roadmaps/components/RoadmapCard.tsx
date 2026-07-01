@@ -1,6 +1,14 @@
 import { Link } from 'react-router'
 import { motion } from 'motion/react'
-import { Archive, ArrowRight, Clock, GitBranch, ListChecks } from 'lucide-react'
+import {
+  ArrowRight,
+  Clock,
+  GitBranch,
+  GitCommitHorizontal,
+  ListChecks,
+  Target,
+  UserRound
+} from 'lucide-react'
 import { Badge } from '../../../app/components/ui/Badge'
 import { Button } from '../../../app/components/ui/Button'
 import { Card, CardContent } from '../../../app/components/ui/Card'
@@ -13,9 +21,41 @@ interface RoadmapCardProps {
   compact?: boolean
 }
 
+const formatLevel = (level?: string) => {
+  switch (level?.trim().toLowerCase()) {
+    case 'beginner':
+      return 'Cơ bản'
+    case 'intermediate':
+      return 'Trung cấp'
+    case 'advanced':
+      return 'Nâng cao'
+    default:
+      return level
+  }
+}
+
 export const RoadmapCard = ({ roadmap, compact = false }: RoadmapCardProps) => {
-  const totalNodes = roadmap.modules.flatMap((module) => module.nodes).length
+  const nodes = roadmap.modules.flatMap((module) => module.nodes)
+  const totalNodes = roadmap.progressSummary?.totalItems ?? nodes.length
+  const completedNodes = roadmap.progressSummary?.completedItems ?? nodes.filter((node) => node.status === 'completed').length
   const isArchived = roadmap.status === 'archived'
+  const source = roadmap.roadmapSource && typeof roadmap.roadmapSource === 'object' ? roadmap.roadmapSource : undefined
+  const sourceRepositories = source?.repositories ?? []
+  const sourceRepositoryCount = source?.totalRepositories ?? roadmap.sourceRepositoriesCount ?? sourceRepositories.length
+  const userCommits = source?.totalUserCommits ?? source?.userCommits ?? sourceRepositories.reduce((sum, repo) => sum + (repo.userCommits ?? 0), 0)
+  const activeDays = source?.activeDays ?? sourceRepositories.reduce((sum, repo) => sum + (repo.activeDays ?? 0), 0)
+  const requestedLevel = formatLevel(roadmap.requestedLevel)
+  const effectiveLevel = formatLevel(roadmap.effectiveLevel ?? source?.userLevel)
+  const roleMatchScore = roadmap.roleMatch?.matchScore
+  const roleMatchLabel = roadmap.roleMatch?.matchLevelLabel
+  const prioritySkills = [
+    ...(roadmap.skillGapSummary?.prioritySkills ?? []),
+    ...(roadmap.skillGapSummary?.recommendedNextSkills ?? [])
+  ].filter((skill, index, list) => skill && list.indexOf(skill) === index)
+  const sourceLabel = sourceRepositoryCount > 1
+    ? `${sourceRepositoryCount} dự án`
+    : source?.fullName ?? source?.repoName ?? sourceRepositories[0]?.fullName ?? sourceRepositories[0]?.repoName ?? `${sourceRepositoryCount || 0} dự án`
+  const progress = Math.max(0, Math.min(100, Math.round(roadmap.progressSummary?.overallProgress ?? roadmap.progress)))
 
   return (
     <motion.div
@@ -37,14 +77,9 @@ export const RoadmapCard = ({ roadmap, compact = false }: RoadmapCardProps) => {
               <div className="flex flex-wrap gap-2">
                 <Badge variant="info">{roadmap.category}</Badge>
                 <Badge variant={getDifficultyTone(roadmap.difficulty)}>{formatRoadmapDifficulty(roadmap.difficulty)}</Badge>
-                {isArchived ? (
-                  <Badge variant="default">
-                    <Archive className="mr-1 h-3 w-3" />
-                    Đã lưu trữ
-                  </Badge>
-                ) : (
-                  <Badge variant="success">Đang học</Badge>
-                )}
+                <Badge variant={isArchived ? 'default' : 'success'}>
+                  {isArchived ? 'Đã lưu trữ' : 'Đang học'}
+                </Badge>
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">{roadmap.title}</h3>
@@ -55,7 +90,7 @@ export const RoadmapCard = ({ roadmap, compact = false }: RoadmapCardProps) => {
 
           {isArchived && (
             <p className="mb-4 rounded-lg bg-white px-3 py-2 text-xs text-slate-500 dark:bg-slate-900 dark:text-slate-400">
-              Roadmap này đã được cất khỏi lộ trình học chính. Bạn vẫn có thể mở lại để xem nội dung.
+              Lộ trình này đã được cất khỏi kế hoạch học chính. Bạn vẫn có thể mở lại để xem nội dung.
             </p>
           )}
 
@@ -73,29 +108,76 @@ export const RoadmapCard = ({ roadmap, compact = false }: RoadmapCardProps) => {
           <div className="mb-5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
             <div
               className={cn('h-full rounded-full transition-all', isArchived ? 'bg-slate-400' : 'bg-gradient-to-r from-indigo-500 to-cyan-500')}
-              style={{ width: `${roadmap.progress}%` }}
+              style={{ width: `${progress}%` }}
             />
           </div>
 
-          <div className="mb-5 grid grid-cols-3 gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <div className="mb-4 grid grid-cols-2 gap-2 text-xs text-slate-500 dark:text-slate-400">
             <div className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" />
               {roadmap.estimatedWeeks} tuần
             </div>
             <div className="flex items-center gap-1.5">
               <ListChecks className="h-3.5 w-3.5" />
-              {totalNodes} nhiệm vụ
+              {completedNodes}/{totalNodes} nhiệm vụ
+            </div>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <GitBranch className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{sourceLabel}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <GitBranch className="h-3.5 w-3.5" />
-              {roadmap.sourceRepositoriesCount ?? 0} repo
+              <GitCommitHorizontal className="h-3.5 w-3.5" />
+              {userCommits} đóng góp của bạn
             </div>
           </div>
+
+          {(requestedLevel || effectiveLevel) && (
+            <div className="mb-4 grid gap-2 text-xs sm:grid-cols-2">
+              {requestedLevel && (
+                <div className="rounded-md border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-800 dark:bg-slate-950">
+                  <span className="text-slate-500 dark:text-slate-400">Yêu cầu</span>
+                  <span className="ml-1 font-semibold text-slate-900 dark:text-slate-100">{requestedLevel}</span>
+                </div>
+              )}
+              {effectiveLevel && (
+                <div className="rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-2 dark:border-indigo-900 dark:bg-indigo-950/30">
+                  <span className="text-slate-500 dark:text-slate-400">Áp dụng</span>
+                  <span className="ml-1 font-semibold text-indigo-700 dark:text-indigo-300">{effectiveLevel}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {(typeof roleMatchScore === 'number' || activeDays > 0 || prioritySkills.length > 0) && (
+            <div className="mb-5 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs dark:border-slate-800 dark:bg-slate-950/60">
+              <div className="grid gap-2 sm:grid-cols-2">
+                {typeof roleMatchScore === 'number' && (
+                  <div className="flex items-center gap-2">
+                    <Target className="h-3.5 w-3.5 text-indigo-500" />
+                    <span>{Math.round(roleMatchScore)}% phù hợp{roleMatchLabel ? ` · ${roleMatchLabel}` : ''}</span>
+                  </div>
+                )}
+                {activeDays > 0 && (
+                  <div className="flex items-center gap-2">
+                    <UserRound className="h-3.5 w-3.5 text-cyan-500" />
+                    <span>{activeDays} ngày hoạt động</span>
+                  </div>
+                )}
+              </div>
+              {prioritySkills.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {prioritySkills.slice(0, 4).map((skill) => (
+                    <Badge key={skill} variant="warning">{skill}</Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-500 dark:text-slate-400">{isArchived ? 'Tiến độ đã lưu' : 'Hoàn thành'}</p>
-              <p className="font-semibold text-slate-900 dark:text-slate-100">{roadmap.progress}%</p>
+              <p className="font-semibold text-slate-900 dark:text-slate-100">{progress}%</p>
             </div>
             <Link to={`/roadmaps/${roadmap.slug}`}>
               <Button size="sm" variant="outline" aria-label={`Mở ${roadmap.title}`}>

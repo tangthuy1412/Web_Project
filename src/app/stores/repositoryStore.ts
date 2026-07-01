@@ -58,35 +58,62 @@ const asStringArray = (value: unknown) => {
   return Array.isArray(value) ? value.map(String).filter(Boolean) : []
 }
 
+const asStringField = (value: unknown) => {
+  return typeof value === 'string' && value.trim() ? value : undefined
+}
+
+const asReferenceId = (value: unknown) => {
+  if (typeof value === 'string' && value.trim()) return value
+  const record = toRecord(value)
+  const id = record.id ?? record._id ?? record.repositoryId
+  return typeof id === 'string' && id.trim() ? id : undefined
+}
+
 const asFeedback = (payload: unknown): AIFeedback => {
   const feedbackPayload = pickFeedbackPayload(payload)
   const record = toRecord(feedbackPayload)
 
   return {
     id: String(record.id ?? record._id ?? ''),
-    repositoryId: String(record.repositoryId ?? ''),
-    analysisSnapshotId: typeof record.analysisSnapshotId === 'string' ? record.analysisSnapshotId : undefined,
+    repositoryId: asReferenceId(record.repositoryId ?? record.repoId),
+    analysisSnapshotId: asReferenceId(record.analysisSnapshotId ?? record.snapshotId),
     githubRepoId: typeof record.githubRepoId === 'number' ? record.githubRepoId : undefined,
-    repoName: typeof record.repoName === 'string' ? record.repoName : undefined,
-    fullName: typeof record.fullName === 'string' ? record.fullName : undefined,
-    projectType: typeof record.projectType === 'string' ? record.projectType : undefined,
-    careerDirection: typeof record.careerDirection === 'string' ? record.careerDirection : undefined,
-    createdAt: typeof record.createdAt === 'string' ? record.createdAt : undefined,
-    generatedAt: typeof record.generatedAt === 'string' ? record.generatedAt : undefined,
-    summary: typeof record.summary === 'string' ? record.summary : undefined,
-    feedback: typeof record.feedback === 'string' ? record.feedback : typeof record.content === 'string' ? record.content : undefined,
+    repoName: asStringField(record.repoName),
+    fullName: asStringField(record.fullName),
+    projectType: asStringField(record.projectType),
+    careerDirection: asStringField(record.careerDirection),
+    createdAt: asStringField(record.createdAt),
+    generatedAt: asStringField(record.generatedAt),
+    summary: asStringField(record.summary),
+    feedback: asStringField(record.feedback) ?? asStringField(record.content),
     strengthFeedback: asStringArray(record.strengthFeedback),
     weaknessFeedback: asStringArray(record.weaknessFeedback),
-    learningAdvice: typeof record.learningAdvice === 'string' ? record.learningAdvice : undefined,
+    learningAdvice: asStringField(record.learningAdvice),
     nextSteps: asStringArray(record.nextSteps),
     recommendedTopics: asStringArray(record.recommendedTopics),
-    careerSuggestion: typeof record.careerSuggestion === 'string' ? record.careerSuggestion : undefined,
-    portfolioAdvice: typeof record.portfolioAdvice === 'string' ? record.portfolioAdvice : undefined,
+    careerSuggestion: asStringField(record.careerSuggestion),
+    portfolioAdvice: asStringField(record.portfolioAdvice),
     riskNotes: asStringArray(record.riskNotes),
     recommendations: asStringArray(record.recommendations),
     raw: feedbackPayload
   }
 }
+
+const hasFeedbackContent = (feedback: AIFeedback) =>
+  Boolean(
+    feedback.id ||
+    feedback.summary ||
+    feedback.feedback ||
+    feedback.learningAdvice ||
+    feedback.careerSuggestion ||
+    feedback.portfolioAdvice ||
+    feedback.strengthFeedback?.length ||
+    feedback.weaknessFeedback?.length ||
+    feedback.nextSteps?.length ||
+    feedback.recommendedTopics?.length ||
+    feedback.riskNotes?.length ||
+    feedback.recommendations?.length
+  )
 
 const asFeedbackList = (payload: unknown) => {
   const record = toRecord(payload)
@@ -240,7 +267,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   fetchFeedback: async (repoId) => {
     try {
       const feedback = asFeedback(await aiFeedbackApi.getResult(repoId))
-      if (!feedback.id && !feedback.summary) return null
+      if (!hasFeedbackContent(feedback)) return null
 
       const feedbackRepoId = feedback.repositoryId || repoId
       set((state) => ({
@@ -258,7 +285,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       set((state) => ({
         feedbackByRepoId: feedbacks.reduce(
           (acc, feedback) => {
-            if (feedback.repositoryId) acc[feedback.repositoryId] = feedback
+            if (feedback.repositoryId && hasFeedbackContent(feedback)) acc[feedback.repositoryId] = feedback
             return acc
           },
           { ...state.feedbackByRepoId } as Record<string, AIFeedback>

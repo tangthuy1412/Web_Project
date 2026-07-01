@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router'
 import { BarChart3, Github, MessageSquare, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react'
+import { ScrollToTop } from '../components/layout/ScrollToTop'
 
 const highlights = [
   {
@@ -22,6 +23,7 @@ const highlights = [
 export const AuthLayout = () => {
   return (
     <div className="grid min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.16),transparent_24rem),linear-gradient(135deg,#f8fafc,#eef2ff)] dark:bg-[linear-gradient(135deg,#020617,#0f172a)] lg:grid-cols-[1.05fr_0.95fr]">
+      <ScrollToTop />
       <div className="hidden overflow-hidden bg-[linear-gradient(135deg,#020617,#111827_55%,#172554)] text-white shadow-2xl shadow-slate-950/30 lg:flex lg:flex-col lg:justify-between lg:p-10">
         <div className="animate-rise max-w-xl space-y-8">
           <div className="flex items-center gap-3">

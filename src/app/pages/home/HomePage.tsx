@@ -20,13 +20,13 @@ import { useRepositoryStore } from '../../stores/repositoryStore'
 
 const features = [
   {
-    title: 'Chấm điểm repository',
+    title: 'Chấm điểm dự án',
     description: 'Đánh giá công nghệ, tài liệu, chất lượng commit, testing và mức độ sẵn sàng portfolio từ dữ liệu phân tích.',
     icon: BarChart3
   },
   {
     title: 'Roadmap nghề nghiệp',
-    description: 'Biến khoảng trống kỹ năng trong repository thành kế hoạch học tập thực tế cho thực tập, junior role và portfolio.',
+    description: 'Biến khoảng trống kỹ năng trong dự án thành kế hoạch học tập thực tế cho thực tập, junior role và portfolio.',
     icon: TrendingUp
   },
   {
@@ -63,7 +63,7 @@ export const HomePage = () => {
               GitAnalyzer AI
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-300">
-              Phân tích repository GitHub, hiểu điểm mạnh kỹ thuật và xây dựng portfolio dễ đánh giá hơn.
+              Phân tích dự án GitHub, hiểu điểm mạnh kỹ thuật và xây dựng portfolio dễ đánh giá hơn.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link to="/github/connect">
@@ -74,7 +74,7 @@ export const HomePage = () => {
               </Link>
               <Link to="/repositories">
                 <Button variant="outline" size="lg">
-                  Xem repository
+                  Xem dự án
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
@@ -121,14 +121,14 @@ export const HomePage = () => {
               <div className="flex h-full min-h-[260px] flex-col justify-center rounded-lg border border-dashed border-slate-300 bg-white p-5 text-center dark:border-slate-700 dark:bg-slate-900">
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Chưa có dữ liệu phân tích</p>
                 <h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
-                  Chưa có phân tích repository
+                  Chưa có phân tích dự án
                 </h2>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  Kết nối GitHub, đồng bộ repository và chạy phân tích để xem kết quả của bạn.
+                  Kết nối GitHub, đồng bộ dự án và chạy phân tích để xem kết quả của bạn.
                 </p>
                 <Link to={isAuthenticated ? '/repositories' : '/login'} className="mt-4">
                   <Button variant="outline">
-                    {isAuthenticated ? 'Đi tới repository' : 'Đăng nhập để bắt đầu'}
+                    {isAuthenticated ? 'Đi tới dự án' : 'Đăng nhập để bắt đầu'}
                   </Button>
                 </Link>
               </div>
@@ -140,7 +140,7 @@ export const HomePage = () => {
       <div className="animate-rise-delay grid gap-4 md:grid-cols-3">
         <Card className="hover-lift">
           <CardContent className="p-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">Repository</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Dự án</p>
             <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{repositories.length}</p>
           </CardContent>
         </Card>
@@ -185,7 +185,7 @@ export const HomePage = () => {
               <h2 className="text-xl font-semibold">Sẵn sàng cải thiện dự án tiếp theo?</h2>
             </div>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Bắt đầu bằng phân tích repository, sau đó dùng dashboard và AI chat để ưu tiên việc cần sửa.
+              Bắt đầu bằng phân tích dự án, sau đó dùng bảng điều khiển và AI chat để ưu tiên việc cần sửa.
             </p>
           </div>
           <Link to="/dashboard">

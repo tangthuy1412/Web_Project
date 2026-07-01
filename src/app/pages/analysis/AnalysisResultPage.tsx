@@ -106,6 +106,7 @@ export const AnalysisResultPage = () => {
     getAnalysisById,
     fetchAnalysis,
     analyzeRepository,
+    fetchFeedback,
     generateFeedback,
     isGeneratingFeedback,
     error
@@ -132,7 +133,10 @@ export const AnalysisResultPage = () => {
 
   const handleGenerateFeedback = async () => {
     const repoId = analysis?.repositoryId || id
-    await generateFeedback(repoId)
+    const existingFeedback = await fetchFeedback(repoId)
+    if (!existingFeedback) {
+      await generateFeedback(repoId)
+    }
     navigate(`/repositories/${repoId}`)
   }
 

@@ -61,14 +61,15 @@ const collectAnalysisText = (analyses: AnalysisResult[]) =>
     .toLowerCase()
 
 const reasonByRole: Record<Role, string> = {
-  'Frontend Developer': 'AI thấy nhiều tín hiệu về giao diện, React hoặc trải nghiệm người dùng trong các repository đã phân tích.',
-  'Backend Developer': 'AI thấy nhiều tín hiệu về API, Node.js, Express, MongoDB hoặc xác thực trong các repository đã phân tích.',
-  'Fullstack Developer': 'AI thấy bạn có cả tín hiệu frontend và backend, nên hướng Fullstack giúp tận dụng tốt nền tảng hiện có.',
-  'Mobile Developer': 'AI thấy tín hiệu liên quan đến mobile hoặc framework mobile trong dữ liệu phân tích.',
-  'Tester / QA Engineer': 'AI thấy testing là kỹ năng cần bổ sung hoặc có tín hiệu QA trong repository.',
-  'DevOps Beginner': 'AI thấy Docker, triển khai hoặc CI/CD là phần nên ưu tiên để dự án sẵn sàng hơn.',
-  'Data Analyst': 'AI thấy tín hiệu về dữ liệu, dashboard, analytics hoặc SQL trong repository.',
-  'AI / Machine Learning Beginner': 'AI thấy tín hiệu liên quan đến AI, machine learning, model hoặc LLM.'
+  'Frontend Developer': 'Hệ thống thấy nhiều tín hiệu về giao diện, React hoặc trải nghiệm người dùng trong các dự án đã phân tích.',
+  'Backend Developer': 'Hệ thống thấy nhiều tín hiệu về API, Node.js, Express, MongoDB hoặc xác thực trong các dự án đã phân tích.',
+  'Fullstack Developer': 'Hệ thống thấy bạn có cả tín hiệu frontend và backend, nên hướng Fullstack giúp tận dụng tốt nền tảng hiện có.',
+  'Mobile Developer': 'Hệ thống thấy tín hiệu liên quan đến mobile hoặc framework mobile trong dữ liệu phân tích.',
+  'Tester / QA Engineer': 'Hệ thống thấy testing là kỹ năng cần bổ sung hoặc có tín hiệu QA trong dự án.',
+  'DevOps Beginner': 'Hệ thống thấy Docker, triển khai hoặc CI/CD là phần nên ưu tiên để dự án sẵn sàng hơn.',
+  'Data Analyst': 'Hệ thống thấy tín hiệu về dữ liệu, dashboard, analytics hoặc SQL trong dự án.',
+  'AI Engineer': 'Hệ thống thấy vai trò AI Engineer phù hợp để bạn bổ sung năng lực LLM, prompt và tích hợp API AI.',
+  'AI / Machine Learning Beginner': 'Hệ thống thấy tín hiệu liên quan đến AI, machine learning, model hoặc LLM.'
 }
 
 export const recommendRoadmapRole = (analyses: AnalysisResult[]): RoadmapRoleRecommendation | null => {
@@ -99,7 +100,7 @@ export const recommendRoadmapRole = (analyses: AnalysisResult[]): RoadmapRoleRec
   if (!role || score <= 0) {
     return {
       role: 'Backend Developer',
-      title: 'Đề xuất chính theo repository',
+      title: 'Đề xuất chính theo dự án',
       reason: 'AI chưa thấy tín hiệu đủ rõ, nên chọn Backend Developer làm hướng nền tảng để bạn củng cố API, dữ liệu và cấu trúc hệ thống.',
       focus: 'Nền tảng API, database, xác thực và cấu trúc backend.'
     }
@@ -107,9 +108,9 @@ export const recommendRoadmapRole = (analyses: AnalysisResult[]): RoadmapRoleRec
 
   return {
     role,
-    title: 'Đề xuất chính theo repository',
+    title: 'Đề xuất chính theo dự án',
     reason: reasonByRole[role],
-    focus: 'Tập trung vào hướng nghề nghiệp nổi bật nhất từ các repository đã phân tích.'
+    focus: 'Tập trung vào hướng nghề nghiệp nổi bật nhất từ các dự án đã phân tích.'
   }
 }
 
@@ -123,7 +124,7 @@ export const recommendJobReadinessRoadmaps = (analyses: AnalysisResult[]): Roadm
     suggestions.push({
       role: 'Tester / QA Engineer',
       title: 'Đề xuất phụ: tăng độ tin cậy dự án',
-      reason: 'Nhiều repository còn thiếu kiểm thử tự động. Bổ sung testing giúp portfolio đáng tin hơn khi ứng tuyển.',
+      reason: 'Nhiều dự án còn thiếu kiểm thử tự động. Bổ sung testing giúp hồ sơ học tập đáng tin hơn khi ứng tuyển.',
       focus: 'Unit test, integration test, E2E test và cách trình bày coverage trong README.'
     })
   }
@@ -141,7 +142,7 @@ export const recommendJobReadinessRoadmaps = (analyses: AnalysisResult[]): Roadm
     suggestions.push({
       role: 'Fullstack Developer',
       title: 'Đề xuất phụ: hoàn thiện sản phẩm demo',
-      reason: 'Bạn có tín hiệu cả frontend hoặc backend. Một roadmap Fullstack phụ giúp biến repo thành sản phẩm demo hoàn chỉnh hơn.',
+      reason: 'Bạn có tín hiệu cả frontend hoặc backend. Một lộ trình Fullstack phụ giúp biến dự án thành sản phẩm demo hoàn chỉnh hơn.',
       focus: 'Kết nối frontend-backend, auth flow, CRUD, deploy demo và README theo hướng portfolio.'
     })
   }

@@ -6,5 +6,6 @@ export const roadmapTargetRoles = [
   'Tester / QA Engineer',
   'DevOps Beginner',
   'Data Analyst',
+  'AI Engineer',
   'AI / Machine Learning Beginner'
 ] as const
