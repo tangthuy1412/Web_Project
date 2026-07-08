@@ -63,7 +63,7 @@ export const RepositoriesPage = () => {
   }
 
   return (
-    <div className="max-w-7xl space-y-6">
+    <div className="w-full max-w-[1600px] space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
@@ -86,7 +86,7 @@ export const RepositoriesPage = () => {
         </div>
       )}
 
-      <Card className="p-6">
+      <Card className="p-4 lg:p-6">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -115,26 +115,86 @@ export const RepositoriesPage = () => {
             </p>
           </div>
         ) : (
-          <div className="min-h-[690px] overflow-x-auto">
-            <table className="w-full min-w-[1280px] table-fixed">
+          <div className="min-h-[690px] overflow-visible">
+            <div className="space-y-3 md:hidden">
+              {visibleRepositories.map((repo) => {
+                const analysis = analysisByRepoId[repo.id]
+                const hasAnalysis = Boolean(analysis || repo.analyzed)
+                const isRepoAnalyzing = analyzingRepoId === repo.id
+                const analysisSummary = analysis?.summary
+                const analysisOverall = Math.round(analysisSummary?.overallScore ?? analysis?.scores.overallScore ?? analysis?.scores.overall ?? 0)
+                const analysisReadiness = typeof analysisSummary?.userReadinessScore === 'number' ? Math.round(analysisSummary.userReadinessScore) : undefined
+                const analysisScoreLabel = analysisReadiness !== undefined ? 'Mức sẵn sàng ' + analysisReadiness + '%' : analysisOverall ? 'Điểm tổng quan ' + analysisOverall : ''
+
+                return (
+                  <article key={repo.id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <Link to={`/repositories/${repo.id}`} className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
+                          {repo.name}
+                        </Link>
+                        {repo.description && <p className="mt-1 line-clamp-2 text-sm text-slate-500 dark:text-slate-400">{repo.description}</p>}
+                      </div>
+                      <a href={repo.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                        <Button variant="ghost" size="sm" title="Mở trên GitHub">
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </a>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                      <Badge variant="default">{repo.language || 'Khác'}</Badge>
+                      <span className="inline-flex items-center gap-1"><Star className="h-3.5 w-3.5" />{repo.stars}</span>
+                      <span className="inline-flex items-center gap-1"><GitFork className="h-3.5 w-3.5" />{repo.forks}</span>
+                      <span>{formatRelativeTime(repo.updatedAt)}</span>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {repo.hasReadme ? <Badge variant="success">Có README</Badge> : <Badge variant="default">Chưa có README</Badge>}
+                      {hasAnalysis ? <Badge variant="success">Đã phân tích</Badge> : <Badge variant="default">Chưa phân tích</Badge>}
+                      {analysisScoreLabel && <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{analysisScoreLabel}</span>}
+                    </div>
+
+                    {analysis && (
+                      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                        {analysisSummary?.careerDirection || analysis.careerDirection.primary}
+                      </p>
+                    )}
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {hasAnalysis && (
+                        <Link to={`/repositories/${repo.id}/analysis`}>
+                          <Button variant="outline" size="sm">Xem phân tích</Button>
+                        </Link>
+                      )}
+                      <Button size="sm" onClick={() => handleAnalyze(repo.id)} disabled={isRepoAnalyzing}>
+                        {isRepoAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : hasAnalysis ? <RefreshCw className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+                        {isRepoAnalyzing ? 'Đang phân tích...' : hasAnalysis ? 'Phân tích lại' : 'Phân tích'}
+                      </Button>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+            <table className="hidden w-full table-fixed text-sm md:table">
               <colgroup>
-                <col className="w-[24%]" />
-                <col className="w-[8%]" />
+                <col className="w-[25%]" />
                 <col className="w-[9%]" />
-                <col className="w-[7%]" />
-                <col className="w-[14%]" />
-                <col className="w-[12%]" />
-                <col className="w-[26%]" />
+                <col className="w-[9%]" />
+                <col className="w-[8%]" />
+                <col className="w-[15%]" />
+                <col className="w-[11%]" />
+                <col className="w-[23%]" />
               </colgroup>
               <thead>
                 <tr className="border-b border-slate-200 text-left text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
-                  <th className="px-4 py-3 font-medium">Dự án</th>
-                  <th className="px-4 py-3 font-medium">Ngôn ngữ</th>
-                  <th className="px-4 py-3 font-medium">Thống kê</th>
-                  <th className="px-4 py-3 font-medium">README</th>
-                  <th className="px-4 py-3 font-medium">Phân tích</th>
-                  <th className="px-4 py-3 font-medium">Cập nhật</th>
-                  <th className="px-4 py-3 text-right font-medium">Hành động</th>
+                  <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Dự án</th>
+                  <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Ngôn ngữ</th>
+                  <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Thống kê</th>
+                  <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">README</th>
+                  <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Phân tích</th>
+                  <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Cập nhật</th>
+                  <th className="whitespace-nowrap px-2 py-3 text-right font-medium lg:px-4">Hành động</th>
                 </tr>
               </thead>
               <tbody>
@@ -144,11 +204,12 @@ export const RepositoriesPage = () => {
                   const isRepoAnalyzing = analyzingRepoId === repo.id
                   const analysisSummary = analysis?.summary
                   const analysisOverall = Math.round(analysisSummary?.overallScore ?? analysis?.scores.overallScore ?? analysis?.scores.overall ?? 0)
-                  const analysisReadiness = Math.round(analysisSummary?.userReadinessScore ?? 0)
+                  const analysisReadiness = typeof analysisSummary?.userReadinessScore === 'number' ? Math.round(analysisSummary.userReadinessScore) : undefined
+                  const analysisScoreLabel = analysisReadiness !== undefined ? 'Mức sẵn sàng ' + analysisReadiness + '%' : analysisOverall ? 'Điểm tổng quan ' + analysisOverall : ''
 
                   return (
                     <tr key={repo.id} className="h-[66px] border-b border-slate-200 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50">
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-2 py-3 align-middle lg:px-4">
                         <Link to={`/repositories/${repo.id}`} className="group inline-flex max-w-full items-center gap-2 font-medium text-indigo-600 hover:underline dark:text-indigo-400">
                           <span className="truncate">{repo.name}</span>
                           <ArrowRight className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
@@ -159,32 +220,32 @@ export const RepositoriesPage = () => {
                           </p>
                         )}
                       </td>
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-2 py-3 align-middle lg:px-4">
                         <Badge variant="default">{repo.language || 'Khác'}</Badge>
                       </td>
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-2 py-3 align-middle lg:px-4">
                         <div className="flex flex-nowrap gap-3 text-sm text-slate-600 dark:text-slate-400">
                           <span className="inline-flex items-center gap-1"><Star className="h-4 w-4" />{repo.stars}</span>
                           <span className="inline-flex items-center gap-1"><GitFork className="h-4 w-4" />{repo.forks}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-2 py-3 align-middle lg:px-4">
                         {repo.hasReadme ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : <XCircle className="h-5 w-5 text-slate-300 dark:text-slate-700" />}
                       </td>
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-2 py-3 align-middle lg:px-4">
                         {analysis && (
                           <div className="mb-1.5 text-xs leading-5 text-slate-500 dark:text-slate-400">
                             <p className="truncate">{analysisSummary?.careerDirection || analysis.careerDirection.primary}</p>
-                            <p className="truncate">Sẵn sàng {analysisReadiness}% / Tổng quan {analysisOverall}</p>
+                            {analysisScoreLabel && <p className="truncate">{analysisScoreLabel}</p>}
                           </div>
                         )}
                         {hasAnalysis ? <Badge variant="success">Đã phân tích</Badge> : <Badge variant="default">Chưa phân tích</Badge>}
                       </td>
-                      <td className="px-4 py-3 align-middle text-sm text-slate-500 dark:text-slate-400">
+                      <td className="px-2 py-3 align-middle text-sm text-slate-500 dark:text-slate-400 lg:px-4">
                         <span className="block truncate">{formatRelativeTime(repo.updatedAt)}</span>
                       </td>
-                      <td className="px-4 py-3 align-middle">
-                        <div className="flex min-w-[300px] items-center justify-end gap-2 whitespace-nowrap">
+                      <td className="px-2 py-3 align-middle lg:px-4">
+                        <div className="flex flex-wrap items-center justify-end gap-2 xl:flex-nowrap">
                           {hasAnalysis ? (
                             <>
                               <Link to={`/repositories/${repo.id}/analysis`}>

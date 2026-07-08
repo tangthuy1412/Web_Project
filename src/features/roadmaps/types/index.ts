@@ -120,6 +120,12 @@ export interface Roadmap {
     matchScore?: number
     matchLevel?: string
     matchLevelLabel?: string
+    scoringMethod?: string
+    probability?: number
+    rank?: number
+    modelVersion?: string
+    vectorSources?: string[]
+    sourceStats?: Record<string, unknown>
   }
   skillGapSummary?: {
     totalGaps?: number
@@ -177,6 +183,11 @@ export interface RoadmapSourceRepository {
 export interface RoadmapSource {
   type?: string
   sourceMode?: string
+  contextSource?: string
+  modelVersion?: string
+  scoringMethod?: string
+  vectorSources?: string[]
+  sourceStats?: Record<string, unknown>
   analysisId?: string
   analysisIds?: string[]
   repositoryIds?: string[]
@@ -290,3 +301,4 @@ export interface RoadmapFilters {
   difficulty: RoadmapDifficulty | 'All'
   duration: 'All' | 'Short' | 'Medium' | 'Long'
 }
+

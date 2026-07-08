@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { motion } from 'motion/react'
-import { Archive, BookmarkCheck, CheckCircle2, ChevronLeft, ChevronRight, FolderOpen, Search, Sparkles } from 'lucide-react'
+import { Archive, BookmarkCheck, CheckCircle2, ChevronLeft, ChevronRight, FolderOpen, Loader2, Search, Sparkles } from 'lucide-react'
 import { Badge } from '../../../app/components/ui/Badge'
 import { Button } from '../../../app/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../app/components/ui/Card'
@@ -33,6 +33,15 @@ const difficulties: (RoadmapDifficulty | 'All')[] = ['All', 'Beginner', 'Interme
 const durations = ['All', 'Short', 'Medium', 'Long'] as const
 const ROADMAPS_PER_PAGE = 3
 
+const formatRoleMatchError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+
+  if (message.includes('DEV2VEC_ANALYSIS_REQUIRED')) return 'Cần phân tích dự án trước khi gợi ý vai trò phù hợp.'
+  if (message.includes('DEV2VEC_MODEL_UNAVAILABLE')) return 'Tính năng gợi ý vai trò đang tạm thời chưa sẵn sàng. Vui lòng thử lại sau.'
+  if (message.includes('DEV2VEC_INFERENCE_FAILED') || message.includes('DEV2VEC_INVALID_OUTPUT')) return 'Chưa thể tính vai trò phù hợp từ dữ liệu hiện tại. Bạn có thể thử phân tích lại dự án.'
+
+  return message || 'Không thể tính vai trò phù hợp.'
+}
 const skillLabel = (value: unknown) => {
   if (typeof value === 'string') return value
   if (value && typeof value === 'object') {
@@ -169,7 +178,7 @@ export const RoadmapsPage = () => {
   const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner')
   const [durationWeeks, setDurationWeeks] = useState(6)
   const useRoleMatching = true
-  const [forceRegenerate, setForceRegenerate] = useState(true)
+  const [forceRegenerate, setForceRegenerate] = useState(false)
   const [roleMatches, setRoleMatches] = useState<RoleMatch[]>([])
   const [roleMatchSource, setRoleMatchSource] = useState<{
     sourceMode?: string
@@ -178,6 +187,11 @@ export const RoadmapsPage = () => {
     userLevel?: string
     userReadinessScore?: number
     repositoryNames?: string[]
+    contextSource?: string
+    modelVersion?: string
+    scoringMethod?: string
+    vectorSources?: string[]
+    sourceStats?: Record<string, unknown>
   } | null>(null)
   const [isMatchingRoles, setIsMatchingRoles] = useState(false)
   const [generatingKey, setGeneratingKey] = useState('')
@@ -207,7 +221,7 @@ export const RoadmapsPage = () => {
   }, [analyses])
   const repositoryId = selectedRepoIds[0]
   const targetRoleOptions = useMemo(() => {
-    return Array.from(new Set(roleMatches.map((match) => match.roleName))).slice(0, 5)
+    return Array.from(new Set(roleMatches.map((match) => match.roleName))).slice(0, 3)
   }, [roleMatches])
   const canGenerate = sourceMode === 'all_analyzed_repos'
     ? analyzedRepos.length > 0
@@ -283,7 +297,7 @@ export const RoadmapsPage = () => {
       sourceMode,
       ...(sourceMode === 'single_repo' ? { repoId: repositoryId } : {}),
       ...(sourceMode === 'selected_repos' ? { repoIds: selectedRepoIds } : {}),
-      limit: 5,
+      limit: 3,
       includeDetails: true
     }).then((response) => {
       if (!isCurrent) return
@@ -295,7 +309,7 @@ export const RoadmapsPage = () => {
       if (!isCurrent) return
       setRoleMatches([])
       setRoleMatchSource(null)
-      setRoleMatchError(requestError instanceof Error ? requestError.message : 'Không thể tính role phù hợp.')
+      setRoleMatchError(formatRoleMatchError(requestError))
     }).finally(() => {
       if (isCurrent) setIsMatchingRoles(false)
     })
@@ -312,6 +326,7 @@ export const RoadmapsPage = () => {
         repoId: sourceMode === 'single_repo' ? repositoryId : undefined,
         repoIds: sourceMode === 'selected_repos' ? selectedRepoIds : undefined,
         roleId: selectedRole?.roleId,
+        selectedRole: selectedRole ? { roleId: selectedRole.roleId, roleName: selectedRole.roleName } : undefined,
         level,
         durationWeeks,
         language: 'vi',
@@ -523,27 +538,46 @@ export const RoadmapsPage = () => {
 
           <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/60 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Luôn tạo lộ trình mới</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Tắt tùy chọn này nếu bạn muốn dùng lại lộ trình đã có cho cùng vai trò.</p>
+              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Tạo lộ trình mới</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Bật khi bạn muốn tạo lại từ đầu. Tắt để ưu tiên dùng lộ trình đã có và phản hồi nhanh hơn.</p>
             </div>
             <button
               type="button"
               className={`inline-flex h-7 w-12 items-center rounded-full p-1 transition ${forceRegenerate ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'}`}
               onClick={() => setForceRegenerate((value) => !value)}
               aria-pressed={forceRegenerate}
-              aria-label="Luôn tạo lộ trình mới"
+              aria-label="Tạo lộ trình mới"
             >
               <span className={`h-5 w-5 rounded-full bg-white shadow transition ${forceRegenerate ? 'translate-x-5' : 'translate-x-0'}`} />
             </button>
           </div>
 
-          <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-900 dark:bg-indigo-950/20">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className={`relative overflow-hidden rounded-lg border p-4 transition ${isRoleMatchesLoading ? 'border-indigo-400 bg-indigo-50 shadow-xl shadow-indigo-500/20 ring-2 ring-indigo-200/90 dark:border-indigo-500 dark:bg-indigo-950/40 dark:ring-indigo-800/70' : 'border-indigo-200 bg-indigo-50/60 dark:border-indigo-900 dark:bg-indigo-950/20'}`}>
+            {isRoleMatchesLoading && (
+              <>
+                <div className="pointer-events-none absolute inset-0 animate-pulse bg-indigo-500/5 dark:bg-indigo-300/5" />
+                <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-indigo-400/20 blur-2xl" />
+              </>
+            )}
+            <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">Gợi ý vai trò phù hợp với hồ sơ học tập</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">Gợi ý vai trò phù hợp với hồ sơ học tập</p>
+                  {isRoleMatchesLoading && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm shadow-indigo-500/30">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Đang xử lý
+                    </span>
+                  )}
+                </div>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  {isRoleMatchesLoading ? 'Đang phân tích mức phù hợp...' : 'Chọn vai trò bạn muốn theo đuổi để tạo lộ trình học cá nhân hóa.'}
+                  {isRoleMatchesLoading ? 'Đang phân tích mức phù hợp từ dữ liệu dự án. Quá trình này có thể mất vài giây.' : 'Chọn vai trò bạn muốn theo đuổi để tạo lộ trình học cá nhân hóa.'}
                 </p>
+                {isRoleMatchesLoading && (
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-indigo-100 dark:bg-indigo-950">
+                    <div className="h-full w-2/3 animate-[pulse_1.2s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400 shadow-sm" />
+                  </div>
+                )}
               </div>
               {roleMatches[0] && (
                 <div className="shrink-0 sm:text-right">
@@ -753,3 +787,5 @@ export const RoadmapsPage = () => {
     </div>
   )
 }
+
+

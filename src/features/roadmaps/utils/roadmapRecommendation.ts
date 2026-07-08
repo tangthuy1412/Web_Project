@@ -13,30 +13,36 @@ export type RoadmapRoleRecommendation = {
 const includesAny = (text: string, keywords: string[]) =>
   keywords.some((keyword) => text.includes(keyword))
 
-export const getSuggestedRoadmapRoles = (analyses: AnalysisResult[], limit = 5): Role[] => {
-  if (analyses.length === 0) return roadmapTargetRoles.slice(0, limit)
-
+const scoreRoles = (analyses: AnalysisResult[]) => {
   const text = collectAnalysisText(analyses)
   const scores = new Map<Role, number>(roadmapTargetRoles.map((role) => [role, 0]))
   const add = (role: Role, value: number) => scores.set(role, (scores.get(role) ?? 0) + value)
 
   if (includesAny(text, ['react', 'vue', 'frontend', 'css', 'html', 'ui', 'web-vitals'])) add('Frontend Developer', 4)
   if (includesAny(text, ['node', 'express', 'mongodb', 'mongoose', 'jwt', 'api', 'backend', 'server'])) add('Backend Developer', 4)
-  if (includesAny(text, ['react', 'frontend']) && includesAny(text, ['node', 'express', 'mongodb', 'api', 'backend'])) add('Fullstack Developer', 6)
-  if (includesAny(text, ['docker', 'ci/cd', 'deployment', 'github actions', 'devops'])) add('DevOps Beginner', 4)
-  if (includesAny(text, ['testing', 'test', 'qa', 'playwright', 'jest'])) add('Tester / QA Engineer', 4)
   if (includesAny(text, ['mobile', 'react native', 'flutter', 'android', 'ios'])) add('Mobile Developer', 5)
-  if (includesAny(text, ['data', 'dashboard', 'analytics', 'python', 'pandas', 'sql'])) add('Data Analyst', 4)
-  if (includesAny(text, ['ai', 'machine learning', 'ml', 'model', 'gemini', 'llm'])) add('AI / Machine Learning Beginner', 4)
+  if (includesAny(text, ['docker', 'ci/cd', 'deployment', 'deploy', 'github actions', 'devops', 'cloud'])) add('DevOps Engineer', 4)
+  if (includesAny(text, ['data', 'dashboard', 'analytics', 'python', 'pandas', 'sql', 'ai', 'machine learning', 'ml', 'model', 'gemini', 'llm'])) add('Data Scientist', 4)
+
+  if (includesAny(text, ['react', 'frontend']) && includesAny(text, ['node', 'express', 'mongodb', 'api', 'backend'])) {
+    add('Frontend Developer', 2)
+    add('Backend Developer', 2)
+  }
 
   analyses.forEach((analysis) => {
     const missing = analysis.missingSkills.map((skill) => skill.name.toLowerCase()).join(' ')
-    if (includesAny(missing, ['docker', 'deployment', 'ci/cd'])) add('DevOps Beginner', 2)
-    if (includesAny(missing, ['testing', 'test'])) add('Tester / QA Engineer', 2)
-    if (includesAny(missing, ['backend', 'api', 'node'])) add('Backend Developer', 2)
+    if (includesAny(missing, ['docker', 'deployment', 'ci/cd', 'cloud'])) add('DevOps Engineer', 2)
+    if (includesAny(missing, ['testing', 'test', 'api', 'node'])) add('Backend Developer', 1)
+    if (includesAny(missing, ['data', 'python', 'sql', 'machine learning', 'ai'])) add('Data Scientist', 2)
   })
 
-  return Array.from(scores.entries())
+  return scores
+}
+
+export const getSuggestedRoadmapRoles = (analyses: AnalysisResult[], limit = 3): Role[] => {
+  if (analyses.length === 0) return roadmapTargetRoles.slice(0, limit)
+
+  return Array.from(scoreRoles(analyses).entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([role]) => role)
@@ -61,47 +67,23 @@ const collectAnalysisText = (analyses: AnalysisResult[]) =>
     .toLowerCase()
 
 const reasonByRole: Record<Role, string> = {
+  'Backend Developer': 'Hệ thống thấy nhiều tín hiệu về API, dữ liệu, xác thực hoặc cấu trúc backend trong các dự án đã phân tích.',
   'Frontend Developer': 'Hệ thống thấy nhiều tín hiệu về giao diện, React hoặc trải nghiệm người dùng trong các dự án đã phân tích.',
-  'Backend Developer': 'Hệ thống thấy nhiều tín hiệu về API, Node.js, Express, MongoDB hoặc xác thực trong các dự án đã phân tích.',
-  'Fullstack Developer': 'Hệ thống thấy bạn có cả tín hiệu frontend và backend, nên hướng Fullstack giúp tận dụng tốt nền tảng hiện có.',
   'Mobile Developer': 'Hệ thống thấy tín hiệu liên quan đến mobile hoặc framework mobile trong dữ liệu phân tích.',
-  'Tester / QA Engineer': 'Hệ thống thấy testing là kỹ năng cần bổ sung hoặc có tín hiệu QA trong dự án.',
-  'DevOps Beginner': 'Hệ thống thấy Docker, triển khai hoặc CI/CD là phần nên ưu tiên để dự án sẵn sàng hơn.',
-  'Data Analyst': 'Hệ thống thấy tín hiệu về dữ liệu, dashboard, analytics hoặc SQL trong dự án.',
-  'AI Engineer': 'Hệ thống thấy vai trò AI Engineer phù hợp để bạn bổ sung năng lực LLM, prompt và tích hợp API AI.',
-  'AI / Machine Learning Beginner': 'Hệ thống thấy tín hiệu liên quan đến AI, machine learning, model hoặc LLM.'
+  'DevOps Engineer': 'Hệ thống thấy Docker, triển khai, CI/CD hoặc hạ tầng là phần nên ưu tiên để dự án sẵn sàng hơn.',
+  'Data Scientist': 'Hệ thống thấy tín hiệu về dữ liệu, Python, SQL, AI hoặc mô hình học máy trong dữ liệu phân tích.'
 }
 
 export const recommendRoadmapRole = (analyses: AnalysisResult[]): RoadmapRoleRecommendation | null => {
   if (analyses.length === 0) return null
 
-  const text = collectAnalysisText(analyses)
-  const scores = new Map<Role, number>(roadmapTargetRoles.map((role) => [role, 0]))
-  const add = (role: Role, value: number) => scores.set(role, (scores.get(role) ?? 0) + value)
-
-  if (includesAny(text, ['react', 'vue', 'frontend', 'css', 'html', 'ui', 'web-vitals'])) add('Frontend Developer', 4)
-  if (includesAny(text, ['node', 'express', 'mongodb', 'mongoose', 'jwt', 'api', 'backend', 'server'])) add('Backend Developer', 4)
-  if (includesAny(text, ['react', 'frontend']) && includesAny(text, ['node', 'express', 'mongodb', 'api', 'backend'])) add('Fullstack Developer', 6)
-  if (includesAny(text, ['docker', 'ci/cd', 'deployment', 'github actions', 'devops'])) add('DevOps Beginner', 4)
-  if (includesAny(text, ['testing', 'test', 'qa', 'playwright', 'jest'])) add('Tester / QA Engineer', 4)
-  if (includesAny(text, ['mobile', 'react native', 'flutter', 'android', 'ios'])) add('Mobile Developer', 5)
-  if (includesAny(text, ['data', 'dashboard', 'analytics', 'python', 'pandas', 'sql'])) add('Data Analyst', 4)
-  if (includesAny(text, ['ai', 'machine learning', 'ml', 'model', 'gemini', 'llm'])) add('AI / Machine Learning Beginner', 4)
-
-  analyses.forEach((analysis) => {
-    const missing = analysis.missingSkills.map((skill) => skill.name.toLowerCase()).join(' ')
-    if (includesAny(missing, ['docker', 'deployment', 'ci/cd'])) add('DevOps Beginner', 2)
-    if (includesAny(missing, ['testing', 'test'])) add('Tester / QA Engineer', 2)
-    if (includesAny(missing, ['backend', 'api', 'node'])) add('Backend Developer', 2)
-  })
-
-  const [role, score] = Array.from(scores.entries()).sort((a, b) => b[1] - a[1])[0]
+  const [role, score] = Array.from(scoreRoles(analyses).entries()).sort((a, b) => b[1] - a[1])[0]
 
   if (!role || score <= 0) {
     return {
       role: 'Backend Developer',
       title: 'Đề xuất chính theo dự án',
-      reason: 'AI chưa thấy tín hiệu đủ rõ, nên chọn Backend Developer làm hướng nền tảng để bạn củng cố API, dữ liệu và cấu trúc hệ thống.',
+      reason: 'Hệ thống chưa thấy tín hiệu đủ rõ, nên chọn Backend Developer làm hướng nền tảng để bạn củng cố API, dữ liệu và cấu trúc hệ thống.',
       focus: 'Nền tảng API, database, xác thực và cấu trúc backend.'
     }
   }
@@ -120,30 +102,30 @@ export const recommendJobReadinessRoadmaps = (analyses: AnalysisResult[]): Roadm
   const text = collectAnalysisText(analyses)
   const suggestions: RoadmapRoleRecommendation[] = []
 
-  if (includesAny(text, ['testing', 'test', 'automated testing', 'jest', 'vitest', 'playwright', 'cypress'])) {
+  if (includesAny(text, ['docker', 'deployment', 'ci/cd', 'github actions', 'environment configuration', '.env', 'cloud'])) {
     suggestions.push({
-      role: 'Tester / QA Engineer',
-      title: 'Đề xuất phụ: tăng độ tin cậy dự án',
-      reason: 'Nhiều dự án còn thiếu kiểm thử tự động. Bổ sung testing giúp hồ sơ học tập đáng tin hơn khi ứng tuyển.',
-      focus: 'Unit test, integration test, E2E test và cách trình bày coverage trong README.'
-    })
-  }
-
-  if (includesAny(text, ['docker', 'deployment', 'ci/cd', 'github actions', 'environment configuration', '.env'])) {
-    suggestions.push({
-      role: 'DevOps Beginner',
+      role: 'DevOps Engineer',
       title: 'Đề xuất phụ: sẵn sàng triển khai',
       reason: 'Các phân tích cho thấy Docker, CI/CD hoặc cấu hình môi trường là điểm nên cải thiện để dự án dễ chạy và dễ demo.',
       focus: 'Dockerfile, docker-compose, GitHub Actions, biến môi trường và hướng dẫn deploy.'
     })
   }
 
-  if (suggestions.length < 2 && includesAny(text, ['react', 'frontend', 'express', 'backend', 'api'])) {
+  if (suggestions.length < 2 && includesAny(text, ['data', 'dashboard', 'analytics', 'python', 'pandas', 'sql', 'ai', 'machine learning', 'llm'])) {
     suggestions.push({
-      role: 'Fullstack Developer',
-      title: 'Đề xuất phụ: hoàn thiện sản phẩm demo',
-      reason: 'Bạn có tín hiệu cả frontend hoặc backend. Một lộ trình Fullstack phụ giúp biến dự án thành sản phẩm demo hoàn chỉnh hơn.',
-      focus: 'Kết nối frontend-backend, auth flow, CRUD, deploy demo và README theo hướng portfolio.'
+      role: 'Data Scientist',
+      title: 'Đề xuất phụ: khai thác dữ liệu tốt hơn',
+      reason: 'Dữ liệu phân tích có tín hiệu về xử lý dữ liệu hoặc AI, phù hợp để bổ sung năng lực phân tích và mô hình hóa.',
+      focus: 'Python, SQL, phân tích dữ liệu, mô hình cơ bản và cách trình bày kết quả.'
+    })
+  }
+
+  if (suggestions.length < 2 && includesAny(text, ['react', 'frontend', 'ui', 'css', 'html'])) {
+    suggestions.push({
+      role: 'Frontend Developer',
+      title: 'Đề xuất phụ: hoàn thiện trải nghiệm sản phẩm',
+      reason: 'Bạn có tín hiệu frontend rõ, nên lộ trình phụ có thể giúp giao diện dễ dùng và dễ trình bày hơn.',
+      focus: 'Component, state, responsive UI, accessibility và tài liệu demo.'
     })
   }
 

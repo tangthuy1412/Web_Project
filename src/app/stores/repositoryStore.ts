@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { AIFeedback, AnalysisResult, Repository } from '../types'
-import { getApiErrorMessage } from '../services/apis/core'
+import { getApiErrorMessage, getToken } from '../services/apis/core'
 import {
   aiFeedbackApi,
   analysisApi,
@@ -37,6 +37,7 @@ type RepositoryState = {
   getAnalysisById: (id: string) => AnalysisResult | undefined
   setSelectedRepository: (repo: Repository | null) => void
   clearError: () => void
+  reset: () => void
 }
 
 const toRecord = (payload: unknown) => {
@@ -115,6 +116,21 @@ const hasFeedbackContent = (feedback: AIFeedback) =>
     feedback.recommendations?.length
   )
 
+const emptyRepositoryState = {
+  repositories: [],
+  analyses: [],
+  selectedRepository: null,
+  packagesByRepoId: {},
+  commitsByRepoId: {},
+  feedbackByRepoId: {},
+  isLoading: false,
+  isAnalyzing: false,
+  isGeneratingFeedback: false,
+  error: null
+}
+
+const isSameAuthSession = (token: string | null) => token === getToken()
+
 const asFeedbackList = (payload: unknown) => {
   const record = toRecord(payload)
   const data = toRecord(record.data ?? payload)
@@ -130,22 +146,15 @@ const asFeedbackList = (payload: unknown) => {
 }
 
 export const useRepositoryStore = create<RepositoryState>((set, get) => ({
-  repositories: [],
-  analyses: [],
-  selectedRepository: null,
-  packagesByRepoId: {},
-  commitsByRepoId: {},
-  feedbackByRepoId: {},
-  isLoading: false,
-  isAnalyzing: false,
-  isGeneratingFeedback: false,
-  error: null,
+  ...emptyRepositoryState,
 
   fetchRepositories: async (sync = false) => {
+    const requestToken = getToken()
     set({ isLoading: true, error: null })
 
     try {
       const payload = sync ? await githubApi.syncRepositories() : await githubApi.getCachedRepositories()
+      if (!isSameAuthSession(requestToken)) return
       set({ repositories: normalizeRepositories(payload), isLoading: false })
     } catch (error) {
       set({ isLoading: false, error: getApiErrorMessage(error) })
@@ -154,10 +163,12 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   },
 
   fetchRepository: async (id) => {
+    const requestToken = getToken()
     set({ isLoading: true, error: null })
 
     try {
       const payload = await githubApi.getRepository(id)
+      if (!isSameAuthSession(requestToken)) return null
       const repository = normalizeRepository(payload)
       set((state) => ({
         selectedRepository: repository,
@@ -240,8 +251,11 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   },
 
   fetchMyAnalyses: async () => {
+    const requestToken = getToken()
     try {
-      set({ analyses: normalizeAnalyses(await analysisApi.getMine()) })
+      const analyses = normalizeAnalyses(await analysisApi.getMine())
+      if (!isSameAuthSession(requestToken)) return
+      set({ analyses })
     } catch {
       set({ analyses: [] })
     }
@@ -280,8 +294,10 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   },
 
   fetchMyFeedbacks: async () => {
+    const requestToken = getToken()
     try {
       const feedbacks = asFeedbackList(await aiFeedbackApi.getMine())
+      if (!isSameAuthSession(requestToken)) return
       set((state) => ({
         feedbackByRepoId: feedbacks.reduce(
           (acc, feedback) => {
@@ -302,5 +318,6 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
 
   setSelectedRepository: (repo) => set({ selectedRepository: repo }),
 
-  clearError: () => set({ error: null })
+  clearError: () => set({ error: null }),
+  reset: () => set(emptyRepositoryState)
 }))

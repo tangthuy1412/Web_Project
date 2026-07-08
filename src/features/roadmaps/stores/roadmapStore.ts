@@ -3,6 +3,25 @@ import { roadmapService, type GenerateRoadmapOptions, type RoadmapListParams } f
 import type { AIRecommendation, LearningNodeStatus, Roadmap, RoadmapFilters, RoadmapProgressRecord, SkillProgress, UserLearningStats } from '../types'
 import { getApiErrorMessage } from '../../../app/services/apis/core'
 
+const getRoadmapGenerationErrorMessage = (error: unknown) => {
+  const rawMessage = getApiErrorMessage(error)
+
+  if (rawMessage.includes('502') || rawMessage.toLowerCase().includes('bad gateway')) {
+    return 'Dịch vụ tạo lộ trình đang gặp lỗi tạm thời từ máy chủ. Vui lòng thử lại sau vài phút hoặc chọn lại dự án đã phân tích.'
+  }
+  if (rawMessage.includes('DEV2VEC_ANALYSIS_REQUIRED')) {
+    return 'Cần phân tích dự án trước khi tạo lộ trình cá nhân hóa.'
+  }
+  if (rawMessage.includes('DEV2VEC_MODEL_UNAVAILABLE')) {
+    return 'Tính năng gợi ý lộ trình đang tạm thời chưa sẵn sàng. Vui lòng thử lại sau.'
+  }
+  if (rawMessage.includes('DEV2VEC_INFERENCE_FAILED') || rawMessage.includes('DEV2VEC_INVALID_OUTPUT')) {
+    return 'Chưa thể tạo lộ trình từ dữ liệu phân tích hiện tại. Bạn có thể thử phân tích lại dự án rồi tạo lộ trình mới.'
+  }
+
+  return rawMessage || 'Không thể tạo lộ trình lúc này.'
+}
+
 interface RoadmapState {
   roadmaps: Roadmap[]
   aiRecommendation: AIRecommendation | null
@@ -22,6 +41,7 @@ interface RoadmapState {
   getRoadmapById: (idOrSlug: string) => Roadmap | undefined
   updateNodeStatus: (roadmapId: string, nodeId: string, status: LearningNodeStatus) => Promise<void>
   toggleBookmark: (roadmapId: string, nodeId: string) => void
+  reset: () => void
 }
 
 const emptyLearningStats: UserLearningStats = {
@@ -219,20 +239,23 @@ const refreshDerivedState = (roadmaps: Roadmap[], bookmarkedNodeIds: string[] = 
   learningStats: buildLearningStats(roadmaps.map(normalizeRoadmapProgress), bookmarkedNodeIds)
 })
 
-export const useRoadmapStore = create<RoadmapState>((set, get) => ({
+const initialRoadmapState = {
   roadmaps: [],
   aiRecommendation: null,
   skillProgress: [],
   learningStats: emptyLearningStats,
   filters: {
     search: '',
-    category: 'All',
-    difficulty: 'All',
-    duration: 'All'
+    category: 'All' as const,
+    difficulty: 'All' as const,
+    duration: 'All' as const
   },
   isLoading: false,
   isGenerating: false,
-  error: null,
+  error: null
+}
+export const useRoadmapStore = create<RoadmapState>((set, get) => ({
+  ...initialRoadmapState,
 
   fetchRoadmaps: async (params = { status: 'active' }) => {
     set({ isLoading: true, error: null })
@@ -312,7 +335,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
     } catch (error) {
       set({
         isGenerating: false,
-        error: getApiErrorMessage(error)
+        error: getRoadmapGenerationErrorMessage(error)
       })
       return null
     }
@@ -412,6 +435,8 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
       set({ error: getApiErrorMessage(error) })
     }
   },
+
+  reset: () => set(initialRoadmapState),
 
   toggleBookmark: (roadmapId, nodeId) => {
     set((state) => {

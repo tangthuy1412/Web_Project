@@ -28,6 +28,21 @@ const BADGE_LIMIT = 10
 const TEXT_LIST_LIMIT = 6
 const RECOMMENDATION_LIMIT = 5
 
+const InfoHint = ({ label, help }: { label: string; help: string }) => (
+  <div className="flex items-center gap-1 text-xs text-slate-500">
+    <span>{label}</span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button type="button" aria-label={`Giải thích ${label}`} className="rounded-full text-slate-400 transition hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:text-slate-200">
+          <AlertCircle className="h-3.5 w-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={8} className="max-w-xs leading-5">
+        {help}
+      </TooltipContent>
+    </Tooltip>
+  </div>
+)
 const renderTextList = (items: string[], emptyText: string) => {
   if (items.length === 0) return <p className="text-sm text-slate-500">{emptyText}</p>
 
@@ -289,20 +304,20 @@ export const AnalysisResultPage = () => {
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-              <p className="text-xs text-slate-500">GitHub user</p>
+              <InfoHint label="GitHub user" help="Tài khoản GitHub được dùng để xác định phần đóng góp của bạn trong dự án." />
               <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{scope?.githubUsername || 'N/A'}</p>
             </div>
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-              <p className="text-xs text-slate-500">Commit của bạn / repo</p>
+              <InfoHint label="Commit của bạn / repo" help="Số commit của bạn so với tổng commit trong dự án, dựa trên dữ liệu đã đồng bộ." />
               <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{scope?.userCommits ?? commitSummary.totalCommits}/{scope?.totalRepoCommits ?? commitSummary.totalCommits}</p>
             </div>
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-              <p className="text-xs text-slate-500">Ngày hoạt động</p>
+              <InfoHint label="Ngày hoạt động" help="Số ngày có commit thuộc phạm vi đóng góp của người dùng trong dữ liệu phân tích." />
               <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{scope?.activeDays ?? commitSummary.activeDays}</p>
             </div>
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-              <p className="text-xs text-slate-500">Level / readiness</p>
-              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{summary?.userLevel || 'N/A'} - {clampScore(summary?.userReadinessScore)}%</p>
+              <InfoHint label="Mức sẵn sàng" help="Mức độ sẵn sàng hiện tại của bạn cho định hướng nghề nghiệp được gợi ý." />
+              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{summary?.userReadinessScore !== undefined ? `${clampScore(summary.userReadinessScore)}%` : 'N/A'}</p>
             </div>
           </CardContent>
         </Card>
@@ -318,14 +333,14 @@ export const AnalysisResultPage = () => {
                   <div key={skill.canonicalSkillName || skill.skill} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
                     <div className="min-w-0">
                       <p className="truncate font-medium text-slate-900 dark:text-slate-100">{skill.skill}</p>
-                      <p className="text-xs text-slate-500">{skill.category || skill.level || 'Detected skill'}</p>
+                      <p className="text-xs text-slate-500">{skill.category || skill.level || 'Kỹ năng phát hiện'}</p>
                     </div>
                     <Badge variant="success">{Math.round(skill.score <= 1 ? skill.score * 100 : skill.score)}%</Badge>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-500">Chưa có topSkills trong payload.</p>
+              <p className="text-sm text-slate-500">Chưa có dữ liệu kỹ năng nổi bật.</p>
             )}
           </CardContent>
         </Card>
@@ -334,15 +349,15 @@ export const AnalysisResultPage = () => {
       {hasBreakdown && breakdown && (
         <Card>
           <CardHeader>
-            <CardTitle>Thành phần điểm readiness</CardTitle>
+            <CardTitle>Thành phần điểm sẵn sàng</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {[
-              ['Skill', breakdown.skillScore],
+              ['Kỹ năng', breakdown.skillScore],
               ['Đóng góp', breakdown.contributionScore],
               ['Commit', breakdown.commitQualityScore],
               ['Hoàn thiện', breakdown.projectCompletenessScore],
-              ['Penalty', breakdown.missingCriticalPenalty]
+              ['Điểm trừ', breakdown.missingCriticalPenalty]
             ].map(([label, value]) => (
               <div key={label} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
                 <p className="text-xs text-slate-500">{label}</p>
@@ -358,7 +373,7 @@ export const AnalysisResultPage = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Code2 className="h-5 w-5" />
-              Skill vector
+              Bản đồ kỹ năng
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 lg:grid-cols-4">
@@ -409,7 +424,7 @@ export const AnalysisResultPage = () => {
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={8} className="max-w-xs leading-5">
-                    Điểm tổng hợp từ tech stack, tài liệu, commit, triển khai, testing và mức độ sẵn sàng portfolio.
+                    Điểm tổng hợp từ công nghệ sử dụng, tài liệu, lịch sử commit, triển khai, kiểm thử và mức độ hoàn thiện của dự án.
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -450,19 +465,19 @@ export const AnalysisResultPage = () => {
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                  <p className="text-xs text-slate-500">Readiness người dùng</p>
+                  <InfoHint label="Mức sẵn sàng" help="Mức độ sẵn sàng hiện tại của bạn dựa trên kỹ năng, đóng góp và độ hoàn thiện của dự án." />
                   <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{clampScore(summary?.userReadinessScore)}%</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                  <p className="text-xs text-slate-500">Độ tin cậy phân tích</p>
+                  <InfoHint label="Độ tin cậy phân tích" help="Độ tin cậy của kết quả dựa trên lượng dữ liệu và tín hiệu hệ thống tìm thấy." />
                   <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{formatConfidence(summary?.confidence)}</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                  <p className="text-xs text-slate-500">Loại dự án</p>
+                  <InfoHint label="Loại dự án" help="Nhóm dự án hệ thống nhận diện từ mã nguồn, công nghệ và thông tin đã đồng bộ." />
                   <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{summary?.projectType || analysis.projectType}</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                  <p className="text-xs text-slate-500">Định hướng</p>
+                  <InfoHint label="Định hướng" help="Hướng nghề nghiệp phù hợp nhất mà hệ thống gợi ý từ dữ liệu phân tích." />
                   <p className="mt-1 font-semibold text-indigo-600 dark:text-indigo-400">{summary?.careerDirection || analysis.careerDirection.primary}</p>
                 </div>
               </div>
@@ -517,11 +532,11 @@ export const AnalysisResultPage = () => {
           <CardContent className="space-y-5">
             <div>
               <h3 className="mb-2 font-medium text-slate-900 dark:text-slate-100">Tín hiệu kỹ năng</h3>
-              {renderTextList(skillSignals, 'Chưa có tín hiệu kỹ năng trong payload.')}
+              {renderTextList(skillSignals, 'Chưa có tín hiệu kỹ năng đủ rõ trong dữ liệu hiện tại.')}
             </div>
             <div>
               <h3 className="mb-2 font-medium text-slate-900 dark:text-slate-100">Tín hiệu nghề nghiệp</h3>
-              {renderTextList(careerSignals, 'Chưa có tín hiệu nghề nghiệp trong payload.')}
+              {renderTextList(careerSignals, 'Chưa có tín hiệu nghề nghiệp đủ rõ trong dữ liệu hiện tại.')}
             </div>
           </CardContent>
         </Card>
@@ -548,7 +563,7 @@ export const AnalysisResultPage = () => {
                 {analysis.missingSkills.slice(0, TEXT_LIST_LIMIT).map((item) => <li key={item.id}>- {item.name}</li>)}
                 {analysis.missingSkills.length > TEXT_LIST_LIMIT && <li className="text-slate-500">+{analysis.missingSkills.length - TEXT_LIST_LIMIT} kỹ năng khác</li>}
               </ul>
-            ) : <p className="text-sm text-slate-500">Chưa có missingSkills trong payload.</p>}
+            ) : <p className="text-sm text-slate-500">Chưa có kỹ năng còn thiếu được ghi nhận.</p>}
           </div>
         </CardContent>
       </Card>
@@ -557,7 +572,7 @@ export const AnalysisResultPage = () => {
         <CardHeader><CardTitle className="flex items-center gap-2"><Wrench className="h-5 w-5" />Gợi ý cải thiện</CardTitle></CardHeader>
         <CardContent>
           {analysis.recommendations.length === 0 ? (
-            <p className="text-sm text-slate-500">Chưa có recommendations trong payload.</p>
+            <p className="text-sm text-slate-500">Chưa có gợi ý cải thiện trong dữ liệu hiện tại.</p>
           ) : (
             <div className="space-y-3">
               {analysis.recommendations.slice(0, RECOMMENDATION_LIMIT).map((item) => (

@@ -474,7 +474,7 @@ const HeroDashboard = () => (
               <p className="text-sm font-semibold">AI Insight</p>
             </div>
             <p className="mt-3 text-sm leading-6 text-slate-300">
-              Bạn mạnh về UI architecture, cần bổ sung integration testing và CI pipeline để đạt readiness cho Frontend Engineer.
+              Bạn mạnh về UI architecture, cần bổ sung integration testing và CI pipeline để đạt mức sẵn sàng cho Frontend Engineer.
             </p>
           </div>
         </div>
@@ -891,7 +891,7 @@ export const CareerInsightsSection = () => (
       <SectionHeader
         eyebrow="Career Insights"
         title="Định hướng nghề nghiệp từ dữ liệu dự án thực tế"
-        description="Skill radar, readiness score, điểm mạnh, điểm yếu và role phù hợp được trình bày trong một bức tranh dễ hành động."
+        description="Bản đồ kỹ năng, mức sẵn sàng, điểm mạnh, điểm yếu và vai trò phù hợp được trình bày thành một bức tranh dễ hành động."
       />
       <div className="mt-12 grid gap-6 lg:grid-cols-3">
         <div className="rounded-lg border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-slate-950/70">

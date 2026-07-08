@@ -14,6 +14,8 @@ import { authApi, profileApi, type ProfilePayload } from '../services/apis/auth'
 import { githubApi } from '../services/apis/github'
 import { normalizeUser } from '../services/apis/normalizers'
 import { API_ORIGIN, getGitHubAuthCallbackUrl, getGitHubConnectCallbackUrl } from '../config/api'
+import { useRepositoryStore } from './repositoryStore'
+import { useRoadmapStore } from '../../features/roadmaps/stores/roadmapStore'
 
 type AuthState = {
   user: User | null
@@ -108,6 +110,10 @@ const hasGitHubAccount = (payload: unknown) => {
   return Boolean(payload && typeof payload === 'object' && Object.keys(payload as Record<string, unknown>).length > 0)
 }
 
+const resetUserScopedStores = () => {
+  useRepositoryStore.getState().reset()
+  useRoadmapStore.getState().reset()
+}
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: getStoredUser<User>(),
   profile: null,
@@ -118,6 +124,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   bootstrap: async () => {
     if (!getToken()) {
+      resetUserScopedStores()
       set({ user: null, profile: null, isAuthenticated: false, isBootstrapping: false })
       return
     }
@@ -132,6 +139,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       clearToken()
       clearStoredUser()
+      resetUserScopedStores()
       set({
         user: null,
         profile: null,
@@ -146,6 +154,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
 
     try {
+      resetUserScopedStores()
       const payload = await authApi.login({ email, password })
       const userPayload = extractApiResource(payload, ['user', 'account', 'profile'])
       const user = normalizeUser({ ...toRecord(userPayload), email })
@@ -163,6 +172,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
 
     try {
+      resetUserScopedStores()
       const payload = await authApi.register({ email, password, fullName })
       const userPayload = extractApiResource(payload, ['user', 'account', 'profile'])
       const user = normalizeUser({ ...toRecord(userPayload), email, fullName })
@@ -178,6 +188,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
 
     try {
+      resetUserScopedStores()
       const payload = await authApi.loginWithGoogle({ idToken })
       const userPayload = extractApiResource(payload, ['user', 'account', 'profile'])
       const user = normalizeUser(userPayload)
@@ -195,6 +206,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
 
     try {
+      resetUserScopedStores()
       const payload = await authApi.loginWithGithub({ accessToken })
       const userPayload = extractApiResource(payload, ['user', 'account', 'profile'])
       const user = normalizeUser({ ...toRecord(userPayload), githubConnected: true })
@@ -214,6 +226,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       clearToken()
       clearStoredUser()
+      resetUserScopedStores()
       set({ user: null, profile: null, isAuthenticated: false })
       sessionStorage.setItem('gitanalyzer.githubAuthIntent', 'login')
       const payload = await authApi.loginWithGithub({
@@ -244,6 +257,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
 
     try {
+      resetUserScopedStores()
       setToken(accessToken)
       const userPayload = extractApiResource(await authApi.me(), ['user', 'account', 'profile'])
       const user = normalizeUser(userPayload)
@@ -254,15 +268,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       clearToken()
       clearStoredUser()
+      resetUserScopedStores()
       set({ user: null, isAuthenticated: false, isLoading: false, error: getApiErrorMessage(error) })
       throw error
     }
   },
 
   logout: async () => {
-    await authApi.logout()
-    clearStoredUser()
-    set({ user: null, profile: null, isAuthenticated: false })
+    try {
+      await authApi.logout()
+    } finally {
+      clearStoredUser()
+      resetUserScopedStores()
+      set({ user: null, profile: null, isAuthenticated: false, isLoading: false })
+    }
   },
 
   changePassword: async (currentPassword, newPassword, confirmPassword) => {
@@ -356,6 +375,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!hasGitHubAccount(account)) {
         set((state) => {
           const user = state.user ? { ...state.user, githubConnected: false, githubUsername: undefined } : state.user
+          resetUserScopedStores()
           if (user) setStoredUser(user)
 
           return { user }
@@ -380,6 +400,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       await githubApi.disconnect()
+      resetUserScopedStores()
       set((state) => {
         const user = state.user ? { ...state.user, githubConnected: false, githubUsername: undefined } : state.user
         if (user) setStoredUser(user)

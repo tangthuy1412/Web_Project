@@ -128,6 +128,12 @@ type BackendRoadmapRoleMatch = {
   matchScore?: number
   matchLevel?: string
   matchLevelLabel?: string
+  scoringMethod?: string
+  probability?: number
+  rank?: number
+  modelVersion?: string
+  vectorSources?: string[]
+  sourceStats?: Record<string, unknown>
 }
 
 export type RoadmapListParams = {
@@ -148,32 +154,42 @@ export type GenerateRoadmapOptions = {
   language?: string
   useRoleMatching?: boolean
   forceRegenerate?: boolean
+  selectedRole?: {
+    roleId?: string
+    roleName?: string
+  }
 }
 
 const roleLabels: Record<string, string> = {
   'Frontend Developer': 'Frontend Developer',
   'Backend Developer': 'Backend Developer',
-  'Fullstack Developer': 'Fullstack Developer',
   'Mobile Developer': 'Mobile Developer',
+  'DevOps Engineer': 'DevOps Engineer',
+  'Data Scientist': 'Data Scientist',
+  'Fullstack Developer': 'Fullstack Developer',
   'Tester / QA Engineer': 'Tester / QA Engineer',
-  'DevOps Beginner': 'DevOps Beginner',
-  'Data Analyst': 'Data Analyst',
+  'DevOps Beginner': 'DevOps Engineer',
+  'Data Analyst': 'Data Scientist',
   'AI Engineer': 'AI Engineer',
-  'AI / Machine Learning Beginner': 'AI / Machine Learning Beginner',
+  'AI / Machine Learning Beginner': 'Data Scientist',
   'Generalist Software Engineer': 'Kỹ sư phần mềm đa hướng'
 }
 
 const roleLabelsById: Record<string, string> = {
+  backend: 'Backend Developer',
+  frontend: 'Frontend Developer',
+  mobile: 'Mobile Developer',
+  devops: 'DevOps Engineer',
+  data_scientist: 'Data Scientist',
   'frontend-developer': 'Frontend Developer',
   'backend-developer': 'Backend Developer',
   'fullstack-developer': 'Fullstack Developer',
   'mobile-developer': 'Mobile Developer',
   'tester-qa-engineer': 'Tester / QA Engineer',
-  'devops-engineer': 'DevOps Beginner',
-  'data-analyst': 'Data Analyst',
+  'devops-engineer': 'DevOps Engineer',
+  'data-analyst': 'Data Scientist',
   'ai-engineer': 'AI Engineer'
 }
-
 const levelTitle = (level?: string) => {
   const normalized = level?.trim().toLowerCase()
   if (normalized === 'beginner') return 'cơ bản'
@@ -372,6 +388,7 @@ const inferCategory = (targetRole = '', skills: string[] = []): RoadmapCategory 
 
   if (text.includes('fullstack') || text.includes('full stack')) return 'Fullstack'
   if (text.includes('frontend') || text.includes('react') || text.includes('vue')) return 'Frontend'
+  if (text.includes('data scientist') || text.includes('data science') || text.includes('python') || text.includes('pandas') || text.includes('sql')) return 'AI/ML'
   if (text.includes('ai') || text.includes('machine learning') || text.includes('ml')) return 'AI/ML'
   if (text.includes('backend') || text.includes('node') || text.includes('express') || text.includes('api')) return 'Backend'
   if (text.includes('devops') || text.includes('docker') || text.includes('cloud') || text.includes('ci/cd')) return 'DevOps'
@@ -690,23 +707,30 @@ export const roadmapService = {
       throw new Error('Hay chon it nhat mot repository da phan tich.')
     }
 
-    const safeRole = roadmapTargetRoles.includes(targetRole as typeof roadmapTargetRoles[number])
-      ? targetRole
+    const requestedRoleName = options.selectedRole?.roleName ?? targetRole
+    const safeRole = roadmapTargetRoles.includes(requestedRoleName as typeof roadmapTargetRoles[number])
+      ? requestedRoleName
       : 'Backend Developer'
     const roleIds: Record<string, string> = {
-      'Frontend Developer': 'frontend-developer',
-      'Backend Developer': 'backend-developer',
-      'Fullstack Developer': 'fullstack-developer',
-      'Mobile Developer': 'mobile-developer',
-      'Tester / QA Engineer': 'tester-qa-engineer',
-      'DevOps Beginner': 'devops-engineer',
-      'Data Analyst': 'data-analyst',
-      'AI Engineer': 'ai-engineer',
-      'AI / Machine Learning Beginner': 'ai-engineer'
+      'Backend Developer': 'backend',
+      'Frontend Developer': 'frontend',
+      'Mobile Developer': 'mobile',
+      'DevOps Engineer': 'devops',
+      'Data Scientist': 'data_scientist',
+      'Fullstack Developer': 'backend',
+      'Tester / QA Engineer': 'backend',
+      'DevOps Beginner': 'devops',
+      'Data Analyst': 'data_scientist',
+      'AI Engineer': 'data_scientist',
+      'AI / Machine Learning Beginner': 'data_scientist'
     }
     const response = await apiClient.post('/roadmaps/generate', {
       targetRole: safeRole,
-      roleId: roleIds[safeRole] ?? 'backend-developer',
+      roleId: options.selectedRole?.roleId ?? options.roleId ?? roleIds[safeRole] ?? 'backend',
+      selectedRole: {
+        roleId: options.selectedRole?.roleId ?? options.roleId ?? roleIds[safeRole] ?? 'backend',
+        roleName: safeRole
+      },
       level: options.level ?? 'beginner',
       durationWeeks: options.durationWeeks ?? 6,
       language: options.language ?? 'vi',
@@ -714,8 +738,7 @@ export const roadmapService = {
       forceRegenerate: options.forceRegenerate ?? false,
       sourceMode,
       ...(sourceMode === 'single_repo' ? { repoId: options.repoId } : {}),
-      ...(sourceMode === 'selected_repos' ? { repoIds: selectedRepositoryIds } : {}),
-      ...(options.roleId ? { roleId: options.roleId } : {})
+      ...(sourceMode === 'selected_repos' ? { repoIds: selectedRepositoryIds } : {})
     })
     const roadmap = extractApiResource<BackendRoadmap>(response.data, ['roadmap'])
     return buildRecommendation(roadmap)
@@ -745,3 +768,7 @@ export const roadmapService = {
     return normalizeProgress(extractApiResource<unknown>(response.data, ['progress']))
   }
 }
+
+
+
+

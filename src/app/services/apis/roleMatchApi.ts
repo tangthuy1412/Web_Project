@@ -30,6 +30,11 @@ type RoleMatchesResponse = {
     userLevel?: string
     userReadinessScore?: number
     repositoryNames?: string[]
+    contextSource?: string
+    modelVersion?: string
+    scoringMethod?: string
+    vectorSources?: string[]
+    sourceStats?: Record<string, unknown>
   }
   repositoryId?: string
   repoName?: string
@@ -55,7 +60,7 @@ const normalizeCatalog = <T>(payload: unknown, key: string): CatalogResponse<T> 
 
 export const roleMatchApi = {
   async calculateRoleMatches(body: RoleMatchSourceBody): Promise<RoleMatchesResponse> {
-    const response = await apiClient.post('/analysis/role-matches', body)
+    const response = await apiClient.post('/analysis/role-matches', { ...body, limit: 3 })
     return unwrapResponse<RoleMatchesResponse>(response.data)
   },
 
@@ -74,3 +79,5 @@ export const roleMatchApi = {
     return normalizeCatalog<SkillCatalogItem>(response.data, 'skills')
   }
 }
+
+

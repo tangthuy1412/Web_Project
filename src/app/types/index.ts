@@ -247,6 +247,7 @@ export interface AIFeedback {
   portfolioAdvice?: string;
   riskNotes?: string[];
   recommendations?: string[];
+  metadata?: Record<string, unknown>;
   raw?: unknown;
 }
 
@@ -312,6 +313,12 @@ export interface RoleMatch {
   weakSkills?: string[];
   missingRequiredSkills?: string[];
   missingOptionalSkills?: string[];
+  scoringMethod?: string;
+  probability?: number;
+  rank?: number;
+  modelVersion?: string;
+  vectorSources?: string[];
+  sourceStats?: Record<string, unknown>;
   summary: string;
 }
 
@@ -330,8 +337,12 @@ export interface RoleCatalogItem {
   description: string;
   category: string;
   level: string;
-  requiredSkillCount: number;
-  optionalSkillCount: number;
+  modelRoleLabel?: string;
+  modelVersion?: string;
+  isSupportedByModel?: boolean;
+  scoringMethod?: string;
+  requiredSkillCount?: number;
+  optionalSkillCount?: number;
 }
 
 export interface SkillCatalogItem {
@@ -341,3 +352,5 @@ export interface SkillCatalogItem {
   defaultLevel: string;
   tags: string[];
 }
+
+

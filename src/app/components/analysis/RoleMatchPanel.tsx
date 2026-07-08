@@ -5,6 +5,7 @@ import { getApiErrorMessage } from '../../services/apis/core'
 import { roleMatchApi } from '../../services/apis/analysis'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 
 type RoleMatchPanelProps = {
@@ -28,15 +29,42 @@ const skillLabel = (value: unknown) => {
   return ''
 }
 const asStringList = (value: unknown) => Array.isArray(value) ? value.map(skillLabel).filter(Boolean) : []
+const hasOwn = (value: unknown, key: string) => Boolean(value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, key))
+const numberField = (value: unknown, key: string) => {
+  const record = value as Record<string, unknown>
+  return hasOwn(value, key) && typeof record[key] === 'number' && Number.isFinite(record[key]) ? record[key] as number : undefined
+}
+const uniqueList = (...items: unknown[]) => items.flatMap(asStringList).filter((skill, index, list) => list.indexOf(skill) === index)
+
+const InfoLabel = ({ label, help }: { label: string; help: string }) => (
+  <div className="flex items-center gap-1 text-xs text-slate-500">
+    <span>{label}</span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button type="button" aria-label={`Giải thích ${label}`} className="rounded-full text-slate-400 transition hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:text-slate-200">
+          <AlertCircle className="h-3.5 w-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={8} className="max-w-xs leading-5">
+        {help}
+      </TooltipContent>
+    </Tooltip>
+  </div>
+)
 
 const RoleRow = ({ match, skillMap, catalog }: { match: RoleMatch; skillMap: Map<string, SkillCatalogItem>; catalog?: RoleCatalogItem }) => {
   const tone = getTone(match.matchLevel)
   const nextSkills = asStringList(match.recommendedNextSkills).slice(0, 5)
-  const matchedSkills = [
-    ...asStringList(match.matchedSkillNames),
-    ...asStringList(match.topMatchedSkills),
-    ...asStringList(match.matchedSkills)
-  ].filter((skill, index, list) => list.indexOf(skill) === index)
+  const matchedSkills = uniqueList(match.matchedSkillNames, match.topMatchedSkills, match.matchedSkills)
+  const missingCoreSkills = uniqueList(match.missingRequiredSkills, match.missingSkillNames, match.topMissingSkills)
+  const coverageScore = numberField(match, 'coverageScore')
+  const matchedSkillCount = numberField(match, 'matchedSkillCount') ?? (matchedSkills.length ? matchedSkills.length : undefined)
+  const missingRequiredSkillCount = numberField(match, 'missingRequiredSkillCount') ?? (missingCoreSkills.length ? missingCoreSkills.length : undefined)
+  const metrics = [
+    coverageScore !== undefined ? { label: 'Bao phủ yêu cầu', value: `${clampScore(coverageScore)}%`, help: 'Mức độ hồ sơ hiện tại đáp ứng các yêu cầu quan trọng của vai trò này.' } : null,
+    matchedSkillCount !== undefined ? { label: 'Kỹ năng khớp', value: matchedSkillCount, help: 'Số kỹ năng bạn đã thể hiện phù hợp với vai trò này.' } : null,
+    missingRequiredSkillCount !== undefined ? { label: 'Còn thiếu cốt lõi', value: missingRequiredSkillCount, help: 'Số kỹ năng quan trọng bạn nên bổ sung để tiến gần hơn tới vai trò này.' } : null
+  ].filter(Boolean) as Array<{ label: string; value: string | number; help: string }>
 
   return (
     <article className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
@@ -47,7 +75,7 @@ const RoleRow = ({ match, skillMap, catalog }: { match: RoleMatch; skillMap: Map
             <Badge variant={tone.badge}>{match.matchLevelLabel}</Badge>
             {catalog && <span className="text-xs text-slate-500 dark:text-slate-400">{catalog.requiredSkillCount} kỹ năng cốt lõi</span>}
           </div>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{match.description}</p>
+          {match.description && <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{match.description}</p>}
         </div>
         <div className="min-w-20 text-left sm:text-right">
           <p className={`text-2xl font-bold ${tone.text}`}>{clampScore(match.matchScore)}%</p>
@@ -59,22 +87,20 @@ const RoleRow = ({ match, skillMap, catalog }: { match: RoleMatch; skillMap: Map
         <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${clampScore(match.matchScore)}%` }} />
       </div>
 
-      <div className="mt-4 grid grid-cols-3 divide-x divide-slate-200 rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
-        <div className="px-3 py-2">
-          <p className="text-xs text-slate-500">Bao phủ yêu cầu</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{clampScore(match.coverageScore)}%</p>
+      {metrics.length > 0 ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          {metrics.map((metric) => (
+            <div key={metric.label} className="rounded-md border border-slate-200 px-3 py-2 dark:border-slate-800">
+              <InfoLabel label={metric.label} help={metric.help} />
+              <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{metric.value}</p>
+            </div>
+          ))}
         </div>
-        <div className="px-3 py-2">
-          <p className="text-xs text-slate-500">Kỹ năng khớp</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{match.matchedSkillCount}</p>
-        </div>
-        <div className="px-3 py-2">
-          <p className="text-xs text-slate-500">Còn thiếu cốt lõi</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{match.missingRequiredSkillCount}</p>
-        </div>
-      </div>
+      ) : (
+        <p className="mt-4 rounded-md border border-dashed border-slate-200 px-3 py-2 text-sm text-slate-500 dark:border-slate-800">Chưa có đủ dữ liệu chi tiết cho vai trò này.</p>
+      )}
 
-      <p className="mt-4 text-sm leading-6 text-slate-700 dark:text-slate-300">{match.summary}</p>
+      {match.summary && <p className="mt-4 text-sm leading-6 text-slate-700 dark:text-slate-300">{match.summary}</p>}
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div>

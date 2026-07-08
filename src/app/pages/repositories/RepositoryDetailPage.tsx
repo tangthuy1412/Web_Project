@@ -530,11 +530,13 @@ export const RepositoryDetailPage = () => {
                           </a>
                         )}
                       </div>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                        <Badge variant="success">+{commit.additions}</Badge>
-                        <Badge variant="danger">-{commit.deletions}</Badge>
-                        <Badge variant="default">{commit.changedFiles} file</Badge>
-                      </div>
+                      {(commit.additions > 0 || commit.deletions > 0 || commit.changedFiles > 0) && (
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                          {commit.additions > 0 && <Badge variant="success">+{commit.additions}</Badge>}
+                          {commit.deletions > 0 && <Badge variant="danger">-{commit.deletions}</Badge>}
+                          {commit.changedFiles > 0 && <Badge variant="default">{commit.changedFiles} file</Badge>}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
