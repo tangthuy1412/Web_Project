@@ -10,6 +10,7 @@ import { RoadmapCard } from '../components/RoadmapCard'
 import { RoadmapSkeleton } from '../components/RoadmapSkeleton'
 import { useRepositoryStore } from '../../../app/stores/repositoryStore'
 import { roleMatchApi } from '../../../app/services/apis/analysis'
+import { getApiErrorMessage } from '../../../app/services/apis/core'
 import { useRoadmapStore } from '../stores/roadmapStore'
 import type { RoadmapCategory, RoadmapDifficulty } from '../types'
 import type { RoadmapSourceMode } from '../services/roadmapService'
@@ -34,11 +35,16 @@ const durations = ['All', 'Short', 'Medium', 'Long'] as const
 const ROADMAPS_PER_PAGE = 3
 
 const formatRoleMatchError = (error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error ?? '')
+  const message = getApiErrorMessage(error)
+  const status = (error as { response?: { status?: number } })?.response?.status
+  const normalizedMessage = message.toLowerCase()
 
-  if (message.includes('DEV2VEC_ANALYSIS_REQUIRED')) return 'Cần phân tích dự án trước khi gợi ý vai trò phù hợp.'
-  if (message.includes('DEV2VEC_MODEL_UNAVAILABLE')) return 'Tính năng gợi ý vai trò đang tạm thời chưa sẵn sàng. Vui lòng thử lại sau.'
-  if (message.includes('DEV2VEC_INFERENCE_FAILED') || message.includes('DEV2VEC_INVALID_OUTPUT')) return 'Chưa thể tính vai trò phù hợp từ dữ liệu hiện tại. Bạn có thể thử phân tích lại dự án.'
+  if (status === 502 || message.includes('502') || normalizedMessage.includes('bad gateway')) {
+    return 'Hệ thống đang mất nhiều thời gian để phân tích nhóm dự án này. Bạn có thể thử lại sau ít phút hoặc chọn ít dự án hơn.'
+  }
+  if (normalizedMessage.includes('dev2vec_analysis_required')) return 'Cần phân tích dự án trước khi gợi ý vai trò phù hợp.'
+  if (normalizedMessage.includes('dev2vec_model_unavailable')) return 'Tính năng gợi ý vai trò đang tạm thời chưa sẵn sàng. Vui lòng thử lại sau.'
+  if (normalizedMessage.includes('dev2vec_inference_failed') || normalizedMessage.includes('dev2vec_invalid_output')) return 'Chưa thể tính vai trò phù hợp từ dữ liệu hiện tại. Bạn có thể thử phân tích lại dự án.'
 
   return message || 'Không thể tính vai trò phù hợp.'
 }

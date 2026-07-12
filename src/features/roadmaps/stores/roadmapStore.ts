@@ -5,17 +5,19 @@ import { getApiErrorMessage } from '../../../app/services/apis/core'
 
 const getRoadmapGenerationErrorMessage = (error: unknown) => {
   const rawMessage = getApiErrorMessage(error)
+  const status = (error as { response?: { status?: number } })?.response?.status
+  const normalizedMessage = rawMessage.toLowerCase()
 
-  if (rawMessage.includes('502') || rawMessage.toLowerCase().includes('bad gateway')) {
-    return 'Dịch vụ tạo lộ trình đang gặp lỗi tạm thời từ máy chủ. Vui lòng thử lại sau vài phút hoặc chọn lại dự án đã phân tích.'
+  if (status === 502 || rawMessage.includes('502') || normalizedMessage.includes('bad gateway')) {
+    return 'Hệ thống tạo lộ trình đang bận nên chưa hoàn tất yêu cầu. Vui lòng thử lại sau vài phút, hoặc chọn ít dự án hơn để nhận kết quả nhanh hơn.'
   }
-  if (rawMessage.includes('DEV2VEC_ANALYSIS_REQUIRED')) {
+  if (normalizedMessage.includes('dev2vec_analysis_required')) {
     return 'Cần phân tích dự án trước khi tạo lộ trình cá nhân hóa.'
   }
-  if (rawMessage.includes('DEV2VEC_MODEL_UNAVAILABLE')) {
+  if (normalizedMessage.includes('dev2vec_model_unavailable')) {
     return 'Tính năng gợi ý lộ trình đang tạm thời chưa sẵn sàng. Vui lòng thử lại sau.'
   }
-  if (rawMessage.includes('DEV2VEC_INFERENCE_FAILED') || rawMessage.includes('DEV2VEC_INVALID_OUTPUT')) {
+  if (normalizedMessage.includes('dev2vec_inference_failed') || normalizedMessage.includes('dev2vec_invalid_output')) {
     return 'Chưa thể tạo lộ trình từ dữ liệu phân tích hiện tại. Bạn có thể thử phân tích lại dự án rồi tạo lộ trình mới.'
   }
 
