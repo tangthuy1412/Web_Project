@@ -192,7 +192,7 @@ const roleLabelsById: Record<string, string> = {
 }
 const levelTitle = (level?: string) => {
   const normalized = level?.trim().toLowerCase()
-  if (normalized === 'beginner') return 'cơ bản'
+  if (normalized === 'beginner') return 'mới bắt đầu'
   if (normalized === 'intermediate') return 'trung cấp'
   if (normalized === 'advanced') return 'nâng cao'
   return 'cá nhân hóa'
@@ -202,14 +202,14 @@ const roadmapTitleForRole = (targetRole: string, level?: string) =>
   `Lộ trình ${roleLabels[targetRole] ?? targetRole} ${levelTitle(level)}`
 
 const textMap: Record<string, string> = {
-  'Backend Developer MVP Path': 'Lộ trình Backend Developer cơ bản',
-  'Fullstack Developer MVP Path': 'Lộ trình Fullstack Developer cơ bản',
-  'Frontend Developer MVP Path': 'Lộ trình Frontend Developer cơ bản',
-  'Mobile Developer MVP Path': 'Lộ trình Mobile Developer cơ bản',
-  'Tester / QA Engineer MVP Path': 'Lộ trình Tester / QA Engineer cơ bản',
-  'DevOps Beginner MVP Path': 'Lộ trình DevOps cơ bản',
-  'Data Analyst MVP Path': 'Lộ trình Data Analyst cơ bản',
-  'AI / Machine Learning Beginner MVP Path': 'Lộ trình AI / Machine Learning cơ bản',
+  'Backend Developer MVP Path': 'Lộ trình Backend Developer mới bắt đầu',
+  'Fullstack Developer MVP Path': 'Lộ trình Fullstack Developer mới bắt đầu',
+  'Frontend Developer MVP Path': 'Lộ trình Frontend Developer mới bắt đầu',
+  'Mobile Developer MVP Path': 'Lộ trình Mobile Developer mới bắt đầu',
+  'Tester / QA Engineer MVP Path': 'Lộ trình Tester / QA Engineer mới bắt đầu',
+  'DevOps Beginner MVP Path': 'Lộ trình DevOps mới bắt đầu',
+  'Data Analyst MVP Path': 'Lộ trình Data Analyst mới bắt đầu',
+  'AI / Machine Learning Beginner MVP Path': 'Lộ trình AI / Machine Learning mới bắt đầu',
   'Backend Foundation': 'Nền tảng Backend',
   'Database and API': 'Cơ sở dữ liệu và API',
   'Authentication and Security': 'Xác thực và bảo mật',

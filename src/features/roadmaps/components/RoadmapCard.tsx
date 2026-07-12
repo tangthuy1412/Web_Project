@@ -14,24 +14,11 @@ import { Button } from '../../../app/components/ui/Button'
 import { Card, CardContent } from '../../../app/components/ui/Card'
 import { cn } from '../../../app/lib/utils'
 import type { Roadmap } from '../types'
-import { formatRoadmapDifficulty, getDifficultyTone } from '../utils/roadmapUtils'
+import { formatRoadmapDifficulty, formatUserLevel, getDifficultyTone } from '../utils/roadmapUtils'
 
 interface RoadmapCardProps {
   roadmap: Roadmap
   compact?: boolean
-}
-
-const formatLevel = (level?: string) => {
-  switch (level?.trim().toLowerCase()) {
-    case 'beginner':
-      return 'Cơ bản'
-    case 'intermediate':
-      return 'Trung cấp'
-    case 'advanced':
-      return 'Nâng cao'
-    default:
-      return level
-  }
 }
 
 export const RoadmapCard = ({ roadmap, compact = false }: RoadmapCardProps) => {
@@ -44,8 +31,8 @@ export const RoadmapCard = ({ roadmap, compact = false }: RoadmapCardProps) => {
   const sourceRepositoryCount = source?.totalRepositories ?? roadmap.sourceRepositoriesCount ?? sourceRepositories.length
   const userCommits = source?.totalUserCommits ?? source?.userCommits ?? sourceRepositories.reduce((sum, repo) => sum + (repo.userCommits ?? 0), 0)
   const activeDays = source?.activeDays ?? sourceRepositories.reduce((sum, repo) => sum + (repo.activeDays ?? 0), 0)
-  const requestedLevel = formatLevel(roadmap.requestedLevel)
-  const effectiveLevel = formatLevel(roadmap.effectiveLevel ?? source?.userLevel)
+  const requestedLevel = roadmap.requestedLevel ? formatUserLevel(roadmap.requestedLevel) : undefined
+  const effectiveLevel = (roadmap.effectiveLevel ?? source?.userLevel) ? formatUserLevel(roadmap.effectiveLevel ?? source?.userLevel) : undefined
   const roleMatchScore = roadmap.roleMatch?.matchScore
   const roleMatchLabel = roadmap.roleMatch?.matchLevelLabel
   const prioritySkills = [

@@ -8,20 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../app/component
 import { RoadmapTree } from '../components/RoadmapTree'
 import { useRoadmapProgress } from '../hooks/useRoadmapProgress'
 import { useRoadmapStore } from '../stores/roadmapStore'
-import { formatRoadmapDifficulty, getDifficultyTone, getRoadmapNodes } from '../utils/roadmapUtils'
-
-const formatLevel = (level?: string) => {
-  switch (level?.trim().toLowerCase()) {
-    case 'beginner':
-      return 'Cơ bản'
-    case 'intermediate':
-      return 'Trung cấp'
-    case 'advanced':
-      return 'Nâng cao'
-    default:
-      return level
-  }
-}
+import { formatRoadmapDifficulty, formatUserLevel, getDifficultyTone, getRoadmapNodes } from '../utils/roadmapUtils'
 
 export const RoadmapDetailPage = () => {
   const { id } = useParams()
@@ -122,8 +109,9 @@ export const RoadmapDetailPage = () => {
     : typeof sourceTotalCommits === 'number'
       ? `${sourceTotalCommits} commit trong nguồn phân tích`
       : 'Chưa có thống kê commit'
-  const requestedLevelText = formatLevel(roadmap.requestedLevel)
-  const effectiveLevelText = formatLevel(roadmap.effectiveLevel || roadmapSource?.userLevel || roadmap.difficulty)
+  const requestedLevelText = roadmap.requestedLevel ? formatUserLevel(roadmap.requestedLevel) : undefined
+  const effectiveLevelSource = roadmap.effectiveLevel || roadmapSource?.userLevel || roadmap.difficulty
+  const effectiveLevelText = effectiveLevelSource ? formatUserLevel(effectiveLevelSource) : undefined
   const sourceDescription = sourceMode === 'all_analyzed_repos'
     ? 'Roadmap này được cá nhân hóa từ toàn bộ repository đã có kết quả phân tích trong tài khoản của bạn.'
     : sourceMode === 'selected_repos'

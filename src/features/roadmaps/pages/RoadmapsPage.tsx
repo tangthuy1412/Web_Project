@@ -14,7 +14,7 @@ import { useRoadmapStore } from '../stores/roadmapStore'
 import type { RoadmapCategory, RoadmapDifficulty } from '../types'
 import type { RoadmapSourceMode } from '../services/roadmapService'
 import type { RoleMatch } from '../../../app/types'
-import { filterRoadmaps, formatCategoryFilter, formatDifficultyFilter, formatDurationFilter } from '../utils/roadmapUtils'
+import { filterRoadmaps, formatCategoryFilter, formatDifficultyFilter, formatDurationFilter, formatUserLevel } from '../utils/roadmapUtils'
 
 const categories: (RoadmapCategory | 'All')[] = [
   'All',
@@ -64,12 +64,6 @@ const sourceModeLabel = (sourceMode: RoadmapSourceMode) => {
   }
 }
 
-const levelLabel = (value: string) => {
-  if (value === 'beginner') return 'Cơ bản'
-  if (value === 'intermediate') return 'Trung cấp'
-  if (value === 'advanced') return 'Nâng cao'
-  return value
-}
 
 interface RoleSuggestionCardProps {
   match: RoleMatch
@@ -446,7 +440,7 @@ export const RoadmapsPage = () => {
                 onChange={(event) => setLevel(event.target.value as typeof level)}
                 className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
               >
-                <option value="beginner">Cơ bản</option>
+                <option value="beginner">Mới bắt đầu</option>
                 <option value="intermediate">Trung cấp</option>
                 <option value="advanced">Nâng cao</option>
               </select>
@@ -499,7 +493,7 @@ export const RoadmapsPage = () => {
                       <span className="min-w-0">
                         <span className="line-clamp-1 break-all font-medium">{repo.name}</span>
                         <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
-                          {repo.level ? levelLabel(repo.level) : 'Chưa rõ trình độ'} · {repo.commits ?? 0} đóng góp
+                          {formatUserLevel(repo.level)} · {repo.commits ?? 0} đóng góp
                         </span>
                       </span>
                       <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
@@ -525,7 +519,9 @@ export const RoadmapsPage = () => {
                   >
                     <span className="min-w-0">
                       <span className="line-clamp-1 break-all font-medium">{repo.name}</span>
-                      <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">{repo.commits ?? 0} đóng góp</span>
+                      <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+                        {formatUserLevel(repo.level)} · {repo.commits ?? 0} đóng góp
+                      </span>
                     </span>
                     <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
                       {selectedRepoIds.includes(repo.id) ? <CheckCircle2 className="h-4 w-4 text-indigo-600" /> : <span className="h-4 w-4 rounded-full border border-slate-300" />}
@@ -602,7 +598,7 @@ export const RoadmapsPage = () => {
                 </div>
                 <div className="rounded-md bg-white/70 p-2 dark:bg-slate-900/70">
                   <p className="text-xs text-slate-500">Mức sẵn sàng</p>
-                  <p className="text-sm font-semibold">{sourceDisplay.userReadinessScore ?? 0}% · {sourceDisplay.userLevel || 'Chưa xác định'}</p>
+                  <p className="text-sm font-semibold">{sourceDisplay.userReadinessScore ?? 0}% · {formatUserLevel(sourceDisplay.userLevel)}</p>
                 </div>
               </div>
             )}

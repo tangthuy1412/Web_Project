@@ -56,6 +56,36 @@ export const getStatusTone = (status: LearningNode['status']) => {
   }
 }
 
+export const formatUserLevel = (level?: string): string => {
+  const normalized = level?.trim().toLowerCase().replace(/[_-]+/g, ' ')
+
+  switch (normalized) {
+    case 'novice':
+    case 'newbie':
+    case 'starter':
+    case 'beginner':
+    case 'basic':
+    case 'foundation':
+      return 'Mới bắt đầu'
+    case 'elementary':
+    case 'junior':
+    case 'pre intermediate':
+      return 'Sơ cấp'
+    case 'intermediate':
+    case 'middle':
+    case 'mid':
+      return 'Trung cấp'
+    case 'upper intermediate':
+    case 'advanced':
+    case 'senior':
+      return 'Nâng cao'
+    case 'expert':
+    case 'master':
+      return 'Chuyên sâu'
+    default:
+      return level?.trim() || 'Chưa xác định'
+  }
+}
 export const getDifficultyTone = (difficulty: Roadmap['difficulty']) => {
   switch (difficulty) {
     case 'Beginner':
@@ -70,7 +100,7 @@ export const getDifficultyTone = (difficulty: Roadmap['difficulty']) => {
 export const formatRoadmapDifficulty = (difficulty: Roadmap['difficulty']): string => {
   switch (difficulty) {
     case 'Beginner':
-      return 'Cơ bản'
+      return 'Mới bắt đầu'
     case 'Intermediate':
       return 'Trung cấp'
     case 'Advanced':
