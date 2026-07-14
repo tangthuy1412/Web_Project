@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { Archive, ArrowLeft, Clock, GitBranch, RotateCcw, Sparkles, Target } from 'lucide-react'
 import { Badge } from '../../../app/components/ui/Badge'
 import { Button } from '../../../app/components/ui/Button'
@@ -7,11 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../app/components/ui/tabs'
 import { RoadmapTree } from '../components/RoadmapTree'
 import { useRoadmapProgress } from '../hooks/useRoadmapProgress'
+import { useLearningStore } from '../stores/learningStore'
 import { useRoadmapStore } from '../stores/roadmapStore'
 import { formatRoadmapDifficulty, formatUserLevel, getDifficultyTone, getRoadmapNodes, getRoadmapSourceRepositoryCount } from '../utils/roadmapUtils'
 
 export const RoadmapDetailPage = () => {
   const { id } = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const {
     getRoadmapById,
@@ -25,6 +27,8 @@ export const RoadmapDetailPage = () => {
   } = useRoadmapStore()
   const [isArchiving, setIsArchiving] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
+  const restoredReturnPositionRef = useRef<string | null>(null)
+  const { roadmapLearning, fetchRoadmapLearning } = useLearningStore()
   const roadmap = id ? getRoadmapById(id) : undefined
   const { completion, hoursRemaining } = useRoadmapProgress(roadmap)
 
@@ -33,6 +37,84 @@ export const RoadmapDetailPage = () => {
       fetchRoadmapDetail(id)
     }
   }, [fetchRoadmapDetail, id, roadmap])
+
+  useEffect(() => {
+    if (roadmap?.id) {
+      fetchRoadmapLearning(roadmap.id).catch(() => undefined)
+    }
+  }, [fetchRoadmapLearning, roadmap?.id])
+
+  useEffect(() => {
+    if (!roadmap?.id || !roadmap.modules.length || typeof window === 'undefined') return
+
+    const storageKey = `roadmap:return:${roadmap.id}`
+    if (restoredReturnPositionRef.current === storageKey) return
+
+    const storedValue = sessionStorage.getItem(storageKey)
+    const locationState = location.state as { restoreItemId?: string; restoreScrollY?: number } | null
+    let restoreData: { itemId?: string; scrollY?: number; ts?: number } | null = null
+
+    if (storedValue) {
+      try {
+        restoreData = JSON.parse(storedValue) as { itemId?: string; scrollY?: number; ts?: number }
+      } catch {
+        sessionStorage.removeItem(storageKey)
+      }
+    }
+
+    if (!restoreData && locationState?.restoreItemId) {
+      restoreData = {
+        itemId: locationState.restoreItemId,
+        scrollY: locationState.restoreScrollY,
+        ts: Date.now()
+      }
+    }
+
+    if (!restoreData?.itemId && typeof restoreData?.scrollY !== 'number') return
+    if (restoreData.ts && Date.now() - restoreData.ts > 10 * 60 * 1000) {
+      sessionStorage.removeItem(storageKey)
+      return
+    }
+
+    restoredReturnPositionRef.current = storageKey
+
+    let timeoutId: number | undefined
+
+    const restoreScroll = (attempt = 0) => {
+      const taskElement = restoreData?.itemId
+        ? Array.from(document.querySelectorAll<HTMLElement>('[data-roadmap-item-id]'))
+          .find((element) => element.getAttribute('data-roadmap-item-id') === restoreData?.itemId)
+        : null
+
+      if (taskElement) {
+        taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        sessionStorage.removeItem(storageKey)
+        navigate(location.pathname, { replace: true, state: null })
+        return
+      }
+
+      if (attempt < 3) {
+        timeoutId = window.setTimeout(() => restoreScroll(attempt + 1), 150)
+        return
+      }
+
+      if (typeof restoreData?.scrollY === 'number') {
+        window.scrollTo({ top: restoreData.scrollY, behavior: 'smooth' })
+      }
+
+      sessionStorage.removeItem(storageKey)
+      navigate(location.pathname, { replace: true, state: null })
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(() => restoreScroll(), 120)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      if (timeoutId) window.clearTimeout(timeoutId)
+    }
+  }, [location.pathname, location.state, navigate, roadmap?.id, roadmap?.modules.length])
 
   const handleArchive = async () => {
     if (!roadmap) return
@@ -75,7 +157,25 @@ export const RoadmapDetailPage = () => {
   }
 
   const isArchived = roadmap.status === 'archived'
-  const nodes = getRoadmapNodes(roadmap)
+  const learningStatusByItemId = new Map(
+    (roadmapLearning?.roadmapId === roadmap.id ? roadmapLearning.items : [])
+      .map((item) => [item.itemId, item.learningStatus] as const)
+  )
+  const roadmapWithLearningStatus = {
+    ...roadmap,
+    modules: roadmap.modules.map((module) => ({
+      ...module,
+      nodes: module.nodes.map((node) => ({
+        ...node,
+        learningStatus: node.itemId && learningStatusByItemId.has(node.itemId)
+          ? learningStatusByItemId.get(node.itemId)
+          : node.learningStatus
+      }))
+    }))
+  }
+  const nodes = getRoadmapNodes(roadmapWithLearningStatus)
+  const phaseCount = roadmapWithLearningStatus.modules.length
+  const renderedTaskCount = nodes.length
   const completedNodes = nodes.filter((node) => node.status === 'completed').length
   const roleMatch = roadmap.roleMatch
   const skillGapSummary = roadmap.skillGapSummary
@@ -178,13 +278,13 @@ export const RoadmapDetailPage = () => {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <Clock className="mb-2 h-4 w-4 text-indigo-500" />
-                  <p className="font-semibold text-slate-900 dark:text-slate-100">{roadmap.estimatedWeeks} tuần</p>
+                  <p className="font-semibold text-slate-900 dark:text-slate-100">{roadmap.estimatedWeeks} tuần dự kiến</p>
                   <p className="text-slate-500 dark:text-slate-400">{roadmap.estimatedHours} giờ dự kiến</p>
                 </div>
                 <div>
                   <GitBranch className="mb-2 h-4 w-4 text-cyan-500" />
-                  <p className="font-semibold text-slate-900 dark:text-slate-100">{sourceRepositoryCount}</p>
-                  <p className="text-slate-500 dark:text-slate-400">repository nguồn</p>
+                  <p className="font-semibold text-slate-900 dark:text-slate-100">{phaseCount} giai đoạn</p>
+                  <p className="text-slate-500 dark:text-slate-400">{renderedTaskCount} nhiệm vụ</p>
                 </div>
               </div>
               <div className="mt-5">
@@ -314,7 +414,7 @@ export const RoadmapDetailPage = () => {
             </CardHeader>
             <CardContent>
               <RoadmapTree
-                roadmap={roadmap}
+                roadmap={roadmapWithLearningStatus}
                 onStatusChange={isArchived ? undefined : (nodeId, status) => updateNodeStatus(roadmap.id, nodeId, status)}
                 onBookmarkToggle={isArchived ? undefined : (nodeId) => toggleBookmark(roadmap.id, nodeId)}
               />

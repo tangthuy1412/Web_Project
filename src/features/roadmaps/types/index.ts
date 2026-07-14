@@ -26,6 +26,7 @@ export interface LearningResource {
 export interface LearningNode {
   id: string
   itemId?: string
+  hasBackendItemId?: boolean
   title: string
   description: string
   estimatedHours: number

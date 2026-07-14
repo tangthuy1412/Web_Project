@@ -26,14 +26,78 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
   const [expanded, setExpanded] = useState(node.status === 'in-progress')
   const isLocked = node.status === 'locked'
   const primarySkill = node.canonicalSkillName || node.skillName || node.skills[0] || ''
-  const skillRoute = primarySkill ? encodeURIComponent(primarySkill) : ''
-  const itemRoute = node.itemId || node.id
-  const learningPath = roadmapId ? `/roadmaps/${roadmapId}/learning/items/${encodeURIComponent(itemRoute)}` : ''
+  const hasBackendItemId = Boolean(node.hasBackendItemId && node.itemId)
+  const learningPath = roadmapId && hasBackendItemId
+    ? `/roadmaps/${roadmapId}/learning/items/${encodeURIComponent(node.itemId ?? '')}`
+    : ''
   const progressPercent = Math.max(0, Math.min(100, Math.round(node.progressPercent ?? (node.status === 'completed' ? 100 : node.status === 'in-progress' ? 1 : 0))))
   const statusLabel = node.status === 'completed' ? 'Hoàn thành' : node.status === 'in-progress' ? 'Đang học' : 'Chưa học'
+  const learningStatusLabel = node.learningStatus === 'available'
+    ? 'Đã có bài học'
+    : node.learningStatus === 'missing'
+      ? 'Chưa tạo bài học'
+      : ''
+  const missingItemIdMessage = 'Task chưa có itemId, vui lòng tải lại roadmap hoặc tạo lại roadmap.'
+
+  const returnItemId = node.itemId ?? ''
+
+  const rememberReturnPosition = () => {
+    if (!roadmapId || !returnItemId || typeof window === 'undefined') return
+
+    sessionStorage.setItem(
+      `roadmap:return:${roadmapId}`,
+      JSON.stringify({
+        itemId: returnItemId,
+        scrollY: window.scrollY,
+        ts: Date.now()
+      })
+    )
+
+    if (import.meta.env.DEV) {
+      console.info('[LearningNode] navigate to roadmap learning item', {
+        roadmapId,
+        itemId: returnItemId,
+        learningPath
+      })
+    }
+  }
+
+  const learningButton = (label: string) => {
+    if (!roadmapId) {
+      return (
+        <Button size="sm" variant="outline" disabled={isLocked}>
+          {label}
+        </Button>
+      )
+    }
+
+    if (!hasBackendItemId) {
+      return (
+        <Button size="sm" variant="outline" disabled title={missingItemIdMessage}>
+          {label}
+        </Button>
+      )
+    }
+
+    return (
+      <Link
+        to={learningPath}
+        state={{ fromRoadmap: true, returnItemId, returnScrollY: typeof window === 'undefined' ? 0 : window.scrollY }}
+        onClick={rememberReturnPosition}
+      >
+        <Button size="sm" variant="outline" disabled={isLocked}>
+          {label}
+        </Button>
+      </Link>
+    )
+  }
 
   return (
-    <motion.div layout className={cn('relative rounded-lg border bg-white/80 p-4 dark:bg-slate-900/80', isLocked ? 'border-slate-200 opacity-70 dark:border-slate-800' : 'border-slate-200 hover:border-indigo-300 dark:border-slate-800 dark:hover:border-indigo-700')}>
+    <motion.div
+      layout
+      data-roadmap-item-id={returnItemId || undefined}
+      className={cn('relative rounded-lg border bg-white/80 p-4 dark:bg-slate-900/80', isLocked ? 'border-slate-200 opacity-70 dark:border-slate-800' : 'border-slate-200 hover:border-indigo-300 dark:border-slate-800 dark:hover:border-indigo-700')}
+    >
       <div className="flex items-start gap-3">
         <div className="mt-0.5">
           <StatusIcon status={node.status} />
@@ -50,6 +114,9 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
               <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', getStatusTone(node.status))}>
                 {formatLearningStatus(node.status)}
               </span>
+              {learningStatusLabel && (
+                <Badge variant={node.learningStatus === 'available' ? 'success' : 'warning'}>{learningStatusLabel}</Badge>
+              )}
             </div>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{node.description}</p>
           </div>
@@ -70,13 +137,7 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
-            {roadmapId && (
-              <Link to={learningPath || `/roadmaps/${roadmapId}/skills/${skillRoute}`}>
-                <Button size="sm" variant="outline" disabled={isLocked}>
-                  Học
-                </Button>
-              </Link>
-            )}
+            {learningButton('Học')}
             {!isLocked && node.status !== 'in-progress' && node.status !== 'completed' && (
               <Button size="sm" variant="ghost" onClick={() => void onStatusChange?.(node.id, 'in-progress')}>
                 Đang học
@@ -94,6 +155,9 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
             )}
           </div>
         </div>
+        {!hasBackendItemId && roadmapId && (
+          <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">{missingItemIdMessage}</p>
+        )}
       </div>
 
       {expanded && (
@@ -123,9 +187,9 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
               <ul className="divide-y divide-slate-200 overflow-hidden rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
                 {node.skills.slice(0, 4).map((skill) => (
                   <li key={skill}>
-                    {roadmapId ? (
+                    {roadmapId && hasBackendItemId ? (
                       <Link
-                        to={learningPath || `/roadmaps/${roadmapId}/skills/${encodeURIComponent(node.canonicalSkillName || skill)}`}
+                        to={learningPath}
                         className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:text-slate-200 dark:hover:bg-slate-800/70 dark:hover:text-indigo-300"
                       >
                         <span>
@@ -154,12 +218,6 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
           {node.dependencies.length > 0 && (
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Nên hoàn thành trước: {node.dependencies.length} nhiệm vụ liên quan
-            </p>
-          )}
-
-          {false && primarySkill && (
-            <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
-              Tiến độ của nhiệm vụ này dùng chung với kỹ năng {primarySkill}. Khi cập nhật, các nhiệm vụ khác cùng kỹ năng cũng sẽ phản ánh trạng thái đó.
             </p>
           )}
 
@@ -193,17 +251,7 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
           )}
 
           <div className="flex flex-wrap items-center gap-2">
-            {roadmapId && node.skills.length > 0 ? (
-              <Link to={learningPath || `/roadmaps/${roadmapId}/skills/${skillRoute}`}>
-                <Button size="sm" variant="outline" disabled={isLocked}>
-                  Tiếp tục
-                </Button>
-              </Link>
-            ) : (
-              <Button size="sm" variant="outline" disabled={isLocked}>
-                Tiếp tục
-              </Button>
-            )}
+            {learningButton('Tiếp tục')}
             <Button
               size="sm"
               variant="ghost"

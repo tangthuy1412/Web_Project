@@ -543,7 +543,8 @@ export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
       estimatedHours: tasks.reduce((sum, task) => sum + asNumber(task.estimatedHours, 4), 0),
       nodes: tasks.map((task, taskIndex) => ({
         id: task.itemId ?? task._id ?? `${id}-node-${moduleIndex + 1}-${taskIndex + 1}`,
-        itemId: task.itemId ?? task._id ?? `${id}-node-${moduleIndex + 1}-${taskIndex + 1}`,
+        itemId: task.itemId,
+        hasBackendItemId: Boolean(task.itemId),
         title: hasRoleMismatch(`${task.title ?? ''} ${task.description ?? ''} ${task.targetRole ?? ''}`, targetRole)
           ? taskTitleForRole(task, targetRole)
           : roleSafeText(toUserText(task.title, `Nhiệm vụ ${taskIndex + 1}`), targetRole),

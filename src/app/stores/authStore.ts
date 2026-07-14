@@ -24,6 +24,8 @@ type AuthState = {
   isBootstrapping: boolean
   isLoading: boolean
   error: string | null
+  githubLogoutUrl: string | null
+  githubJustDisconnected: boolean
   bootstrap: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, fullName: string) => Promise<void>
@@ -35,7 +37,7 @@ type AuthState = {
   changePassword: (currentPassword: string, newPassword: string, confirmPassword: string) => Promise<void>
   fetchProfile: () => Promise<void>
   saveProfile: (payload: ProfilePayload) => Promise<void>
-  connectGitHub: () => Promise<void>
+  connectGitHub: (options?: { forceAccountSelection?: boolean }) => Promise<void>
   refreshGitHubAccount: () => Promise<void>
   disconnectGitHub: () => Promise<void>
   clearError: () => void
@@ -106,10 +108,6 @@ const toRecord = (payload: unknown) => {
   return payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
 }
 
-const hasGitHubAccount = (payload: unknown) => {
-  return Boolean(payload && typeof payload === 'object' && Object.keys(payload as Record<string, unknown>).length > 0)
-}
-
 const resetUserScopedStores = () => {
   useRepositoryStore.getState().reset()
   useRoadmapStore.getState().reset()
@@ -121,6 +119,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isBootstrapping: true,
   isLoading: false,
   error: null,
+  githubLogoutUrl: null,
+  githubJustDisconnected: false,
 
   bootstrap: async () => {
     if (!getToken()) {
@@ -341,11 +341,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  connectGitHub: async () => {
-    set({ isLoading: true, error: null })
+  connectGitHub: async (options) => {
+    set({ isLoading: true, error: null, githubJustDisconnected: false })
 
     try {
       const { authorizeUrl, authorizationUrl, oauthUrl, connectUrl, url } = await githubApi.getOAuthUrl({
+        forceAccountSelection: options?.forceAccountSelection,
         redirectUrl: getGitHubConnectRedirectUrl()
       })
       const nextUrl = authorizeUrl ?? authorizationUrl ?? oauthUrl ?? connectUrl ?? url
@@ -370,25 +371,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   refreshGitHubAccount: async () => {
     try {
-      const account = extractApiResource(await githubApi.me(), ['githubAccount', 'github', 'account', 'user'])
+      const { connected, account } = await githubApi.account()
 
-      if (!hasGitHubAccount(account)) {
+      if (!connected || !account) {
         set((state) => {
           const user = state.user ? { ...state.user, githubConnected: false, githubUsername: undefined } : state.user
           resetUserScopedStores()
           if (user) setStoredUser(user)
 
-          return { user }
+          return { user, githubLogoutUrl: null }
         })
         return
       }
 
       const user = normalizeUser({ ...get().user, githubAccount: account, githubConnected: true })
       setStoredUser({ ...user, githubConnected: true })
-      set({ user: { ...user, githubConnected: true } })
+      set({ user: { ...user, githubConnected: true }, githubJustDisconnected: false })
     } catch {
       set((state) => ({
-        user: state.user ? { ...state.user, githubConnected: false } : state.user
+        user: state.user ? { ...state.user, githubConnected: false } : state.user,
+        githubLogoutUrl: null
       }))
       const currentUser = get().user
       if (currentUser) setStoredUser({ ...currentUser, githubConnected: false })
@@ -399,13 +401,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
 
     try {
-      await githubApi.disconnect()
+      const disconnected = await githubApi.disconnect()
       resetUserScopedStores()
       set((state) => {
         const user = state.user ? { ...state.user, githubConnected: false, githubUsername: undefined } : state.user
         if (user) setStoredUser(user)
 
-        return { isLoading: false, user }
+        return {
+          githubJustDisconnected: true,
+          githubLogoutUrl: disconnected.githubLogoutUrl,
+          isLoading: false,
+          user
+        }
       })
     } catch (error) {
       set({ isLoading: false, error: getApiErrorMessage(error) })

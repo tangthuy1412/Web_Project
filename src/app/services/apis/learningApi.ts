@@ -44,6 +44,7 @@ export interface LearningResource {
   provider: string // 'YouTube', v.v.
   thumbnailUrl?: string
   channelTitle?: string
+  publishedAt?: string
   source?: string // 'curated' | 'youtube_api'
   score?: number
   tags?: string[]
@@ -97,6 +98,16 @@ const asRecord = (value: unknown) => value && typeof value === 'object'
 const asString = (value: unknown, fallback = '') => typeof value === 'string' ? value : fallback
 const asNumber = (value: unknown, fallback = 0) => typeof value === 'number' && Number.isFinite(value) ? value : fallback
 const asArray = (value: unknown) => Array.isArray(value) ? value : []
+const asResourceArray = (value: unknown) => {
+  if (Array.isArray(value)) return value
+
+  const record = asRecord(value)
+  if (Array.isArray(record.data)) return record.data
+  if (Array.isArray(record.items)) return record.items
+  if (Array.isArray(record.resources)) return record.resources
+
+  return []
+}
 
 const normalizeLearningContent = (payload: unknown): LearningContent => {
   const record = asRecord(payload)
@@ -136,7 +147,7 @@ const normalizeLearningContent = (payload: unknown): LearningContent => {
 }
 
 const normalizeResourceList = (items: unknown): LearningResource[] => {
-  return asArray(items).map((item, index) => {
+  return asResourceArray(items).map((item, index) => {
     const record = asRecord(item)
     return {
       id: asString(record.id, asString(record._id, `resource-${index}`)),
@@ -149,8 +160,9 @@ const normalizeResourceList = (items: unknown): LearningResource[] => {
       title: asString(record.title, 'Tài nguyên học tập'),
       url: asString(record.url, '#'),
       provider: asString(record.provider, asString(record.source, 'AI Mentor')),
-      thumbnailUrl: asString(record.thumbnailUrl) || undefined,
-      channelTitle: asString(record.channelTitle) || undefined,
+      thumbnailUrl: asString(record.thumbnailUrl, asString(record.thumbnail_url)) || undefined,
+      channelTitle: asString(record.channelTitle, asString(record.channel_title)) || undefined,
+      publishedAt: asString(record.publishedAt, asString(record.published_at)) || undefined,
       source: asString(record.source) || undefined,
       score: typeof record.score === 'number' ? record.score : undefined,
       tags: asArray(record.tags).map(String).filter(Boolean)
@@ -169,17 +181,22 @@ const normalizeResources = (payload: unknown): LearningResource[] => {
   return []
 }
 
-const normalizeRoadmapLearningItem = (payload: unknown): RoadmapLearningItemResponse => {
+const normalizeRoadmapLearningItem = (payload: unknown, requestedItemId?: string): RoadmapLearningItemResponse => {
   const data = unwrapResponse<unknown>(payload)
   const record = asRecord(data)
   const task = asRecord(record.task)
-  const learning = normalizeLearningContent(record.learning)
+  const responseItemId = asString(record.itemId, asString(task.itemId, requestedItemId))
+  const learningRecord = asRecord(record.learning)
+  const learning = normalizeLearningContent({
+    ...learningRecord,
+    resources: learningRecord.resources ?? record.resources
+  })
 
   return {
     roadmapId: asString(record.roadmapId),
-    itemId: asString(record.itemId, asString(task.itemId)),
+    itemId: responseItemId,
     task: Object.keys(task).length ? {
-      itemId: asString(task.itemId) || undefined,
+      itemId: asString(task.itemId, responseItemId) || undefined,
       title: asString(task.title) || undefined,
       description: asString(task.description) || undefined,
       skillName: asString(task.skillName) || undefined,
@@ -226,8 +243,11 @@ export const learningApi = {
   },
 
   async getRoadmapLearningItem(roadmapId: string, itemId: string): Promise<RoadmapLearningItemResponse> {
-    const response = await apiClient.get(`/roadmaps/${roadmapId}/learning/items/${itemId}`)
-    return normalizeRoadmapLearningItem(response.data)
+    const encodedItemId = encodeURIComponent(itemId)
+    const response = await apiClient.get(`/roadmaps/${roadmapId}/learning/items/${encodedItemId}`, {
+      params: { includeResources: true }
+    })
+    return normalizeRoadmapLearningItem(response.data, itemId)
   },
 
   async generateRoadmapLearningItem(
@@ -235,11 +255,12 @@ export const learningApi = {
     itemId: string,
     data: { forceRegenerate?: boolean; includeResources?: boolean } = {}
   ): Promise<RoadmapLearningItemResponse> {
-    const response = await apiClient.post(`/roadmaps/${roadmapId}/learning/items/${itemId}/generate`, {
+    const encodedItemId = encodeURIComponent(itemId)
+    const response = await apiClient.post(`/roadmaps/${roadmapId}/learning/items/${encodedItemId}/generate`, {
       forceRegenerate: data.forceRegenerate ?? false,
       includeResources: data.includeResources ?? true
     })
-    return normalizeRoadmapLearningItem(response.data)
+    return normalizeRoadmapLearningItem(response.data, itemId)
   },
 
   async getLearningContent(
