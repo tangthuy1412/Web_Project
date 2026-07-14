@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { AlertCircle, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, GitFork, Loader2, Play, RefreshCw, Search, Star, XCircle } from 'lucide-react'
+import { AlertCircle, ArrowRight, ChevronLeft, ChevronRight, ExternalLink, GitFork, Loader2, Play, RefreshCw, Search, Star } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
@@ -8,11 +8,15 @@ import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatRelativeTime } from '../../lib/utils'
 
 const REPOSITORIES_PER_PAGE = 10
+type AnalysisFilter = 'all' | 'analyzed' | 'pending'
+type RepositorySort = 'updated' | 'name' | 'readiness'
 
 export const RepositoriesPage = () => {
   const navigate = useNavigate()
   const { repositories, analyses, fetchRepositories, fetchMyAnalyses, analyzeRepository, isLoading, error } = useRepositoryStore()
   const [search, setSearch] = useState('')
+  const [analysisFilter, setAnalysisFilter] = useState<AnalysisFilter>('all')
+  const [sortBy, setSortBy] = useState<RepositorySort>('updated')
   const [analyzingRepoId, setAnalyzingRepoId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
 
@@ -20,17 +24,6 @@ export const RepositoriesPage = () => {
     fetchRepositories().catch(() => undefined)
     fetchMyAnalyses().catch(() => undefined)
   }, [fetchMyAnalyses, fetchRepositories])
-
-  const filteredRepositories = useMemo(() => {
-    const keyword = search.toLowerCase().trim()
-    if (!keyword) return repositories
-
-    return repositories.filter((repo) =>
-      [repo.name, repo.fullName, repo.description, repo.language].some((value) =>
-        value?.toLowerCase().includes(keyword)
-      )
-    )
-  }, [repositories, search])
 
   const analysisByRepoId = useMemo(() => {
     return analyses.reduce(
@@ -41,12 +34,34 @@ export const RepositoriesPage = () => {
       {} as Record<string, typeof analyses[number]>
     )
   }, [analyses])
+
+  const filteredRepositories = useMemo(() => {
+    const keyword = search.toLowerCase().trim()
+    const filtered = repositories.filter((repo) => {
+      const hasAnalysis = Boolean(analysisByRepoId[repo.id] || repo.analyzed)
+      const matchesSearch = !keyword || [repo.name, repo.fullName, repo.description, repo.language].some((value) =>
+        value?.toLowerCase().includes(keyword)
+      )
+      const matchesStatus = analysisFilter === 'all' || (analysisFilter === 'analyzed' ? hasAnalysis : !hasAnalysis)
+      return matchesSearch && matchesStatus
+    })
+
+    return [...filtered].sort((left, right) => {
+      if (sortBy === 'name') return left.name.localeCompare(right.name, 'vi')
+      if (sortBy === 'readiness') {
+        const leftScore = analysisByRepoId[left.id]?.summary?.userReadinessScore ?? -1
+        const rightScore = analysisByRepoId[right.id]?.summary?.userReadinessScore ?? -1
+        return rightScore - leftScore
+      }
+      return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+    })
+  }, [analysisByRepoId, analysisFilter, repositories, search, sortBy])
   const totalPages = Math.max(1, Math.ceil(filteredRepositories.length / REPOSITORIES_PER_PAGE))
   const visibleRepositories = filteredRepositories.slice((page - 1) * REPOSITORIES_PER_PAGE, page * REPOSITORIES_PER_PAGE)
 
   useEffect(() => {
     setPage(1)
-  }, [search, repositories.length])
+  }, [analysisFilter, repositories.length, search, sortBy])
 
   useEffect(() => {
     setPage((current) => Math.min(current, totalPages))
@@ -56,14 +71,14 @@ export const RepositoriesPage = () => {
     try {
       setAnalyzingRepoId(repoId)
       const result = await analyzeRepository(repoId)
-      navigate(`/repositories/${result.repositoryId || repoId}/analysis`)
+      navigate(`/repositories/${result.repositoryId || repoId}`)
     } finally {
       setAnalyzingRepoId(null)
     }
   }
 
   return (
-    <div className="w-full max-w-[1600px] space-y-6">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
@@ -87,8 +102,8 @@ export const RepositoriesPage = () => {
       )}
 
       <Card className="p-4 lg:p-6">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full max-w-md">
+        <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(240px,1fr)_auto_auto] lg:items-center">
+          <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -98,9 +113,34 @@ export const RepositoriesPage = () => {
               className="h-10 w-full rounded-lg border border-slate-300 bg-white pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900"
             />
           </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {filteredRepositories.length} dự án
-          </p>
+          <select
+            aria-label="Sắp xếp dự án"
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as RepositorySort)}
+            className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900"
+          >
+            <option value="updated">Cập nhật gần nhất</option>
+            <option value="name">Tên A-Z</option>
+            <option value="readiness">Mức sẵn sàng cao nhất</option>
+          </select>
+          <p className="whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">{filteredRepositories.length} dự án</p>
+        </div>
+
+        <div className="mb-5 flex flex-wrap gap-2">
+          {([
+            ['all', 'Tất cả'],
+            ['analyzed', 'Đã phân tích'],
+            ['pending', 'Chưa phân tích']
+          ] as Array<[AnalysisFilter, string]>).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setAnalysisFilter(value)}
+              className={`h-8 rounded-md border px-3 text-sm font-medium transition ${analysisFilter === value ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {isLoading ? (
@@ -150,7 +190,6 @@ export const RepositoriesPage = () => {
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {repo.hasReadme ? <Badge variant="success">Có README</Badge> : <Badge variant="default">Chưa có README</Badge>}
                       {hasAnalysis ? <Badge variant="success">Đã phân tích</Badge> : <Badge variant="default">Chưa phân tích</Badge>}
                       {analysisScoreLabel && <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{analysisScoreLabel}</span>}
                     </div>
@@ -163,8 +202,8 @@ export const RepositoriesPage = () => {
 
                     <div className="mt-4 flex flex-wrap gap-2">
                       {hasAnalysis && (
-                        <Link to={`/repositories/${repo.id}/analysis`}>
-                          <Button variant="outline" size="sm">Xem phân tích</Button>
+                        <Link to={`/repositories/${repo.id}`}>
+                          <Button variant="outline" size="sm">Xem chi tiết</Button>
                         </Link>
                       )}
                       <Button size="sm" onClick={() => handleAnalyze(repo.id)} disabled={isRepoAnalyzing}>
@@ -178,20 +217,18 @@ export const RepositoriesPage = () => {
             </div>
             <table className="hidden w-full table-fixed text-sm md:table">
               <colgroup>
-                <col className="w-[25%]" />
-                <col className="w-[9%]" />
-                <col className="w-[9%]" />
-                <col className="w-[8%]" />
-                <col className="w-[15%]" />
-                <col className="w-[11%]" />
-                <col className="w-[23%]" />
+                <col className="w-[27%]" />
+                <col className="w-[10%]" />
+                <col className="w-[10%]" />
+                <col className="w-[19%]" />
+                <col className="w-[12%]" />
+                <col className="w-[22%]" />
               </colgroup>
               <thead>
                 <tr className="border-b border-slate-200 text-left text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
                   <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Dự án</th>
                   <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Ngôn ngữ</th>
                   <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Thống kê</th>
-                  <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">README</th>
                   <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Phân tích</th>
                   <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Cập nhật</th>
                   <th className="whitespace-nowrap px-2 py-3 text-right font-medium lg:px-4">Hành động</th>
@@ -230,9 +267,6 @@ export const RepositoriesPage = () => {
                         </div>
                       </td>
                       <td className="px-2 py-3 align-middle lg:px-4">
-                        {repo.hasReadme ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : <XCircle className="h-5 w-5 text-slate-300 dark:text-slate-700" />}
-                      </td>
-                      <td className="px-2 py-3 align-middle lg:px-4">
                         {analysis && (
                           <div className="mb-1.5 text-xs leading-5 text-slate-500 dark:text-slate-400">
                             <p className="truncate">{analysisSummary?.careerDirection || analysis.careerDirection.primary}</p>
@@ -248,9 +282,9 @@ export const RepositoriesPage = () => {
                         <div className="flex flex-wrap items-center justify-end gap-2 xl:flex-nowrap">
                           {hasAnalysis ? (
                             <>
-                              <Link to={`/repositories/${repo.id}/analysis`}>
+                              <Link to={`/repositories/${repo.id}`}>
                                 <Button variant="outline" size="sm">
-                                  Xem phân tích
+                                  Xem chi tiết
                                 </Button>
                               </Link>
                               <Button size="sm" onClick={() => handleAnalyze(repo.id)} disabled={isRepoAnalyzing}>

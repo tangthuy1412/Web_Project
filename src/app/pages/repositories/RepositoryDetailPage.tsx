@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { AlertCircle, ArrowLeft, BookOpen, Bot, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, FileJson, Flag, GitCommit, GitFork, Lightbulb, Play, RefreshCw, Send, Star, Target } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
+import { RoleMatchPanel } from '../../components/analysis/RoleMatchPanel'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatRelativeTime } from '../../lib/utils'
 import { getApiErrorMessage } from '../../services/apis/core'
@@ -53,7 +54,6 @@ const getCommitInfo = (item: unknown) => {
 
 export const RepositoryDetailPage = () => {
   const { id = '' } = useParams()
-  const navigate = useNavigate()
   const {
     repositories,
     analyses,
@@ -89,7 +89,6 @@ export const RepositoryDetailPage = () => {
   const packages = packagesByRepoId[id] ?? []
   const commits = commitsByRepoId[id] ?? []
   const feedback = feedbackByRepoId[id]
-  const analysisRoute = `/repositories/${id}/analysis`
   const packageAnalysis = getPackageAnalysis(packages)
   const packageFiles = asStringList(packageAnalysis.packageFiles)
   const packageNames = asStringList(packageAnalysis.packages)
@@ -103,8 +102,9 @@ export const RepositoryDetailPage = () => {
   }, [analyses, id])
   const latestSummary = latestAnalysis?.summary
   const latestScope = latestAnalysis?.analysisScope
-  const latestOverallScore = Math.round(latestSummary?.overallScore ?? latestAnalysis?.scores.overallScore ?? latestAnalysis?.scores.overall ?? 0)
-  const latestReadinessScore = Math.round(latestSummary?.userReadinessScore ?? 0)
+  const latestScoreValue = latestSummary?.userReadinessScore ?? latestSummary?.overallScore ?? latestAnalysis?.scores.overallScore ?? latestAnalysis?.scores.overall
+  const latestScore = typeof latestScoreValue === 'number' && Number.isFinite(latestScoreValue) ? Math.round(latestScoreValue) : undefined
+  const latestScoreLabel = latestSummary?.userReadinessScore !== undefined ? 'Mức sẵn sàng' : 'Điểm tổng quan'
   const latestTopSkills = latestAnalysis?.topSkills ?? []
 
   useEffect(() => {
@@ -121,8 +121,7 @@ export const RepositoryDetailPage = () => {
   }, [id, commits.length])
 
   const handleAnalyze = async () => {
-    const result = await analyzeRepository(id)
-    navigate(`/repositories/${result.repositoryId || id}/analysis`)
+    await analyzeRepository(id)
   }
 
   const handleFetchPackages = async () => {
@@ -193,7 +192,7 @@ export const RepositoryDetailPage = () => {
   }
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-[1500px] space-y-6">
       <div>
         <Link to="/repositories" className="mb-4 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
           <ArrowLeft className="h-4 w-4" />
@@ -218,24 +217,17 @@ export const RepositoryDetailPage = () => {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {(repository.analyzed || latestAnalysis) && (
-              <Link to={analysisRoute}>
-                <Button variant="outline">
-                  Xem phân tích
-                </Button>
-              </Link>
-            )}
             <Button variant="outline" onClick={handleFetchPackages} isLoading={packagesLoading}>
               <FileJson className="mr-2 h-4 w-4" />
-              Tải packages
+              Cập nhật công nghệ
             </Button>
             <Button variant="outline" onClick={handleFetchCommits} isLoading={commitsLoading}>
               <GitCommit className="mr-2 h-4 w-4" />
-              Tải commits
+              Cập nhật lịch sử
             </Button>
             <Button onClick={handleAnalyze} isLoading={isAnalyzing}>
               <Play className="mr-2 h-4 w-4" />
-              Phân tích
+              {repository.analyzed || latestAnalysis ? 'Phân tích lại' : 'Phân tích'}
             </Button>
             <Button variant="outline" onClick={handleGenerateFeedback} isLoading={isGeneratingFeedback}>
               <Bot className="mr-2 h-4 w-4" />
@@ -252,41 +244,17 @@ export const RepositoryDetailPage = () => {
         </div>
       )}
 
-      <Card className="border-indigo-200 bg-indigo-50/60 dark:border-indigo-900 dark:bg-indigo-950/20">
-        <CardContent className="p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Phân tích dự án này
-              </h2>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                Hệ thống sẽ đồng bộ gói thư viện, đóng góp, chạy phân tích và lấy kết quả mới nhất cho dự án đang mở: {repository.fullName || repository.name}.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Badge variant={repository.private ? 'warning' : 'success'}>{repository.private ? 'Private' : 'Public'}</Badge>
-                <Badge variant={repository.hasReadme ? 'success' : 'default'}>{repository.hasReadme ? 'Có README' : 'Thiếu README'}</Badge>
-                <Badge variant={repository.analyzed || latestAnalysis ? 'success' : 'default'}>{repository.analyzed || latestAnalysis ? 'Đã có phân tích' : 'Chưa có phân tích'}</Badge>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={handleAnalyze} isLoading={isAnalyzing}>
-                <Play className="mr-2 h-4 w-4" />
-                {repository.analyzed || latestAnalysis ? 'Phân tích lại' : 'Phân tích ngay'}
-              </Button>
-              {(repository.analyzed || latestAnalysis) && (
-                <Link to={analysisRoute}>
-                  <Button variant="outline">Xem kết quả</Button>
-                </Link>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {latestAnalysis && (
         <Card>
-          <CardHeader>
-            <CardTitle>Phân tích gần nhất</CardTitle>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle>Tổng quan năng lực</CardTitle>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Kết quả mới nhất từ dữ liệu đã đồng bộ của dự án.</p>
+            </div>
+            <Button size="sm" onClick={handleAnalyze} isLoading={isAnalyzing}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Phân tích lại
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -297,21 +265,21 @@ export const RepositoryDetailPage = () => {
                 </p>
               </div>
               <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                <p className="text-xs text-slate-500">Mức sẵn sàng / tổng quan</p>
+                <p className="text-xs text-slate-500">{latestScoreLabel}</p>
                 <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
-                  {latestReadinessScore}% / {latestOverallScore}
+                  {latestScore !== undefined ? `${latestScore}%` : 'Chưa có dữ liệu'}
                 </p>
               </div>
               <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
                 <p className="text-xs text-slate-500">Đóng góp của bạn / toàn dự án</p>
                 <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
-                  {latestScope?.userCommits ?? latestAnalysis.commitSummary?.totalCommits ?? 0}/{latestScope?.totalRepoCommits ?? latestAnalysis.commitSummary?.totalCommits ?? 0}
+                  {latestScope?.userCommits ?? latestAnalysis.commitSummary?.totalCommits ?? '—'} / {latestScope?.totalRepoCommits ?? latestAnalysis.commitSummary?.totalCommits ?? '—'}
                 </p>
               </div>
               <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
                 <p className="text-xs text-slate-500">Ngày hoạt động</p>
                 <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
-                  {latestScope?.activeDays ?? latestAnalysis.commitSummary?.activeDays ?? 0}
+                  {latestScope?.activeDays ?? latestAnalysis.commitSummary?.activeDays ?? 'Chưa có dữ liệu'}
                 </p>
               </div>
             </div>
@@ -342,90 +310,56 @@ export const RepositoryDetailPage = () => {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Link to={analysisRoute}>
-                <Button variant="outline">Xem chi tiết phân tích</Button>
-              </Link>
-              <Button onClick={handleAnalyze} isLoading={isAnalyzing}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Phân tích lại
-              </Button>
-            </div>
+            {(latestAnalysis.strengths.length > 0 || latestAnalysis.recommendations.length > 0) && (
+              <div className="grid gap-4 border-t border-slate-200 pt-4 dark:border-slate-800 lg:grid-cols-2">
+                <div>
+                  <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Điểm mạnh đáng chú ý</p>
+                  {latestAnalysis.strengths.length ? (
+                    <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                      {latestAnalysis.strengths.slice(0, 3).map((item) => <li key={item}>- {item}</li>)}
+                    </ul>
+                  ) : <p className="text-sm text-slate-500">Chưa có dữ liệu điểm mạnh.</p>}
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Ưu tiên cải thiện</p>
+                  {latestAnalysis.recommendations.length ? (
+                    <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                      {latestAnalysis.recommendations.slice(0, 3).map((item) => <li key={item.id}>- {item.title}</li>)}
+                    </ul>
+                  ) : <p className="text-sm text-slate-500">Chưa có gợi ý cải thiện.</p>}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
-      <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Flag className="h-5 w-5" />
-            Báo cáo dự án
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-            Nếu dự án này có nội dung không phù hợp hoặc thông tin bất thường, bạn có thể gửi báo cáo để quản trị viên xem xét.
-          </p>
-
-          {reportMessage && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
-              {reportMessage}
-            </div>
-          )}
-
-          {reportError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
-              {reportError}
-            </div>
-          )}
-
-          <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+      {!latestAnalysis && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center">
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Lý do báo cáo
-              </label>
-              <select
-                value={reportReason}
-                onChange={(event) => setReportReason(event.target.value)}
-                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900"
-              >
-                {reportReasons.map((reason) => (
-                  <option key={reason} value={reason}>{reason}</option>
-                ))}
-              </select>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Dự án chưa có kết quả phân tích</h2>
+              <p className="mt-1 text-sm text-slate-500">Chạy phân tích để xem mức sẵn sàng, kỹ năng và vai trò phù hợp.</p>
             </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Mô tả chi tiết
-              </label>
-              <textarea
-                value={reportDescription}
-                onChange={(event) => setReportDescription(event.target.value)}
-                placeholder="Ví dụ: Repository này có nội dung không phù hợp hoặc thông tin gây hiểu nhầm..."
-                className="min-h-24 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <Button onClick={handleSubmitReport} isLoading={isSubmittingReport}>
-              <Send className="mr-2 h-4 w-4" />
-              Gửi báo cáo
+            <Button onClick={handleAnalyze} isLoading={isAnalyzing}>
+              <Play className="mr-2 h-4 w-4" />
+              Phân tích ngay
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
+
+      {latestAnalysis && <RoleMatchPanel key={latestAnalysis.id || latestAnalysis.analyzedAt || id} repositoryId={id} />}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><FileJson className="h-5 w-5" />Packages / file cấu hình</CardTitle>
+            <CardTitle className="flex items-center gap-2"><FileJson className="h-5 w-5" />Công nghệ phát hiện</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {!packageFiles.length && !packageNames.length && !detectedFiles.length ? (
               <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
-                Chưa có packages cached. Bấm Tải packages để đồng bộ.
+                Chưa có dữ liệu công nghệ. Bấm Cập nhật công nghệ để đồng bộ.
               </div>
             ) : (
               <div className="space-y-4">
@@ -436,7 +370,7 @@ export const RepositoryDetailPage = () => {
                   </div>
                   <div className="rounded-lg bg-slate-50 p-3 text-center dark:bg-slate-900">
                     <p className="text-lg font-semibold">{packageNames.length}</p>
-                    <p className="text-xs text-slate-500">package</p>
+                    <p className="text-xs text-slate-500">thư viện</p>
                   </div>
                   <div className="rounded-lg bg-slate-50 p-3 text-center dark:bg-slate-900">
                     <p className="text-lg font-semibold">{frameworks.length}</p>
@@ -452,11 +386,11 @@ export const RepositoryDetailPage = () => {
                 ) : null}
 
                 <div>
-                  <p className="mb-2 text-sm font-medium">Packages chính</p>
+                  <p className="mb-2 text-sm font-medium">Thư viện chính</p>
                   <div className="flex flex-wrap gap-2">
                     {packageNames.slice(0, PACKAGE_BADGE_LIMIT).map((item) => <Badge key={item} variant="default">{item}</Badge>)}
                     {packageNames.length > PACKAGE_BADGE_LIMIT && <Badge variant="default">+{packageNames.length - PACKAGE_BADGE_LIMIT}</Badge>}
-                    {!packageNames.length && <span className="text-sm text-slate-500">Chưa phát hiện package.</span>}
+                    {!packageNames.length && <span className="text-sm text-slate-500">Chưa phát hiện thư viện.</span>}
                   </div>
                 </div>
 
@@ -493,19 +427,19 @@ export const RepositoryDetailPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><GitCommit className="h-5 w-5" />Lịch sử commit</CardTitle>
+            <CardTitle className="flex items-center gap-2"><GitCommit className="h-5 w-5" />Lịch sử đóng góp</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {commits.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
-                Chưa có commits cached. Bấm Tải commits để đồng bộ.
+                Chưa có dữ liệu đóng góp. Bấm Cập nhật lịch sử để đồng bộ.
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
                   <div>
                     <p className="text-lg font-semibold">{commits.length}</p>
-                    <p className="text-xs text-slate-500">commit đã lưu trong cache</p>
+                    <p className="text-xs text-slate-500">commit đã đồng bộ</p>
                   </div>
                   {commits.length > COMMITS_PER_PAGE && (
                     <Badge variant="info">Trang {commitPage}/{totalCommitPages}</Badge>
@@ -702,6 +636,68 @@ export const RepositoryDetailPage = () => {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Flag className="h-5 w-5" />
+            Báo cáo dự án
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+            Nếu dự án này có nội dung không phù hợp hoặc thông tin bất thường, bạn có thể gửi báo cáo để quản trị viên xem xét.
+          </p>
+
+          {reportMessage && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
+              {reportMessage}
+            </div>
+          )}
+
+          {reportError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+              {reportError}
+            </div>
+          )}
+
+          <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Lý do báo cáo
+              </label>
+              <select
+                value={reportReason}
+                onChange={(event) => setReportReason(event.target.value)}
+                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900"
+              >
+                {reportReasons.map((reason) => (
+                  <option key={reason} value={reason}>{reason}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Mô tả chi tiết
+              </label>
+              <textarea
+                value={reportDescription}
+                onChange={(event) => setReportDescription(event.target.value)}
+                placeholder="Ví dụ: Repository này có nội dung không phù hợp hoặc thông tin gây hiểu nhầm..."
+                className="min-h-24 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={handleSubmitReport} isLoading={isSubmittingReport}>
+              <Send className="mr-2 h-4 w-4" />
+              Gửi báo cáo
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

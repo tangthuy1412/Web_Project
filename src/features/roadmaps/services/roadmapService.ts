@@ -590,6 +590,19 @@ export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
     }
   })
 
+  const roadmapSource = backend.roadmapSource && typeof backend.roadmapSource === 'object' ? backend.roadmapSource : undefined
+  const sourceRepositoryIds = Array.from(new Set((roadmapSource?.repositoryIds ?? []).filter(Boolean)))
+  const sourceRepositories = roadmapSource?.repositories ?? []
+  const sourceRepositoryKeys = Array.from(new Set(sourceRepositories.map((repository) =>
+    repository.repositoryId || repository.fullName || repository.repoName
+  ).filter(Boolean)))
+  const sourceMode = roadmapSource?.sourceMode || roadmapSource?.type
+  const sourceRepositoriesCount = sourceMode === 'single_repo'
+    ? 1
+    : sourceRepositoryIds.length || sourceRepositoryKeys.length || (
+        roadmapSource?.repositoryId || roadmapSource?.fullName || roadmapSource?.repoName ? 1 : 0
+      ) || roadmapSource?.totalRepositories || backend.sourceContextSummary?.repositoriesCount || 0
+
   return {
     id,
     slug,
@@ -618,7 +631,7 @@ export const normalizeBackendRoadmap = (backend: BackendRoadmap): Roadmap => {
     status: backend.status ?? 'active',
     createdAt: backend.createdAt,
     updatedAt: backend.updatedAt,
-    sourceRepositoriesCount: backend.sourceContextSummary?.repositoriesCount ?? (backend.roadmapSource && typeof backend.roadmapSource === 'object' ? backend.roadmapSource.totalRepositories : 0) ?? 0,
+    sourceRepositoriesCount,
     roleId: backend.roleId,
     requestedLevel: backend.requestedLevel,
     effectiveLevel: backend.effectiveLevel,
@@ -741,7 +754,27 @@ export const roadmapService = {
       ...(sourceMode === 'selected_repos' ? { repoIds: selectedRepositoryIds } : {})
     })
     const roadmap = extractApiResource<BackendRoadmap>(response.data, ['roadmap'])
-    return buildRecommendation(roadmap)
+    const selectedSourceCount = sourceMode === 'single_repo'
+      ? 1
+      : sourceMode === 'selected_repos'
+        ? selectedRepositoryIds.length
+        : undefined
+    const existingSource = roadmap.roadmapSource && typeof roadmap.roadmapSource === 'object' ? roadmap.roadmapSource : {}
+    const enrichedRoadmap: BackendRoadmap = selectedSourceCount === undefined ? roadmap : {
+      ...roadmap,
+      sourceContextSummary: {
+        ...roadmap.sourceContextSummary,
+        repositoriesCount: selectedSourceCount
+      },
+      roadmapSource: {
+        ...existingSource,
+        sourceMode,
+        totalRepositories: selectedSourceCount,
+        ...(sourceMode === 'single_repo' ? { repositoryId: options.repoId } : {}),
+        ...(sourceMode === 'selected_repos' ? { repositoryIds: selectedRepositoryIds } : {})
+      }
+    }
+    return buildRecommendation(enrichedRoadmap)
   },
 
   async archiveRoadmap(roadmapId: string): Promise<Roadmap> {

@@ -1,4 +1,24 @@
-import type { LearningNode, Roadmap, RoadmapFilters } from '../types'
+import type { LearningNode, Roadmap, RoadmapFilters, RoadmapSource } from '../types'
+
+export const getRoadmapSourceRepositoryCount = (roadmap: Roadmap): number => {
+  const source = roadmap.roadmapSource && typeof roadmap.roadmapSource === 'object'
+    ? roadmap.roadmapSource as RoadmapSource
+    : undefined
+  const sourceMode = source?.sourceMode || source?.type
+
+  if (sourceMode === 'single_repo') return 1
+
+  const repositoryIds = Array.from(new Set((source?.repositoryIds ?? []).filter(Boolean)))
+  if (repositoryIds.length > 0) return repositoryIds.length
+
+  const repositoryKeys = Array.from(new Set((source?.repositories ?? []).map((repository) =>
+    repository.repositoryId || repository.fullName || repository.repoName
+  ).filter(Boolean)))
+  if (repositoryKeys.length > 0) return repositoryKeys.length
+
+  if (source?.repositoryId || source?.fullName || source?.repoName) return 1
+  return source?.totalRepositories ?? roadmap.sourceRepositoriesCount ?? 0
+}
 
 export const getRoadmapNodes = (roadmap: Roadmap): LearningNode[] =>
   roadmap.modules.flatMap((module) => module.nodes)

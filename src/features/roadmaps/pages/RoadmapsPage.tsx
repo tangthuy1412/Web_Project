@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { motion } from 'motion/react'
 import { Archive, BookmarkCheck, CheckCircle2, ChevronLeft, ChevronRight, FolderOpen, Loader2, Search, Sparkles } from 'lucide-react'
@@ -196,6 +196,7 @@ export const RoadmapsPage = () => {
   const [isMatchingRoles, setIsMatchingRoles] = useState(false)
   const [generatingKey, setGeneratingKey] = useState('')
   const [roleMatchError, setRoleMatchError] = useState('')
+  const [confirmedSourceKey, setConfirmedSourceKey] = useState('')
   const [statusFilter, setStatusFilter] = useState<'active' | 'archived'>('active')
   const [page, setPage] = useState(1)
   const analyzedRepos = useMemo(() => {
@@ -228,6 +229,8 @@ export const RoadmapsPage = () => {
     : sourceMode === 'single_repo'
       ? Boolean(repositoryId)
       : selectedRepoIds.length > 0
+  const sourceSelectionKey = `${sourceMode}:${sourceMode === 'all_analyzed_repos' ? analyzedRepos.map((repo) => repo.id).sort().join(',') : selectedRepoIds.slice().sort().join(',')}`
+  const sourceSelectionKeyRef = useRef(sourceSelectionKey)
   const effectiveTargetRole = targetRole || targetRoleOptions[0] || 'Backend Developer'
   const isRoleMatchesLoading = isMatchingRoles
   const selectedSourceStats = useMemo(() => {
@@ -283,39 +286,44 @@ export const RoadmapsPage = () => {
   }, [targetRole, targetRoleOptions])
 
   useEffect(() => {
-    if (!canGenerate) {
-      setRoleMatches([])
-      setRoleMatchSource(null)
-      return
-    }
+    sourceSelectionKeyRef.current = sourceSelectionKey
+    setIsMatchingRoles(false)
+    setConfirmedSourceKey('')
+    setRoleMatches([])
+    setRoleMatchSource(null)
+    setRoleMatchError('')
+  }, [sourceSelectionKey])
 
-    let isCurrent = true
+  const handleConfirmSource = async () => {
+    if (!canGenerate || isMatchingRoles) return
+
+    const requestedSourceKey = sourceSelectionKey
     setIsMatchingRoles(true)
     setRoleMatchError('')
 
-    roleMatchApi.calculateRoleMatches({
-      sourceMode,
-      ...(sourceMode === 'single_repo' ? { repoId: repositoryId } : {}),
-      ...(sourceMode === 'selected_repos' ? { repoIds: selectedRepoIds } : {}),
-      limit: 3,
-      includeDetails: true
-    }).then((response) => {
-      if (!isCurrent) return
+    try {
+      const response = await roleMatchApi.calculateRoleMatches({
+        sourceMode,
+        ...(sourceMode === 'single_repo' ? { repoId: repositoryId } : {}),
+        ...(sourceMode === 'selected_repos' ? { repoIds: selectedRepoIds } : {}),
+        limit: 3,
+        includeDetails: true
+      })
+      if (sourceSelectionKeyRef.current !== requestedSourceKey) return
       const matches = response.matches ?? []
       setRoleMatches(matches)
       setRoleMatchSource(response.analysisSource ?? null)
+      setConfirmedSourceKey(requestedSourceKey)
       if (matches[0]?.roleName) setTargetRole(matches[0].roleName)
-    }).catch((requestError) => {
-      if (!isCurrent) return
+    } catch (requestError) {
+      if (sourceSelectionKeyRef.current !== requestedSourceKey) return
       setRoleMatches([])
       setRoleMatchSource(null)
       setRoleMatchError(formatRoleMatchError(requestError))
-    }).finally(() => {
-      if (isCurrent) setIsMatchingRoles(false)
-    })
-
-    return () => { isCurrent = false }
-  }, [canGenerate, repositoryId, selectedRepoIds, sourceMode])
+    } finally {
+      if (sourceSelectionKeyRef.current === requestedSourceKey) setIsMatchingRoles(false)
+    }
+  }
 
   const handleGenerate = async (role?: Pick<RoleMatch, 'roleId' | 'roleName'>, key = 'manual') => {
     const selectedRole = role ?? roleMatches.find((match) => match.roleName === effectiveTargetRole) ?? roleMatches[0]
@@ -379,7 +387,7 @@ export const RoadmapsPage = () => {
   }
 
   return (
-    <div className="max-w-7xl space-y-6">
+    <div className="mx-auto w-full max-w-[1500px] space-y-6">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <Badge variant="info" className="mb-3">
@@ -538,6 +546,24 @@ export const RoadmapsPage = () => {
             </div>
           )}
 
+          <div className="flex flex-col gap-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-900 dark:bg-indigo-950/20 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Xác nhận nguồn tạo lộ trình</p>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Kiểm tra dự án đã chọn, sau đó xác nhận để hệ thống gợi ý vai trò phù hợp.
+              </p>
+            </div>
+            <Button
+              className="shrink-0"
+              onClick={handleConfirmSource}
+              isLoading={isMatchingRoles}
+              disabled={!canGenerate || isMatchingRoles}
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              {confirmedSourceKey === sourceSelectionKey ? 'Cập nhật gợi ý' : 'Xác nhận và tiếp tục'}
+            </Button>
+          </div>
+
           <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/60 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Tạo lộ trình mới</p>
@@ -573,7 +599,7 @@ export const RoadmapsPage = () => {
                   )}
                 </div>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  {isRoleMatchesLoading ? 'Đang phân tích mức phù hợp từ dữ liệu dự án. Quá trình này có thể mất vài giây.' : 'Chọn vai trò bạn muốn theo đuổi để tạo lộ trình học cá nhân hóa.'}
+                  {isRoleMatchesLoading ? 'Đang phân tích mức phù hợp từ dữ liệu dự án. Quá trình này có thể mất vài giây.' : confirmedSourceKey === sourceSelectionKey ? 'Chọn vai trò bạn muốn theo đuổi để tạo lộ trình học cá nhân hóa.' : 'Chọn nguồn dữ liệu và bấm Xác nhận và tiếp tục để xem gợi ý.'}
                 </p>
                 {isRoleMatchesLoading && (
                   <div className="mt-3 h-2 overflow-hidden rounded-full bg-indigo-100 dark:bg-indigo-950">
@@ -604,7 +630,9 @@ export const RoadmapsPage = () => {
                 </div>
                 <div className="rounded-md bg-white/70 p-2 dark:bg-slate-900/70">
                   <p className="text-xs text-slate-500">Mức sẵn sàng</p>
-                  <p className="text-sm font-semibold">{sourceDisplay.userReadinessScore ?? 0}% · {formatUserLevel(sourceDisplay.userLevel)}</p>
+                  <p className="text-sm font-semibold">
+                    {sourceDisplay.userReadinessScore !== undefined ? `${Math.round(sourceDisplay.userReadinessScore)}% · ${formatUserLevel(sourceDisplay.userLevel)}` : 'Chưa có dữ liệu'}
+                  </p>
                 </div>
               </div>
             )}
@@ -641,7 +669,7 @@ export const RoadmapsPage = () => {
             </div>
           ) : !isRoleMatchesLoading && (
             <div className="rounded-lg border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-              Chưa có gợi ý vai trò. Hãy chọn ít nhất một dự án đã phân tích để hệ thống đề xuất lộ trình phù hợp.
+              {canGenerate ? 'Nguồn dữ liệu chưa được xác nhận. Bấm Xác nhận và tiếp tục để xem gợi ý vai trò.' : 'Hãy chọn ít nhất một dự án đã phân tích để tiếp tục.'}
             </div>
           )}
 

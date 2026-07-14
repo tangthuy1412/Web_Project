@@ -89,7 +89,7 @@ export const router = createBrowserRouter([
               { path: 'github/connect', element: <GitHubConnectPage /> },
               { path: 'repositories', element: <RepositoriesPage /> },
               { path: 'repositories/:id', element: <RepositoryDetailPage /> },
-              { path: 'repositories/:id/analysis', element: <AnalysisResultPage /> },
+              { path: 'repositories/:id/analysis', element: <RepositoryDetailPage /> },
               { path: 'analysis/:id', element: <AnalysisResultPage /> },
               { path: 'chat', element: <ChatPage /> },
               { path: 'roadmaps', element: <RoadmapsPage /> },

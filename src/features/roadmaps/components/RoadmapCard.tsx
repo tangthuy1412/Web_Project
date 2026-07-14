@@ -14,7 +14,7 @@ import { Button } from '../../../app/components/ui/Button'
 import { Card, CardContent } from '../../../app/components/ui/Card'
 import { cn } from '../../../app/lib/utils'
 import type { Roadmap } from '../types'
-import { formatRoadmapDifficulty, formatUserLevel, getDifficultyTone } from '../utils/roadmapUtils'
+import { formatRoadmapDifficulty, formatUserLevel, getDifficultyTone, getRoadmapSourceRepositoryCount } from '../utils/roadmapUtils'
 
 interface RoadmapCardProps {
   roadmap: Roadmap
@@ -28,10 +28,9 @@ export const RoadmapCard = ({ roadmap, compact = false }: RoadmapCardProps) => {
   const isArchived = roadmap.status === 'archived'
   const source = roadmap.roadmapSource && typeof roadmap.roadmapSource === 'object' ? roadmap.roadmapSource : undefined
   const sourceRepositories = source?.repositories ?? []
-  const sourceRepositoryCount = source?.totalRepositories ?? roadmap.sourceRepositoriesCount ?? sourceRepositories.length
+  const sourceRepositoryCount = getRoadmapSourceRepositoryCount(roadmap)
   const userCommits = source?.totalUserCommits ?? source?.userCommits ?? sourceRepositories.reduce((sum, repo) => sum + (repo.userCommits ?? 0), 0)
   const activeDays = source?.activeDays ?? sourceRepositories.reduce((sum, repo) => sum + (repo.activeDays ?? 0), 0)
-  const requestedLevel = roadmap.requestedLevel ? formatUserLevel(roadmap.requestedLevel) : undefined
   const effectiveLevel = (roadmap.effectiveLevel ?? source?.userLevel) ? formatUserLevel(roadmap.effectiveLevel ?? source?.userLevel) : undefined
   const roleMatchScore = roadmap.roleMatch?.matchScore
   const roleMatchLabel = roadmap.roleMatch?.matchLevelLabel
@@ -118,17 +117,11 @@ export const RoadmapCard = ({ roadmap, compact = false }: RoadmapCardProps) => {
             </div>
           </div>
 
-          {(requestedLevel || effectiveLevel) && (
-            <div className="mb-4 grid gap-2 text-xs sm:grid-cols-2">
-              {requestedLevel && (
-                <div className="rounded-md border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-800 dark:bg-slate-950">
-                  <span className="text-slate-500 dark:text-slate-400">Yêu cầu</span>
-                  <span className="ml-1 font-semibold text-slate-900 dark:text-slate-100">{requestedLevel}</span>
-                </div>
-              )}
+          {effectiveLevel && (
+            <div className="mb-4 text-xs">
               {effectiveLevel && (
                 <div className="rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-2 dark:border-indigo-900 dark:bg-indigo-950/30">
-                  <span className="text-slate-500 dark:text-slate-400">Áp dụng</span>
+                  <span className="text-slate-500 dark:text-slate-400">Trình độ</span>
                   <span className="ml-1 font-semibold text-indigo-700 dark:text-indigo-300">{effectiveLevel}</span>
                 </div>
               )}

@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../app/component
 import { RoadmapTree } from '../components/RoadmapTree'
 import { useRoadmapProgress } from '../hooks/useRoadmapProgress'
 import { useRoadmapStore } from '../stores/roadmapStore'
-import { formatRoadmapDifficulty, formatUserLevel, getDifficultyTone, getRoadmapNodes } from '../utils/roadmapUtils'
+import { formatRoadmapDifficulty, formatUserLevel, getDifficultyTone, getRoadmapNodes, getRoadmapSourceRepositoryCount } from '../utils/roadmapUtils'
 
 export const RoadmapDetailPage = () => {
   const { id } = useParams()
@@ -87,7 +87,7 @@ export const RoadmapDetailPage = () => {
   const totalTaskCount = roadmap.progressSummary?.totalItems ?? nodes.length
   const roadmapSource = roadmap.roadmapSource && typeof roadmap.roadmapSource === 'object' ? roadmap.roadmapSource : undefined
   const sourceMode = roadmapSource?.sourceMode || roadmapSource?.type || ''
-  const sourceRepositoryCount = roadmapSource?.totalRepositories ?? roadmap.sourceRepositoriesCount
+  const sourceRepositoryCount = getRoadmapSourceRepositoryCount(roadmap)
   const sourceUserCommits = roadmapSource?.userCommits ?? roadmapSource?.totalUserCommits
   const sourceTotalCommits = roadmapSource?.totalRepoCommits
   const sourceModeLabel = sourceMode === 'single_repo'
@@ -109,7 +109,6 @@ export const RoadmapDetailPage = () => {
     : typeof sourceTotalCommits === 'number'
       ? `${sourceTotalCommits} commit trong nguồn phân tích`
       : 'Chưa có thống kê commit'
-  const requestedLevelText = roadmap.requestedLevel ? formatUserLevel(roadmap.requestedLevel) : undefined
   const effectiveLevelSource = roadmap.effectiveLevel || roadmapSource?.userLevel || roadmap.difficulty
   const effectiveLevelText = effectiveLevelSource ? formatUserLevel(effectiveLevelSource) : undefined
   const sourceDescription = sourceMode === 'all_analyzed_repos'
@@ -121,7 +120,7 @@ export const RoadmapDetailPage = () => {
         : 'Roadmap này được cá nhân hóa từ dữ liệu phân tích GitHub hiện có.'
 
   return (
-    <div className="max-w-7xl space-y-6">
+    <div className="mx-auto w-full max-w-[1500px] space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link to="/roadmaps">
           <Button variant="ghost">
@@ -184,7 +183,7 @@ export const RoadmapDetailPage = () => {
                 </div>
                 <div>
                   <GitBranch className="mb-2 h-4 w-4 text-cyan-500" />
-                  <p className="font-semibold text-slate-900 dark:text-slate-100">{roadmap.sourceRepositoriesCount ?? 0}</p>
+                  <p className="font-semibold text-slate-900 dark:text-slate-100">{sourceRepositoryCount}</p>
                   <p className="text-slate-500 dark:text-slate-400">repository nguồn</p>
                 </div>
               </div>
@@ -231,11 +230,8 @@ export const RoadmapDetailPage = () => {
             </div>
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
               <p className="text-xs text-slate-500">Trình độ dùng để tạo</p>
-              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
-                {requestedLevelText ? `Yêu cầu: ${requestedLevelText}` : 'Yêu cầu: không có dữ liệu'}
-              </p>
               <p className="mt-1 font-semibold text-indigo-700 dark:text-indigo-300">
-                {effectiveLevelText ? `Áp dụng: ${effectiveLevelText}` : 'Áp dụng: không có dữ liệu'}
+                {effectiveLevelText || 'Chưa có dữ liệu'}
               </p>
             </div>
           </CardContent>

@@ -14,7 +14,7 @@ export const MainLayout = () => {
       <Sidebar isCollapsed={isCollapsed} onCollapsedChange={setIsCollapsed} />
       <div className={cn('transition-all duration-300', isCollapsed ? 'pl-16' : 'pl-64')}>
         <Topbar />
-        <main className="p-6">
+        <main className="mx-auto w-full max-w-[1800px] p-4 sm:p-6 [&>*]:mx-auto [&>*]:w-full">
           <Outlet />
         </main>
       </div>
