@@ -1,4 +1,5 @@
 import { apiClient, extractApiResource, unwrapResponse } from './apiClient'
+import type { ChatMessage, ChatMode, ChatModeSource, ChatSessionStatus } from '../../types'
 
 export type AdminUserStatus = 'active' | 'banned' | 'inactive'
 export type AdminUserRole = 'admin' | 'student'
@@ -327,6 +328,91 @@ export type UpdateAdminReportStatusPayload = {
   adminNote?: string
 }
 
+export type AdminChatSettings = {
+  mode: ChatMode
+  aiEnabled?: boolean
+  manualEnabled?: boolean
+  updatedBy?: string | null
+  updatedAt?: string
+}
+
+export type AdminChatUserRef = {
+  _id?: string
+  id?: string
+  fullName?: string
+  name?: string
+  email?: string
+  avatar?: string
+  avatarUrl?: string
+}
+
+export type AdminChatSession = {
+  _id: string
+  id?: string
+  title?: string
+  user?: AdminChatUserRef
+  userId?: AdminChatUserRef | string
+  status?: ChatSessionStatus
+  mode?: ChatMode
+  modeSource?: ChatModeSource
+  effectiveMode?: ChatMode
+  assignedAdminId?: AdminChatUserRef | string | null
+  unreadByAdmin?: boolean
+  unreadByUser?: boolean
+  lastMessage?: ChatMessage
+  lastMessageAt?: string
+  manualReason?: string
+  createdAt?: string
+  updatedAt?: string
+  messages?: ChatMessage[]
+}
+
+export type AdminChatSessionListResponse = {
+  items?: AdminChatSession[]
+  pagination?: AdminPagination
+}
+
+export type AdminChatSessionQuery = {
+  status?: string
+  mode?: string
+  modeSource?: string
+  userId?: string
+  assignedAdminId?: string
+  page?: number
+  limit?: number
+}
+
+export type UpdateAdminChatModePayload = {
+  mode: ChatMode
+  reason?: string
+}
+
+export type SendAdminChatMessageResponse = {
+  adminMessage?: ChatMessage
+  session?: AdminChatSession
+}
+
+const asRecord = (value: unknown): Record<string, unknown> => {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : {}
+}
+
+const normalizeAdminChatSessionDetail = (payload: unknown): AdminChatSession => {
+  const data = asRecord(unwrapResponse<unknown>(payload))
+  const session = asRecord(data.session ?? data.chatSession ?? data.item ?? data.detail ?? data)
+  const messages = Array.isArray(data.messages)
+    ? data.messages
+    : Array.isArray(session.messages)
+      ? session.messages
+      : Array.isArray(data.chatMessages)
+        ? data.chatMessages
+        : []
+
+  return {
+    ...session,
+    messages
+  } as AdminChatSession
+}
+
 export const adminApi = {
   async getDashboard() {
     const response = await apiClient.get('/admin/dashboard')
@@ -411,5 +497,40 @@ export const adminApi = {
   async updateReportStatus(reportId: string, payload: UpdateAdminReportStatusPayload) {
     const response = await apiClient.patch(`/admin/reports/${reportId}/status`, payload)
     return extractApiResource<AdminReport>(response.data, ['report', 'item', 'detail'])
+  },
+
+  async getChatSettings() {
+    const response = await apiClient.get('/admin/chat/settings')
+    return extractApiResource<AdminChatSettings>(response.data, ['settings', 'chatSettings'])
+  },
+
+  async updateChatSettings(mode: ChatMode) {
+    const response = await apiClient.patch('/admin/chat/settings', { mode })
+    return extractApiResource<AdminChatSettings>(response.data, ['settings', 'chatSettings'])
+  },
+
+  async getChatSessions(params?: AdminChatSessionQuery) {
+    const response = await apiClient.get('/admin/chat/sessions', { params })
+    return extractApiResource<AdminChatSessionListResponse>(response.data, ['sessions', 'chatSessions'])
+  },
+
+  async getChatSessionDetail(sessionId: string) {
+    const response = await apiClient.get(`/admin/chat/sessions/${sessionId}`)
+    return normalizeAdminChatSessionDetail(response.data)
+  },
+
+  async updateChatSessionMode(sessionId: string, payload: UpdateAdminChatModePayload) {
+    const response = await apiClient.patch(`/admin/chat/sessions/${sessionId}/mode`, payload)
+    return normalizeAdminChatSessionDetail(response.data)
+  },
+
+  async sendAdminChatMessage(sessionId: string, content: string) {
+    const response = await apiClient.post(`/admin/chat/sessions/${sessionId}/messages`, { content })
+    return unwrapResponse<SendAdminChatMessageResponse>(response.data)
+  },
+
+  async useGlobalChatMode(sessionId: string) {
+    const response = await apiClient.patch(`/admin/chat/sessions/${sessionId}/use-global-mode`)
+    return normalizeAdminChatSessionDetail(response.data)
   }
 }

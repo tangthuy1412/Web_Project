@@ -1,16 +1,19 @@
 import { create } from 'zustand'
-import type { ChatMessage, ChatSession } from '../types'
+import type { ChatMessage, ChatMode, ChatSession, SendMessagePayload } from '../types'
 import { extractApiResource, getApiErrorMessage } from '../services/apis/core'
-import { chatApi, normalizeChatMessage, normalizeChatSession, normalizeChatSessions } from '../services/apis/chat'
+import { chatApi, normalizeChatMessage, normalizeChatSession, normalizeChatSessions, normalizeSendMessageResponse } from '../services/apis/chat'
 
 type ChatState = {
   sessions: ChatSession[]
   currentSession: ChatSession | null
   isLoading: boolean
+  isSending: boolean
+  isAiTyping: boolean
+  manualWaiting: boolean
   error: string | null
   fetchSessions: () => Promise<void>
   createSession: (title: string, repositoryContext?: string) => Promise<ChatSession>
-  sendMessage: (content: string) => Promise<void>
+  sendMessage: (content: string, context?: Omit<SendMessagePayload, 'message'>) => Promise<void>
   selectSession: (id: string) => Promise<void>
   clearError: () => void
 }
@@ -70,9 +73,11 @@ const pickAssistantMessage = (payload: unknown): ChatMessage | null => {
     if (typeof candidate === 'string' && candidate.trim()) {
       return {
         id: `assistant-${Date.now()}`,
+        senderType: 'AI',
         role: 'assistant',
         content: candidate,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        createdAt: new Date().toISOString()
       }
     }
 
@@ -94,9 +99,12 @@ const pickAssistantMessage = (payload: unknown): ChatMessage | null => {
     if (typeof directText === 'string') {
       return {
         id: String(candidateRecord.id ?? candidateRecord._id ?? `assistant-${Date.now()}`),
+        _id: typeof candidateRecord._id === 'string' ? candidateRecord._id : undefined,
+        senderType: 'AI',
         role: 'assistant',
         content: directText,
-        timestamp: typeof candidateRecord.createdAt === 'string' ? candidateRecord.createdAt : new Date().toISOString()
+        timestamp: typeof candidateRecord.createdAt === 'string' ? candidateRecord.createdAt : new Date().toISOString(),
+        createdAt: typeof candidateRecord.createdAt === 'string' ? candidateRecord.createdAt : new Date().toISOString()
       }
     }
 
@@ -106,34 +114,60 @@ const pickAssistantMessage = (payload: unknown): ChatMessage | null => {
 
   if (Array.isArray(record.messages) || Array.isArray(data.messages)) {
     const messages = (Array.isArray(record.messages) ? record.messages : data.messages as unknown[]).map(normalizeChatMessage)
-    return [...messages].reverse().find((message) => message.role === 'assistant' && message.content) ?? null
+    return [...messages].reverse().find((message) => message.senderType === 'AI' && message.content) ?? null
   }
 
   return null
 }
 
-const mergeSession = (base: ChatSession, next: ChatSession) => {
+const messageKey = (message: ChatMessage) => {
+  return message.id || message._id || `${message.senderType}-${message.createdAt}-${message.content}`
+}
+
+const mergeMessages = (messages: ChatMessage[]) => {
   const mergedById = new Map<string, ChatMessage>()
-
-  for (const message of base.messages) {
-    mergedById.set(message.id, message)
+  for (const message of messages) {
+    if (message.content) mergedById.set(messageKey(message), message)
   }
+  return Array.from(mergedById.values())
+}
 
-  for (const message of next.messages) {
-    mergedById.set(message.id, message)
-  }
-
+const mergeSession = (base: ChatSession, next: ChatSession) => {
   return {
     ...base,
     ...next,
-    messages: Array.from(mergedById.values())
+    messages: mergeMessages([...base.messages, ...next.messages])
   }
+}
+
+const deriveMode = (effectiveMode: ChatMode | undefined, aiMessage: ChatMessage | null) => {
+  if (effectiveMode) return effectiveMode
+  if (aiMessage) return 'AI_AUTO'
+
+  if (import.meta.env.DEV) {
+    console.warn('Chat send response missing effectiveMode; falling back without AI loading.')
+  }
+
+  return 'MANUAL'
+}
+
+const isManualWaitingSession = (session: ChatSession | null) => {
+  return session?.effectiveMode === 'MANUAL' || session?.status === 'waiting_admin'
+}
+
+const upsertSession = (sessions: ChatSession[], session: ChatSession) => {
+  return sessions.some((item) => item.id === session.id)
+    ? sessions.map((item) => item.id === session.id ? session : item)
+    : [session, ...sessions]
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
   sessions: [],
   currentSession: null,
   isLoading: false,
+  isSending: false,
+  isAiTyping: false,
+  manualWaiting: false,
   error: null,
 
   fetchSessions: async () => {
@@ -156,6 +190,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({
         sessions,
         currentSession: hydratedCurrent,
+        manualWaiting: isManualWaitingSession(hydratedCurrent),
         isLoading: false
       })
     } catch (error) {
@@ -163,16 +198,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  createSession: async (title) => {
+  createSession: async (title, repositoryContext) => {
     set({ isLoading: true, error: null })
 
     try {
-      const session = normalizeChatSession(pickSessionPayload(await chatApi.createSession(title.trim() || 'Cuộc trò chuyện mới')))
-      if (!session.id) throw new Error('Backend không trả session id')
+      const context = repositoryContext ? { repositoryId: repositoryContext } : undefined
+      const session = normalizeChatSession(pickSessionPayload(await chatApi.createSession(title.trim() || 'Cuoc tro chuyen moi', context)))
+      if (!session.id) throw new Error('Backend khong tra session id')
 
       set((state) => ({
         sessions: [session, ...state.sessions.filter((item) => item.id !== session.id)],
         currentSession: session,
+        manualWaiting: isManualWaitingSession(session),
         isLoading: false
       }))
 
@@ -183,80 +220,111 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendMessage: async (content) => {
+  sendMessage: async (content, context) => {
     let currentSession = get().currentSession
 
     if (!currentSession) {
-      currentSession = await get().createSession('Tư vấn GitHub của tôi')
+      currentSession = await get().createSession('Tu van GitHub cua toi')
     }
 
     if (!currentSession.id) {
-      set({ error: 'Chat session không có id. Hãy tạo session mới.' })
+      set({ error: 'Chat session khong co id. Hay tao session moi.' })
       return
     }
 
+    const now = new Date().toISOString()
     const optimisticMessage: ChatMessage = {
       id: `local-${Date.now()}`,
+      senderType: 'USER',
       role: 'user',
       content,
-      timestamp: new Date().toISOString()
+      timestamp: now,
+      createdAt: now
     }
 
     set((state) => ({
       currentSession: state.currentSession
         ? { ...state.currentSession, messages: [...state.currentSession.messages, optimisticMessage] }
         : state.currentSession,
-      isLoading: true,
+      isSending: true,
+      isAiTyping: state.currentSession?.effectiveMode !== 'MANUAL' && state.currentSession?.status !== 'waiting_admin',
+      manualWaiting: false,
       error: null
     }))
 
     try {
-      const payload = await chatApi.sendMessage(currentSession.id, content)
-      const sessionPayload = pickSessionPayload(payload)
-      const responseSession = hasMessageList(sessionPayload) ? normalizeChatSession(sessionPayload) : null
-      const responseMessage = responseSession ? null : pickAssistantMessage(payload)
+      const payload = await chatApi.sendMessage(currentSession.id, { message: content, ...context })
+      const response = normalizeSendMessageResponse(payload)
+      const mode = deriveMode(response.effectiveMode, response.aiMessage)
       const currentAfterOptimistic = get().currentSession ?? currentSession
+      const baseMessages = currentAfterOptimistic.messages.filter((message) => message.id !== optimisticMessage.id)
+      const responseMessages = [
+        response.userMessage,
+        mode === 'AI_AUTO' ? response.aiMessage : null,
+        response.adminMessage
+      ].filter((message): message is ChatMessage => Boolean(message?.content))
 
-      let nextSession: ChatSession = responseSession
-        ? mergeSession(currentAfterOptimistic, responseSession)
+      let nextSession: ChatSession = response.session
+        ? {
+          ...mergeSession({ ...currentAfterOptimistic, messages: baseMessages }, response.session),
+          messages: mergeMessages([
+            ...mergeSession({ ...currentAfterOptimistic, messages: baseMessages }, response.session).messages,
+            ...responseMessages
+          ])
+        }
         : {
           ...currentAfterOptimistic,
-          messages: responseMessage?.content
-            ? [...currentAfterOptimistic.messages, responseMessage]
-            : currentAfterOptimistic.messages
+          mode: response.mode ?? currentAfterOptimistic.mode,
+          modeSource: response.modeSource ?? currentAfterOptimistic.modeSource,
+          effectiveMode: response.effectiveMode ?? mode,
+          status: response.status ?? (mode === 'MANUAL' ? 'waiting_admin' : currentAfterOptimistic.status),
+          context: response.context ?? currentAfterOptimistic.context,
+          messages: mergeMessages([...baseMessages, ...responseMessages])
         }
+
+      if (hasMessageList(pickSessionPayload(payload))) {
+        nextSession = mergeSession(nextSession, normalizeChatSession(pickSessionPayload(payload)))
+      }
 
       try {
         const detailSession = normalizeSessionPayload(await chatApi.getSession(currentSession.id))
         if (detailSession.messages.length >= nextSession.messages.length) {
-          nextSession = detailSession
+          nextSession = mergeSession(nextSession, detailSession)
         }
       } catch {
-        // Giữ response vừa nhận nếu endpoint detail chưa sẵn sàng hoặc chưa kịp lưu message mới.
+        // Keep the send response if detail is unavailable or not updated yet.
       }
 
       set((state) => ({
         currentSession: nextSession,
-        sessions: state.sessions.some((session) => session.id === currentSession.id)
-          ? state.sessions.map((session) => session.id === currentSession.id ? nextSession : session)
-          : [nextSession, ...state.sessions],
-        isLoading: false
+        sessions: upsertSession(state.sessions, nextSession),
+        manualWaiting: isManualWaitingSession(nextSession),
+        isSending: false,
+        isAiTyping: false
       }))
     } catch (error) {
-      set({ isLoading: false, error: getApiErrorMessage(error) })
+      set((state) => ({
+        currentSession: state.currentSession
+          ? { ...state.currentSession, messages: state.currentSession.messages.filter((message) => message.id !== optimisticMessage.id) }
+          : state.currentSession,
+        isSending: false,
+        isAiTyping: false,
+        error: getApiErrorMessage(error)
+      }))
       throw error
     }
   },
 
   selectSession: async (id) => {
     const cached = get().sessions.find((session) => session.id === id)
-    if (cached) set({ currentSession: cached, error: null })
+    if (cached) set({ currentSession: cached, manualWaiting: isManualWaitingSession(cached), error: null })
 
     try {
       const session = normalizeSessionPayload(await chatApi.getSession(id))
       set((state) => ({
         currentSession: session,
-        sessions: state.sessions.map((item) => item.id === id ? session : item)
+        sessions: upsertSession(state.sessions, session),
+        manualWaiting: isManualWaitingSession(session)
       }))
     } catch (error) {
       set({ error: getApiErrorMessage(error) })

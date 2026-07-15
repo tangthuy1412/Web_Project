@@ -41,6 +41,7 @@ const userNavigation: NavigationItem[] = [
 const adminNavigation: NavigationItem[] = [
   { name: 'Trang chủ', to: '/', icon: Home, end: true },
   { name: 'Tổng quan', to: '/admin', icon: ShieldCheck, end: true },
+  { name: 'Chat hỗ trợ', to: '/admin/chat', icon: MessageSquare },
   { name: 'Repositories', to: '/admin/repositories', icon: FolderGit2 },
   { name: 'Phân tích', to: '/admin/analysis', icon: BarChart3 },
   { name: 'Phản hồi AI', to: '/admin/ai-feedback', icon: MessageSquare },

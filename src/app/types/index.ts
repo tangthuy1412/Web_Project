@@ -210,19 +210,61 @@ export interface PortfolioChecklist {
   overallReadiness: number;
 }
 
-export interface ChatSession {
-  id: string;
-  title: string;
-  createdAt: string;
-  messages: ChatMessage[];
-  repositoryContext?: string;
-}
+export type ChatSenderType = 'USER' | 'AI' | 'ADMIN';
+export type ChatMessageRole = 'user' | 'assistant';
+export type ChatSessionStatus = 'active' | 'waiting_admin' | 'answered' | 'closed' | string;
+export type ChatMode = 'AI_AUTO' | 'MANUAL';
+export type ChatModeSource = 'GLOBAL' | 'SESSION' | string;
 
 export interface ChatMessage {
+  _id?: string;
   id: string;
-  role: 'user' | 'assistant';
+  senderType: ChatSenderType;
+  role?: ChatMessageRole;
   content: string;
+  createdAt?: string;
+  updatedAt?: string;
   timestamp: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ChatSession {
+  _id?: string;
+  id: string;
+  title: string;
+  status?: ChatSessionStatus;
+  mode?: ChatMode;
+  modeSource?: ChatModeSource;
+  effectiveMode?: ChatMode;
+  unreadByUser?: boolean;
+  unreadByAdmin?: boolean;
+  lastMessage?: ChatMessage;
+  lastMessageAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+  messages: ChatMessage[];
+  repositoryContext?: string;
+  context?: Record<string, unknown>;
+}
+
+export interface SendMessagePayload {
+  message: string;
+  roadmapId?: string;
+  repositoryId?: string;
+  analysisId?: string;
+  snapshotId?: string;
+}
+
+export interface SendMessageResponseData {
+  mode?: ChatMode;
+  effectiveMode?: ChatMode;
+  modeSource?: ChatModeSource;
+  status?: ChatSessionStatus;
+  userMessage?: ChatMessage | null;
+  aiMessage?: ChatMessage | null;
+  adminMessage?: ChatMessage | null;
+  session?: ChatSession;
+  context?: Record<string, unknown>;
 }
 
 export interface AIFeedback {

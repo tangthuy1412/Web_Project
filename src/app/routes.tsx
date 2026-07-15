@@ -23,6 +23,7 @@ import { AdminAiFeedbackDetailPage } from './pages/admin/AdminAiFeedbackDetailPa
 import { AdminAiFeedbackPage } from './pages/admin/AdminAiFeedbackPage'
 import { AdminAnalysisDetailPage } from './pages/admin/AdminAnalysisDetailPage'
 import { AdminAnalysisPage } from './pages/admin/AdminAnalysisPage'
+import { AdminChatPage } from './pages/admin/AdminChatPage'
 import { AdminPage } from './pages/admin/AdminPage'
 import { AdminReportDetailPage } from './pages/admin/AdminReportDetailPage'
 import { AdminReportsPage } from './pages/admin/AdminReportsPage'
@@ -106,6 +107,7 @@ export const router = createBrowserRouter([
             element: <AdminRoute />,
             children: [
               { path: 'admin', element: <AdminPage /> },
+              { path: 'admin/chat', element: <AdminChatPage /> },
               { path: 'admin/roadmaps', element: <AdminRoadmapsPage /> },
               { path: 'admin/roadmaps/:roadmapId', element: <AdminRoadmapDetailPage /> },
               { path: 'admin/repositories', element: <AdminRepositoriesPage /> },
