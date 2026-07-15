@@ -172,7 +172,7 @@ export const RepositoriesPage = () => {
           </div>
         ) : (
           <div className="min-h-[690px] overflow-visible">
-            <div className="space-y-3 md:hidden">
+            <div className="space-y-3 xl:hidden">
               {visibleRepositories.map((repo) => {
                 const analysis = analysisByRepoId[repo.id]
                 const hasAnalysis = Boolean(analysis || repo.analyzed)
@@ -216,19 +216,19 @@ export const RepositoriesPage = () => {
                       </p>
                     )}
 
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                       {hasAnalysis && (
                         <Link to={`/repositories/${repo.id}`}>
-                          <Button variant="outline" size="sm">Xem chi tiết</Button>
+                          <Button variant="outline" size="sm" className="w-full whitespace-nowrap sm:w-auto">Xem chi tiết</Button>
                         </Link>
                       )}
                       {hasAnalysis && (
-                        <Button variant="outline" size="sm" onClick={() => handleAskAi(repo)} isLoading={creatingChatRepoId === repo.id}>
+                        <Button variant="outline" size="sm" className="w-full whitespace-nowrap sm:w-auto" onClick={() => handleAskAi(repo)} isLoading={creatingChatRepoId === repo.id}>
                           <MessageSquare className="mr-2 h-4 w-4" />
                           Hỏi AI
                         </Button>
                       )}
-                      <Button size="sm" onClick={() => handleAnalyze(repo.id)} disabled={isRepoAnalyzing}>
+                      <Button size="sm" className="col-span-2 w-full whitespace-nowrap sm:w-auto" onClick={() => handleAnalyze(repo.id)} disabled={isRepoAnalyzing}>
                         {isRepoAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : hasAnalysis ? <RefreshCw className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
                         {isRepoAnalyzing ? 'Đang phân tích...' : hasAnalysis ? 'Phân tích lại' : 'Phân tích'}
                       </Button>
@@ -237,14 +237,14 @@ export const RepositoriesPage = () => {
                 )
               })}
             </div>
-            <table className="hidden w-full table-fixed text-sm md:table">
+            <table className="hidden w-full table-fixed text-sm xl:table">
               <colgroup>
-                <col className="w-[27%]" />
-                <col className="w-[10%]" />
-                <col className="w-[10%]" />
-                <col className="w-[19%]" />
-                <col className="w-[12%]" />
                 <col className="w-[22%]" />
+                <col className="w-[9%]" />
+                <col className="w-[9%]" />
+                <col className="w-[15%]" />
+                <col className="w-[11%]" />
+                <col className="w-[34%]" />
               </colgroup>
               <thead>
                 <tr className="border-b border-slate-200 text-left text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
@@ -267,7 +267,7 @@ export const RepositoriesPage = () => {
                   const analysisScoreLabel = analysisReadiness !== undefined ? 'Mức sẵn sàng ' + analysisReadiness + '%' : analysisOverall ? 'Điểm tổng quan ' + analysisOverall : ''
 
                   return (
-                    <tr key={repo.id} className="h-[66px] border-b border-slate-200 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50">
+                    <tr key={repo.id} className="h-[76px] border-b border-slate-200 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50">
                       <td className="px-2 py-3 align-middle lg:px-4">
                         <Link to={`/repositories/${repo.id}`} className="group inline-flex max-w-full items-center gap-2 font-medium text-indigo-600 hover:underline dark:text-indigo-400">
                           <span className="truncate">{repo.name}</span>
@@ -301,30 +301,30 @@ export const RepositoriesPage = () => {
                         <span className="block truncate">{formatRelativeTime(repo.updatedAt)}</span>
                       </td>
                       <td className="px-2 py-3 align-middle lg:px-4">
-                        <div className="flex flex-wrap items-center justify-end gap-2 xl:flex-nowrap">
+                        <div className="flex items-center justify-end gap-2.5 whitespace-nowrap">
                           {hasAnalysis ? (
                             <>
-                              <Link to={`/repositories/${repo.id}`}>
-                                <Button variant="outline" size="sm">
+                              <Link className="shrink-0" to={`/repositories/${repo.id}`}>
+                                <Button variant="outline" size="sm" className="whitespace-nowrap">
                                   Xem chi tiết
                                 </Button>
                               </Link>
-                              <Button variant="outline" size="sm" onClick={() => handleAskAi(repo)} isLoading={creatingChatRepoId === repo.id}>
+                              <Button variant="outline" size="sm" className="shrink-0 whitespace-nowrap" onClick={() => handleAskAi(repo)} isLoading={creatingChatRepoId === repo.id}>
                                 <MessageSquare className="mr-2 h-4 w-4" />
                                 Hỏi AI
                               </Button>
-                              <Button size="sm" onClick={() => handleAnalyze(repo.id)} disabled={isRepoAnalyzing}>
+                              <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={() => handleAnalyze(repo.id)} disabled={isRepoAnalyzing}>
                                 {isRepoAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                                 {isRepoAnalyzing ? 'Đang phân tích...' : 'Phân tích lại'}
                               </Button>
                             </>
                           ) : (
-                            <Button size="sm" onClick={() => handleAnalyze(repo.id)} disabled={isRepoAnalyzing}>
+                            <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={() => handleAnalyze(repo.id)} disabled={isRepoAnalyzing}>
                               {isRepoAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
                               {isRepoAnalyzing ? 'Đang phân tích...' : 'Phân tích'}
                             </Button>
                           )}
-                          <a href={repo.url} target="_blank" rel="noopener noreferrer">
+                          <a className="shrink-0" href={repo.url} target="_blank" rel="noopener noreferrer">
                             <Button variant="ghost" size="sm" title="Mở trên GitHub">
                               <ExternalLink className="h-4 w-4" />
                             </Button>
