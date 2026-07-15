@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
-import { Archive, ArrowLeft, Clock, GitBranch, RotateCcw, Sparkles, Target } from 'lucide-react'
+import { Archive, ArrowLeft, Clock, GitBranch, MessageSquare, RotateCcw, Sparkles, Target, Trash2 } from 'lucide-react'
 import { Badge } from '../../../app/components/ui/Badge'
 import { Button } from '../../../app/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../app/components/ui/Card'
+import { ConfirmDialog } from '../../../app/components/common/ConfirmDialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../app/components/ui/tabs'
 import { RoadmapTree } from '../components/RoadmapTree'
 import { useRoadmapProgress } from '../hooks/useRoadmapProgress'
 import { useLearningStore } from '../stores/learningStore'
 import { useRoadmapStore } from '../stores/roadmapStore'
+import { useChatStore } from '../../../app/stores/chatStore'
 import { formatRoadmapDifficulty, formatUserLevel, getDifficultyTone, getRoadmapNodes, getRoadmapSourceRepositoryCount } from '../utils/roadmapUtils'
 
 export const RoadmapDetailPage = () => {
@@ -19,6 +21,7 @@ export const RoadmapDetailPage = () => {
     getRoadmapById,
     fetchRoadmapDetail,
     archiveRoadmap,
+    deleteRoadmap,
     resetRoadmapProgress,
     updateNodeStatus,
     toggleBookmark,
@@ -26,7 +29,11 @@ export const RoadmapDetailPage = () => {
     error
   } = useRoadmapStore()
   const [isArchiving, setIsArchiving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isCreatingChat, setIsCreatingChat] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
+  const createSession = useChatStore(state => state.createSession)
   const restoredReturnPositionRef = useRef<string | null>(null)
   const { roadmapLearning, fetchRoadmapLearning } = useLearningStore()
   const roadmap = id ? getRoadmapById(id) : undefined
@@ -125,6 +132,34 @@ export const RoadmapDetailPage = () => {
     navigate('/roadmaps')
   }
 
+  const confirmDelete = async () => {
+    if (!roadmap) return
+
+    setIsDeleting(true)
+    try {
+      await deleteRoadmap(roadmap.id)
+      setIsDeleteDialogOpen(false)
+      navigate('/roadmaps')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleAskAi = async () => {
+    if (!roadmap) return
+
+    setIsCreatingChat(true)
+    try {
+      await createSession({
+        title: `Tư vấn roadmap ${roadmap.careerOutcome || roadmap.title}`,
+        roadmapId: roadmap.id
+      })
+      navigate('/chat')
+    } finally {
+      setIsCreatingChat(false)
+    }
+  }
+
   const handleResetProgress = async () => {
     if (!roadmap) return
 
@@ -220,6 +255,7 @@ export const RoadmapDetailPage = () => {
         : 'Roadmap này được cá nhân hóa từ dữ liệu phân tích GitHub hiện có.'
 
   return (
+    <>
     <div className="mx-auto w-full max-w-[1500px] space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link to="/roadmaps">
@@ -234,9 +270,17 @@ export const RoadmapDetailPage = () => {
               <RotateCcw className="mr-2 h-4 w-4" />
               Reset tiến độ
             </Button>
+            <Button variant="outline" isLoading={isCreatingChat} onClick={handleAskAi}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Hỏi AI về roadmap này
+            </Button>
             <Button variant="outline" isLoading={isArchiving} onClick={handleArchive}>
             <Archive className="mr-2 h-4 w-4" />
             Lưu trữ roadmap
+            </Button>
+            <Button variant="destructive" isLoading={isDeleting} onClick={() => setIsDeleteDialogOpen(true)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Xóa roadmap
             </Button>
           </div>
         )}
@@ -476,5 +520,18 @@ export const RoadmapDetailPage = () => {
         </TabsContent>
       </Tabs>
     </div>
+    <ConfirmDialog
+      open={isDeleteDialogOpen}
+      title="Xóa lộ trình?"
+      description={`Bạn có chắc muốn xóa lộ trình "${roadmap.title}" không? Lộ trình sẽ được ẩn khỏi danh sách của bạn.`}
+      note="Hành động này không xóa repository, phân tích, learning content hoặc chat liên quan."
+      confirmText="Xóa lộ trình"
+      cancelText="Hủy"
+      variant="danger"
+      loading={isDeleting}
+      onConfirm={confirmDelete}
+      onCancel={() => setIsDeleteDialogOpen(false)}
+    />
+    </>
   )
 }

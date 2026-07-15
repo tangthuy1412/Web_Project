@@ -784,6 +784,10 @@ export const roadmapService = {
     return normalizeBackendRoadmap(roadmap)
   },
 
+  async deleteRoadmap(roadmapId: string): Promise<void> {
+    await apiClient.delete(`/roadmaps/${roadmapId}`)
+  },
+
   async getRoadmapProgress(roadmapId: string): Promise<RoadmapProgressRecord> {
     const response = await apiClient.get(`/roadmaps/${roadmapId}/progress`)
     return normalizeProgress(extractApiResource<unknown>(response.data, ['progress']))

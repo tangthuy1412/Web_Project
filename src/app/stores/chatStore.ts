@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import type { ChatMessage, ChatMode, ChatSession, SendMessagePayload } from '../types'
+import axios from 'axios'
+import type { ChatMessage, ChatMode, ChatSession, CreateChatSessionPayload, SendMessagePayload } from '../types'
 import { extractApiResource, getApiErrorMessage } from '../services/apis/core'
 import { chatApi, normalizeChatMessage, normalizeChatSession, normalizeChatSessions, normalizeSendMessageResponse } from '../services/apis/chat'
 
@@ -12,9 +13,10 @@ type ChatState = {
   manualWaiting: boolean
   error: string | null
   fetchSessions: () => Promise<void>
-  createSession: (title: string, repositoryContext?: string) => Promise<ChatSession>
+  createSession: (payload: string | CreateChatSessionPayload, repositoryContext?: string) => Promise<ChatSession>
   sendMessage: (content: string, context?: Omit<SendMessagePayload, 'message'>) => Promise<void>
   selectSession: (id: string) => Promise<void>
+  deleteSession: (id: string) => Promise<void>
   clearError: () => void
 }
 
@@ -133,9 +135,17 @@ const mergeMessages = (messages: ChatMessage[]) => {
 }
 
 const mergeSession = (base: ChatSession, next: ChatSession) => {
+  const context = next.context ?? base.context
+
   return {
     ...base,
     ...next,
+    repositoryId: next.repositoryId ?? context?.repositoryId ?? base.repositoryId,
+    roadmapId: next.roadmapId ?? context?.roadmapId ?? base.roadmapId,
+    analysisId: next.analysisId ?? context?.analysisId ?? base.analysisId,
+    snapshotId: next.snapshotId ?? context?.snapshotId ?? base.snapshotId,
+    contextSelectionReason: next.contextSelectionReason ?? context?.contextSelectionReason ?? base.contextSelectionReason,
+    context,
     messages: mergeMessages([...base.messages, ...next.messages])
   }
 }
@@ -152,7 +162,13 @@ const deriveMode = (effectiveMode: ChatMode | undefined, aiMessage: ChatMessage 
 }
 
 const isManualWaitingSession = (session: ChatSession | null) => {
-  return session?.effectiveMode === 'MANUAL' || session?.status === 'waiting_admin'
+  return session?.status === 'waiting_admin' && (session.effectiveMode ?? session.mode) === 'MANUAL'
+}
+
+const getErrorCode = (error: unknown) => {
+  if (!axios.isAxiosError(error)) return ''
+  const payload = error.response?.data as Record<string, unknown> | undefined
+  return String(payload?.errorCode ?? '')
 }
 
 const upsertSession = (sessions: ChatSession[], session: ChatSession) => {
@@ -198,12 +214,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  createSession: async (title, repositoryContext) => {
+  createSession: async (payload, repositoryContext) => {
     set({ isLoading: true, error: null })
 
     try {
-      const context = repositoryContext ? { repositoryId: repositoryContext } : undefined
-      const session = normalizeChatSession(pickSessionPayload(await chatApi.createSession(title.trim() || 'Cuoc tro chuyen moi', context)))
+      const title = typeof payload === 'string' ? payload : payload.title
+      const context = typeof payload === 'string' && repositoryContext ? { repositoryId: repositoryContext } : undefined
+      const body = typeof payload === 'string' ? title.trim() || 'Cuoc tro chuyen moi' : { ...payload, title: title.trim() || 'Cuoc tro chuyen moi' }
+      const responsePayload = await chatApi.createSession(body, context)
+      const session = normalizeChatSession(pickSessionPayload(responsePayload))
       if (!session.id) throw new Error('Backend khong tra session id')
 
       set((state) => ({
@@ -224,7 +243,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     let currentSession = get().currentSession
 
     if (!currentSession) {
-      currentSession = await get().createSession('Tu van GitHub cua toi')
+      currentSession = await get().createSession('Tư vấn GitHub của tôi')
     }
 
     if (!currentSession.id) {
@@ -247,7 +266,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ? { ...state.currentSession, messages: [...state.currentSession.messages, optimisticMessage] }
         : state.currentSession,
       isSending: true,
-      isAiTyping: state.currentSession?.effectiveMode !== 'MANUAL' && state.currentSession?.status !== 'waiting_admin',
+      isAiTyping: (state.currentSession?.effectiveMode ?? state.currentSession?.mode) !== 'MANUAL',
       manualWaiting: false,
       error: null
     }))
@@ -278,12 +297,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
           modeSource: response.modeSource ?? currentAfterOptimistic.modeSource,
           effectiveMode: response.effectiveMode ?? mode,
           status: response.status ?? (mode === 'MANUAL' ? 'waiting_admin' : currentAfterOptimistic.status),
+          repositoryId: response.context?.repositoryId ?? context?.repositoryId ?? currentAfterOptimistic.repositoryId,
+          roadmapId: response.context?.roadmapId ?? context?.roadmapId ?? currentAfterOptimistic.roadmapId,
+          analysisId: response.context?.analysisId ?? context?.analysisId ?? currentAfterOptimistic.analysisId,
+          snapshotId: response.context?.snapshotId ?? context?.snapshotId ?? currentAfterOptimistic.snapshotId,
+          contextSelectionReason: response.context?.contextSelectionReason ?? currentAfterOptimistic.contextSelectionReason,
           context: response.context ?? currentAfterOptimistic.context,
           messages: mergeMessages([...baseMessages, ...responseMessages])
         }
 
       if (hasMessageList(pickSessionPayload(payload))) {
         nextSession = mergeSession(nextSession, normalizeChatSession(pickSessionPayload(payload)))
+      }
+
+      if (response.context) {
+        nextSession = {
+          ...nextSession,
+          repositoryId: response.context.repositoryId ?? nextSession.repositoryId,
+          roadmapId: response.context.roadmapId ?? nextSession.roadmapId,
+          analysisId: response.context.analysisId ?? nextSession.analysisId,
+          snapshotId: response.context.snapshotId ?? nextSession.snapshotId,
+          contextSelectionReason: response.context.contextSelectionReason ?? nextSession.contextSelectionReason,
+          context: {
+            ...nextSession.context,
+            ...response.context
+          }
+        }
       }
 
       try {
@@ -303,13 +342,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
         isAiTyping: false
       }))
     } catch (error) {
+      const isClosed = getErrorCode(error) === 'CHAT_SESSION_CLOSED'
       set((state) => ({
         currentSession: state.currentSession
-          ? { ...state.currentSession, messages: state.currentSession.messages.filter((message) => message.id !== optimisticMessage.id) }
+          ? { ...state.currentSession, status: isClosed ? 'closed' : state.currentSession.status, messages: state.currentSession.messages.filter((message) => message.id !== optimisticMessage.id) }
           : state.currentSession,
+        sessions: isClosed
+          ? state.sessions.map((session) => session.id === currentSession.id ? { ...session, status: 'closed' } : session)
+          : state.sessions,
         isSending: false,
         isAiTyping: false,
-        error: getApiErrorMessage(error)
+        error: isClosed ? 'Session đã đóng, bạn không thể gửi thêm tin nhắn.' : getApiErrorMessage(error)
       }))
       throw error
     }
@@ -320,7 +363,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (cached) set({ currentSession: cached, manualWaiting: isManualWaitingSession(cached), error: null })
 
     try {
-      const session = normalizeSessionPayload(await chatApi.getSession(id))
+      const detailSession = normalizeSessionPayload(await chatApi.getSession(id))
+      const session = cached ? mergeSession(cached, detailSession) : detailSession
       set((state) => ({
         currentSession: session,
         sessions: upsertSession(state.sessions, session),
@@ -328,6 +372,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }))
     } catch (error) {
       set({ error: getApiErrorMessage(error) })
+    }
+  },
+
+  deleteSession: async (id) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      await chatApi.deleteSession(id)
+      set((state) => {
+        const sessions = state.sessions.filter((session) => session.id !== id)
+        const currentSession = state.currentSession?.id === id ? sessions[0] ?? null : state.currentSession
+        return {
+          sessions,
+          currentSession,
+          manualWaiting: isManualWaitingSession(currentSession),
+          isLoading: false
+        }
+      })
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        set((state) => {
+          const sessions = state.sessions.filter((session) => session.id !== id)
+          const currentSession = state.currentSession?.id === id ? sessions[0] ?? null : state.currentSession
+          return { sessions, currentSession, manualWaiting: isManualWaitingSession(currentSession), isLoading: false }
+        })
+        return
+      }
+
+      set({ isLoading: false, error: getApiErrorMessage(error) })
+      throw error
     }
   },
 

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import axios from 'axios'
 import { roadmapService, type GenerateRoadmapOptions, type RoadmapListParams } from '../services/roadmapService'
 import type { AIRecommendation, LearningNodeStatus, Roadmap, RoadmapFilters, RoadmapProgressRecord, SkillProgress, UserLearningStats } from '../types'
 import { getApiErrorMessage } from '../../../app/services/apis/core'
@@ -37,6 +38,7 @@ interface RoadmapState {
   fetchRoadmapDetail: (idOrSlug: string) => Promise<Roadmap | undefined>
   generateAIRoadmap: (targetRole?: string, options?: GenerateRoadmapOptions | boolean, repoId?: string) => Promise<AIRecommendation | null>
   archiveRoadmap: (roadmapId: string) => Promise<void>
+  deleteRoadmap: (roadmapId: string) => Promise<void>
   resetRoadmapProgress: (roadmapId: string) => Promise<void>
   updateSkillProgress: (roadmapId: string, skillName: string, status: 'not_started' | 'in_progress' | 'completed' | string) => Promise<void>
   setFilters: (filters: Partial<RoadmapFilters>) => void
@@ -358,6 +360,34 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Không thể lưu trữ roadmap.'
       })
+    }
+  },
+
+  deleteRoadmap: async (roadmapId) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      await roadmapService.deleteRoadmap(roadmapId)
+      const roadmaps = get().roadmaps.filter((roadmap) => roadmap.id !== roadmapId && roadmap.slug !== roadmapId)
+      set({
+        ...refreshDerivedState(roadmaps, get().learningStats.bookmarkedNodeIds),
+        isLoading: false
+      })
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        const roadmaps = get().roadmaps.filter((roadmap) => roadmap.id !== roadmapId && roadmap.slug !== roadmapId)
+        set({
+          ...refreshDerivedState(roadmaps, get().learningStats.bookmarkedNodeIds),
+          isLoading: false
+        })
+        return
+      }
+
+      set({
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Khong the xoa roadmap.'
+      })
+      throw error
     }
   },
 

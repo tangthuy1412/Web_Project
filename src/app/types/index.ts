@@ -216,6 +216,23 @@ export type ChatSessionStatus = 'active' | 'waiting_admin' | 'answered' | 'close
 export type ChatMode = 'AI_AUTO' | 'MANUAL';
 export type ChatModeSource = 'GLOBAL' | 'SESSION' | string;
 
+export interface ChatContext {
+  repositoryId?: string;
+  repoName?: string;
+  roadmapId?: string;
+  analysisId?: string;
+  snapshotId?: string;
+  progressUpdatedAt?: string;
+  analysisSource?: string;
+  contextSelectionReason?: string;
+  contextPinned?: boolean;
+  intent?: string;
+  intents?: string[];
+  hasRoadmapContext?: boolean;
+  hasComparisonContext?: boolean;
+  comparedRepoCount?: number;
+}
+
 export interface ChatMessage {
   _id?: string;
   id: string;
@@ -232,7 +249,16 @@ export interface ChatSession {
   _id?: string;
   id: string;
   title: string;
+  repositoryId?: string;
+  roadmapId?: string;
+  analysisId?: string;
+  snapshotId?: string;
+  contextSelectionReason?: string;
+  contextPinnedAt?: string;
   status?: ChatSessionStatus;
+  closedAt?: string;
+  closedBy?: string;
+  closeReason?: string;
   mode?: ChatMode;
   modeSource?: ChatModeSource;
   effectiveMode?: ChatMode;
@@ -244,15 +270,19 @@ export interface ChatSession {
   updatedAt?: string;
   messages: ChatMessage[];
   repositoryContext?: string;
-  context?: Record<string, unknown>;
+  context?: ChatContext;
 }
 
-export interface SendMessagePayload {
-  message: string;
+export interface CreateChatSessionPayload {
+  title: string;
   roadmapId?: string;
   repositoryId?: string;
   analysisId?: string;
   snapshotId?: string;
+}
+
+export interface SendMessagePayload extends Omit<CreateChatSessionPayload, 'title'> {
+  message: string;
 }
 
 export interface SendMessageResponseData {
@@ -264,7 +294,7 @@ export interface SendMessageResponseData {
   aiMessage?: ChatMessage | null;
   adminMessage?: ChatMessage | null;
   session?: ChatSession;
-  context?: Record<string, unknown>;
+  context?: ChatContext;
 }
 
 export interface AIFeedback {

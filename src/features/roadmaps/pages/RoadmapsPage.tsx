@@ -5,6 +5,7 @@ import { Archive, BookmarkCheck, CheckCircle2, ChevronLeft, ChevronRight, Folder
 import { Badge } from '../../../app/components/ui/Badge'
 import { Button } from '../../../app/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../app/components/ui/Card'
+import { ConfirmDialog } from '../../../app/components/common/ConfirmDialog'
 import { Input } from '../../../app/components/ui/Input'
 import { RoadmapCard } from '../components/RoadmapCard'
 import { RoadmapSkeleton } from '../components/RoadmapSkeleton'
@@ -12,7 +13,7 @@ import { useRepositoryStore } from '../../../app/stores/repositoryStore'
 import { roleMatchApi } from '../../../app/services/apis/analysis'
 import { getApiErrorMessage } from '../../../app/services/apis/core'
 import { useRoadmapStore } from '../stores/roadmapStore'
-import type { RoadmapCategory, RoadmapDifficulty } from '../types'
+import type { Roadmap, RoadmapCategory, RoadmapDifficulty } from '../types'
 import type { RoadmapSourceMode } from '../services/roadmapService'
 import type { RoleMatch } from '../../../app/types'
 import { filterRoadmaps, formatCategoryFilter, formatDifficultyFilter, formatDurationFilter, formatUserLevel } from '../utils/roadmapUtils'
@@ -169,6 +170,7 @@ export const RoadmapsPage = () => {
     learningStats,
     fetchRoadmaps,
     generateAIRoadmap,
+    deleteRoadmap,
     setFilters
   } = useRoadmapStore()
   const { analyses, fetchMyAnalyses } = useRepositoryStore()
@@ -198,6 +200,8 @@ export const RoadmapsPage = () => {
   const [roleMatchError, setRoleMatchError] = useState('')
   const [confirmedSourceKey, setConfirmedSourceKey] = useState('')
   const [statusFilter, setStatusFilter] = useState<'active' | 'archived'>('active')
+  const [deletingRoadmapId, setDeletingRoadmapId] = useState('')
+  const [roadmapToDelete, setRoadmapToDelete] = useState<Roadmap | null>(null)
   const [page, setPage] = useState(1)
   const analyzedRepos = useMemo(() => {
     const repos = new Map<string, { id: string; name: string; level?: string; commits?: number; readiness?: number; updatedAt?: number }>()
@@ -349,6 +353,22 @@ export const RoadmapsPage = () => {
     }
   }
 
+  const requestDeleteRoadmap = (roadmap: Roadmap) => {
+    setRoadmapToDelete(roadmap)
+  }
+
+  const confirmDeleteRoadmap = async () => {
+    if (!roadmapToDelete) return
+
+    setDeletingRoadmapId(roadmapToDelete.id)
+    try {
+      await deleteRoadmap(roadmapToDelete.id)
+      setRoadmapToDelete(null)
+    } finally {
+      setDeletingRoadmapId('')
+    }
+  }
+
   const filteredRoadmaps = filterRoadmaps(roadmaps, filters)
   const archivedCount = roadmaps.filter((roadmap) => roadmap.status === 'archived').length
   const visibleRoadmapCount = roadmaps.length
@@ -387,6 +407,7 @@ export const RoadmapsPage = () => {
   }
 
   return (
+    <>
     <div className="mx-auto w-full max-w-[1500px] space-y-6">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
@@ -760,13 +781,20 @@ export const RoadmapsPage = () => {
         </div>
 
         {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
             {[1, 2, 3].map((item) => <RoadmapSkeleton key={item} />)}
           </div>
         ) : filteredRoadmaps.length > 0 ? (
           <>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {visibleRoadmaps.map((roadmap) => <RoadmapCard key={roadmap.id} roadmap={roadmap} />)}
+            <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {visibleRoadmaps.map((roadmap) => (
+                <RoadmapCard
+                  key={roadmap.id}
+                  roadmap={roadmap}
+                  isDeleting={deletingRoadmapId === roadmap.id}
+                  onDelete={requestDeleteRoadmap}
+                />
+              ))}
             </div>
             {filteredRoadmaps.length > ROADMAPS_PER_PAGE && (
               <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
@@ -815,6 +843,19 @@ export const RoadmapsPage = () => {
         )}
       </section>
     </div>
+    <ConfirmDialog
+      open={Boolean(roadmapToDelete)}
+      title="Xóa lộ trình?"
+      description={`Bạn có chắc muốn xóa lộ trình "${roadmapToDelete?.title ?? ''}" không? Lộ trình sẽ được ẩn khỏi danh sách của bạn.`}
+      note="Hành động này không xóa repository, phân tích, learning content hoặc chat liên quan."
+      confirmText="Xóa lộ trình"
+      cancelText="Hủy"
+      variant="danger"
+      loading={Boolean(roadmapToDelete && deletingRoadmapId === roadmapToDelete.id)}
+      onConfirm={confirmDeleteRoadmap}
+      onCancel={() => setRoadmapToDelete(null)}
+    />
+    </>
   )
 }
 

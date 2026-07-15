@@ -353,6 +353,9 @@ export type AdminChatSession = {
   user?: AdminChatUserRef
   userId?: AdminChatUserRef | string
   status?: ChatSessionStatus
+  closedAt?: string
+  closedBy?: string
+  closeReason?: string
   mode?: ChatMode
   modeSource?: ChatModeSource
   effectiveMode?: ChatMode
@@ -531,6 +534,11 @@ export const adminApi = {
 
   async useGlobalChatMode(sessionId: string) {
     const response = await apiClient.patch(`/admin/chat/sessions/${sessionId}/use-global-mode`)
+    return normalizeAdminChatSessionDetail(response.data)
+  },
+
+  async closeChatSession(sessionId: string, reason?: string) {
+    const response = await apiClient.patch(`/admin/chat/sessions/${sessionId}/close`, reason ? { reason } : undefined)
     return normalizeAdminChatSessionDetail(response.data)
   }
 }

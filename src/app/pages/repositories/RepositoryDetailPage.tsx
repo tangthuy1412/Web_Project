@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router'
-import { AlertCircle, ArrowLeft, BookOpen, Bot, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, FileJson, Flag, GitCommit, GitFork, Lightbulb, Play, RefreshCw, Send, Star, Target } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router'
+import { AlertCircle, ArrowLeft, BookOpen, Bot, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, FileJson, Flag, GitCommit, GitFork, Lightbulb, MessageSquare, Play, RefreshCw, Send, Star, Target } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { RoleMatchPanel } from '../../components/analysis/RoleMatchPanel'
+import { useChatStore } from '../../stores/chatStore'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatRelativeTime } from '../../lib/utils'
 import { getApiErrorMessage } from '../../services/apis/core'
@@ -54,6 +55,8 @@ const getCommitInfo = (item: unknown) => {
 
 export const RepositoryDetailPage = () => {
   const { id = '' } = useParams()
+  const navigate = useNavigate()
+  const createSession = useChatStore(state => state.createSession)
   const {
     repositories,
     analyses,
@@ -79,6 +82,7 @@ export const RepositoryDetailPage = () => {
   const [reportReason, setReportReason] = useState(reportReasons[0])
   const [reportDescription, setReportDescription] = useState('')
   const [isSubmittingReport, setIsSubmittingReport] = useState(false)
+  const [isCreatingChat, setIsCreatingChat] = useState(false)
   const [reportMessage, setReportMessage] = useState('')
   const [reportError, setReportError] = useState('')
   const [commitPage, setCommitPage] = useState(1)
@@ -148,6 +152,21 @@ export const RepositoryDetailPage = () => {
     if (existingFeedback) return
 
     await generateFeedback(id)
+  }
+
+  const handleAskAi = async () => {
+    if (!repository) return
+
+    setIsCreatingChat(true)
+    try {
+      await createSession({
+        title: `Tư vấn ${repository.name}`,
+        repositoryId: repository.id
+      })
+      navigate('/chat')
+    } finally {
+      setIsCreatingChat(false)
+    }
   }
 
   const handleSubmitReport = async () => {
@@ -232,6 +251,10 @@ export const RepositoryDetailPage = () => {
             <Button variant="outline" onClick={handleGenerateFeedback} isLoading={isGeneratingFeedback}>
               <Bot className="mr-2 h-4 w-4" />
               Tạo AI feedback
+            </Button>
+            <Button variant="outline" onClick={handleAskAi} isLoading={isCreatingChat} disabled={!latestAnalysis}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Hỏi AI về repo này
             </Button>
           </div>
         </div>

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { AlertCircle, ArrowRight, ChevronLeft, ChevronRight, ExternalLink, GitFork, Loader2, Play, RefreshCw, Search, Star } from 'lucide-react'
+import { AlertCircle, ArrowRight, ChevronLeft, ChevronRight, ExternalLink, GitFork, Loader2, MessageSquare, Play, RefreshCw, Search, Star } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { useRepositoryStore } from '../../stores/repositoryStore'
+import { useChatStore } from '../../stores/chatStore'
 import { formatRelativeTime } from '../../lib/utils'
 
 const REPOSITORIES_PER_PAGE = 10
@@ -14,10 +15,12 @@ type RepositorySort = 'updated' | 'name' | 'readiness'
 export const RepositoriesPage = () => {
   const navigate = useNavigate()
   const { repositories, analyses, fetchRepositories, fetchMyAnalyses, analyzeRepository, isLoading, error } = useRepositoryStore()
+  const createSession = useChatStore(state => state.createSession)
   const [search, setSearch] = useState('')
   const [analysisFilter, setAnalysisFilter] = useState<AnalysisFilter>('all')
   const [sortBy, setSortBy] = useState<RepositorySort>('updated')
   const [analyzingRepoId, setAnalyzingRepoId] = useState<string | null>(null)
+  const [creatingChatRepoId, setCreatingChatRepoId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
 
   useEffect(() => {
@@ -74,6 +77,19 @@ export const RepositoriesPage = () => {
       navigate(`/repositories/${result.repositoryId || repoId}`)
     } finally {
       setAnalyzingRepoId(null)
+    }
+  }
+
+  const handleAskAi = async (repo: typeof repositories[number]) => {
+    try {
+      setCreatingChatRepoId(repo.id)
+      await createSession({
+        title: `Tư vấn ${repo.name}`,
+        repositoryId: repo.id
+      })
+      navigate('/chat')
+    } finally {
+      setCreatingChatRepoId(null)
     }
   }
 
@@ -206,6 +222,12 @@ export const RepositoriesPage = () => {
                           <Button variant="outline" size="sm">Xem chi tiết</Button>
                         </Link>
                       )}
+                      {hasAnalysis && (
+                        <Button variant="outline" size="sm" onClick={() => handleAskAi(repo)} isLoading={creatingChatRepoId === repo.id}>
+                          <MessageSquare className="mr-2 h-4 w-4" />
+                          Hỏi AI
+                        </Button>
+                      )}
                       <Button size="sm" onClick={() => handleAnalyze(repo.id)} disabled={isRepoAnalyzing}>
                         {isRepoAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : hasAnalysis ? <RefreshCw className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
                         {isRepoAnalyzing ? 'Đang phân tích...' : hasAnalysis ? 'Phân tích lại' : 'Phân tích'}
@@ -287,6 +309,10 @@ export const RepositoriesPage = () => {
                                   Xem chi tiết
                                 </Button>
                               </Link>
+                              <Button variant="outline" size="sm" onClick={() => handleAskAi(repo)} isLoading={creatingChatRepoId === repo.id}>
+                                <MessageSquare className="mr-2 h-4 w-4" />
+                                Hỏi AI
+                              </Button>
                               <Button size="sm" onClick={() => handleAnalyze(repo.id)} disabled={isRepoAnalyzing}>
                                 {isRepoAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                                 {isRepoAnalyzing ? 'Đang phân tích...' : 'Phân tích lại'}

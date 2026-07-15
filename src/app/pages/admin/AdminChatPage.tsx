@@ -37,6 +37,26 @@ const modeLabels: Record<string, string> = {
   MANUAL: 'Manual'
 }
 
+const getSessionMode = (session?: Pick<AdminChatSession, 'status' | 'effectiveMode' | 'mode'> | null) => {
+  if (session?.status === 'closed') return undefined
+  return session?.effectiveMode ?? session?.mode
+}
+
+const modeBadgeLabel = (session?: Pick<AdminChatSession, 'status' | 'effectiveMode' | 'mode'> | null) => {
+  if (session?.status === 'closed') return 'Đã đóng'
+  const mode = getSessionMode(session)
+  return mode ? modeLabels[mode] ?? mode : 'Chưa rõ'
+}
+
+const modeBadgeVariant = (session?: Pick<AdminChatSession, 'status' | 'effectiveMode' | 'mode'> | null): 'default' | 'success' | 'warning' | 'danger' | 'info' => {
+  if (session?.status === 'closed') return 'default'
+  return getSessionMode(session) === 'MANUAL' ? 'warning' : 'info'
+}
+
+const modeSourceLabel = (modeSource?: string) => {
+  return modeSource === 'GLOBAL' ? 'Global' : modeSource === 'SESSION' ? 'Session' : modeSource || 'Chưa rõ'
+}
+
 const senderLabels: Record<ChatSenderType, string> = {
   USER: 'User',
   AI: 'AI Mentor',
@@ -49,6 +69,19 @@ const formatDate = (value?: string | null) => {
 }
 
 const sessionId = (session: AdminChatSession) => session._id || session.id || ''
+const mergeAdminSession = (base: AdminChatSession, next: AdminChatSession): AdminChatSession => ({
+  ...base,
+  ...next,
+  messages: next.messages ?? base.messages
+})
+
+const upsertAdminSession = (sessions: AdminChatSession[], session: AdminChatSession) => {
+  const id = sessionId(session)
+  return sessions.some((item) => sessionId(item) === id)
+    ? sessions.map((item) => sessionId(item) === id ? mergeAdminSession(item, session) : item)
+    : [session, ...sessions]
+}
+
 const asUser = (value?: AdminChatUserRef | string | null) => value && typeof value !== 'string' ? value : null
 const sessionUser = (session?: AdminChatSession | null) => session?.user ?? asUser(session?.userId)
 const userName = (user?: AdminChatUserRef | null) => user?.fullName || user?.name || user?.email || 'Người dùng'
@@ -193,6 +226,7 @@ export const AdminChatPage = () => {
 
   const selectedUser = sessionUser(selectedSession)
   const messages = useMemo(() => normalizeMessages(selectedSession?.messages), [selectedSession])
+  const isSelectedClosed = selectedSession?.status === 'closed'
 
   const loadSettings = async () => {
     setIsSettingsLoading(true)
@@ -271,6 +305,7 @@ export const AdminChatPage = () => {
       setSettings(await adminApi.updateChatSettings(nextMode))
       setSuccess('Đã cập nhật chế độ chat global.')
       await loadSessions()
+      if (selectedSession) await loadDetail(sessionId(selectedSession))
     } catch (err) {
       setError(apiErrorMessage(err))
     } finally {
@@ -279,7 +314,7 @@ export const AdminChatPage = () => {
   }
 
   const updateSessionMode = async (nextMode: ChatMode) => {
-    if (!selectedSession) return
+    if (!selectedSession || isSelectedClosed) return
     setIsActionLoading(true)
     setError('')
     setSuccess('')
@@ -289,6 +324,7 @@ export const AdminChatPage = () => {
         : { mode: nextMode }
       const updated = await adminApi.updateChatSessionMode(sessionId(selectedSession), payload)
       setSelectedSession((current) => current ? { ...current, ...updated } : updated)
+      setSessions((current) => upsertAdminSession(current, updated))
       setManualReason('')
       setSuccess(nextMode === 'MANUAL' ? 'Đã chuyển session sang Manual.' : 'Đã chuyển session sang AI Auto.')
       await loadSessions()
@@ -301,14 +337,35 @@ export const AdminChatPage = () => {
   }
 
   const useGlobalMode = async () => {
-    if (!selectedSession) return
+    if (!selectedSession || isSelectedClosed) return
     setIsActionLoading(true)
     setError('')
     setSuccess('')
     try {
       const updated = await adminApi.useGlobalChatMode(sessionId(selectedSession))
       setSelectedSession((current) => current ? { ...current, ...updated } : updated)
+      setSessions((current) => upsertAdminSession(current, updated))
       setSuccess('Session đã dùng lại global mode.')
+      await loadSessions()
+      await loadDetail(sessionId(updated))
+    } catch (err) {
+      setError(apiErrorMessage(err))
+    } finally {
+      setIsActionLoading(false)
+    }
+  }
+
+  const closeSession = async () => {
+    if (!selectedSession) return
+    setIsActionLoading(true)
+    setError('')
+    setSuccess('')
+    try {
+      const updated = await adminApi.closeChatSession(sessionId(selectedSession), manualReason.trim() || undefined)
+      setSelectedSession((current) => current ? { ...current, ...updated, status: 'closed' } : { ...updated, status: 'closed' })
+      setSessions((current) => upsertAdminSession(current, { ...updated, status: 'closed' }))
+      setManualReason('')
+      setSuccess('Session đã đóng.')
       await loadSessions()
       await loadDetail(sessionId(updated))
     } catch (err) {
@@ -320,7 +377,7 @@ export const AdminChatPage = () => {
 
   const sendReply = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!selectedSession || !reply.trim()) return
+    if (!selectedSession || !reply.trim() || isSelectedClosed) return
     setIsActionLoading(true)
     setError('')
     setSuccess('')
@@ -331,11 +388,12 @@ export const AdminChatPage = () => {
         ? { ...selectedSession, ...payload.session }
         : selectedSession
       if (adminMessage) {
-        setSelectedSession({
+        const mergedSession = {
           ...nextSession,
-          status: payload.session?.status ?? 'answered',
           messages: [...(nextSession.messages ?? []), adminMessage]
-        })
+        }
+        setSelectedSession(mergedSession)
+        setSessions((current) => upsertAdminSession(current, mergedSession))
       } else {
         await loadDetail(sessionId(selectedSession))
       }
@@ -417,7 +475,7 @@ export const AdminChatPage = () => {
               <select value={modeSource} onChange={(event) => { setModeSource(event.target.value); setPage(1) }} className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900">
                 <option value="">Tất cả nguồn</option>
                 <option value="GLOBAL">Global</option>
-                <option value="SESSION">Override</option>
+                <option value="SESSION">Session</option>
               </select>
             </div>
 
@@ -442,8 +500,8 @@ export const AdminChatPage = () => {
                     <p className="mt-2 line-clamp-2 text-xs text-slate-600 dark:text-slate-300">{session.lastMessage?.content || 'Chưa có tin nhắn'}</p>
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       <Badge variant={statusVariants[session.status ?? ''] ?? 'default'}>{statusLabels[session.status ?? ''] ?? session.status ?? 'Chưa rõ'}</Badge>
-                      <Badge variant={session.effectiveMode === 'MANUAL' ? 'warning' : 'info'}>{modeLabels[session.effectiveMode ?? ''] ?? 'Mode?'}</Badge>
-                      <Badge variant="default">{session.modeSource === 'SESSION' ? 'Override' : 'Global'}</Badge>
+                      <Badge variant={modeBadgeVariant(session)}>{modeBadgeLabel(session)}</Badge>
+                      <Badge variant="default">{modeSourceLabel(session.modeSource)}</Badge>
                     </div>
                     <p className="mt-2 text-xs text-slate-500">{formatDate(session.lastMessageAt || session.updatedAt || session.createdAt)}</p>
                   </button>
@@ -470,7 +528,7 @@ export const AdminChatPage = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {isDetailLoading ? (
-              <div className="flex min-h-[480px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-center text-sm text-slate-500 dark:border-slate-800">Dang tai tin nhan...</div>
+              <div className="flex min-h-[480px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-center text-sm text-slate-500 dark:border-slate-800">Đang tải tin nhắn...</div>
             ) : !selectedSession ? (
               <div className="flex min-h-[480px] items-center justify-center rounded-lg border border-dashed border-slate-300 text-center text-sm text-slate-500 dark:border-slate-800">Chọn một session để xem chi tiết.</div>
             ) : (
@@ -484,15 +542,25 @@ export const AdminChatPage = () => {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Badge variant={statusVariants[selectedSession.status ?? ''] ?? 'default'}>{statusLabels[selectedSession.status ?? ''] ?? selectedSession.status ?? 'Chưa rõ'}</Badge>
-                      <Badge variant={selectedSession.effectiveMode === 'MANUAL' ? 'warning' : 'info'}>{modeLabels[selectedSession.effectiveMode ?? ''] ?? 'Mode?'}</Badge>
-                      <Badge variant="default">{selectedSession.modeSource === 'SESSION' ? 'Override' : 'Global'}</Badge>
+                      <Badge variant={modeBadgeVariant(selectedSession)}>{modeBadgeLabel(selectedSession)}</Badge>
+                      <Badge variant="default">{modeSourceLabel(selectedSession.modeSource)}</Badge>
                     </div>
                   </div>
-                  <div className="mt-4 grid gap-2 lg:grid-cols-[1fr_auto_auto_auto]">
-                    <Input value={manualReason} onChange={(event) => setManualReason(event.target.value)} placeholder="Lý do chuyển manual (optional)" disabled={isActionLoading} />
-                    <Button variant="outline" disabled={isActionLoading || (selectedSession.effectiveMode === 'MANUAL' && selectedSession.modeSource === 'SESSION')} onClick={() => updateSessionMode('MANUAL')}>Chuyển Manual</Button>
-                    <Button variant="outline" disabled={isActionLoading || (selectedSession.effectiveMode === 'AI_AUTO' && selectedSession.modeSource === 'SESSION')} onClick={() => updateSessionMode('AI_AUTO')}>Chuyển AI Auto</Button>
-                    <Button variant="outline" disabled={isActionLoading || selectedSession.modeSource === 'GLOBAL'} onClick={useGlobalMode}>Dùng Global</Button>
+                  {isSelectedClosed && (
+                    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300">
+                      Session đã đóng, admin không thể trả lời hoặc đổi mode.
+                    </div>
+                  )}
+                  {!isSelectedClosed && (
+                    <div className="mt-4 flex justify-end">
+                      <Button variant="destructive" disabled={isActionLoading} onClick={closeSession}>Đóng session</Button>
+                    </div>
+                  )}
+                  <div className="mt-4 grid gap-2 lg:grid-cols-[1fr_auto_auto_auto_auto]">
+                    <Input value={manualReason} onChange={(event) => setManualReason(event.target.value)} placeholder="Lý do manual / đóng session (optional)" disabled={isActionLoading || isSelectedClosed} />
+                    <Button variant="outline" disabled={isActionLoading || isSelectedClosed || (getSessionMode(selectedSession) === 'MANUAL' && selectedSession.modeSource === 'SESSION')} onClick={() => updateSessionMode('MANUAL')}>Chuyển Manual</Button>
+                    <Button variant="outline" disabled={isActionLoading || isSelectedClosed || (getSessionMode(selectedSession) === 'AI_AUTO' && selectedSession.modeSource === 'SESSION')} onClick={() => updateSessionMode('AI_AUTO')}>Chuyển AI Auto</Button>
+                    <Button variant="outline" disabled={isActionLoading || isSelectedClosed || selectedSession.modeSource === 'GLOBAL'} onClick={useGlobalMode}>Dùng Global</Button>
                   </div>
                 </div>
 
@@ -519,9 +587,9 @@ export const AdminChatPage = () => {
                 </div>
 
                 <form onSubmit={sendReply} className="space-y-3">
-                  <Textarea value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Nhập phản hồi admin..." className="min-h-24 bg-white dark:bg-slate-950" disabled={isActionLoading} />
+                  <Textarea value={reply} onChange={(event) => setReply(event.target.value)} placeholder={isSelectedClosed ? 'Session đã đóng' : 'Nhập phản hồi admin...'} className="min-h-24 bg-white dark:bg-slate-950" disabled={isActionLoading || isSelectedClosed} />
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={!reply.trim() || isActionLoading} isLoading={isActionLoading}>
+                    <Button type="submit" disabled={!reply.trim() || isActionLoading || isSelectedClosed} isLoading={isActionLoading}>
                       <Send className="mr-2 h-4 w-4" />
                       Gửi
                     </Button>
