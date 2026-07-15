@@ -236,6 +236,7 @@ export interface ChatContext {
 export interface ChatMessage {
   _id?: string;
   id: string;
+  sessionId?: string;
   senderType: ChatSenderType;
   role?: ChatMessageRole;
   content: string;
@@ -295,6 +296,38 @@ export interface SendMessageResponseData {
   adminMessage?: ChatMessage | null;
   session?: ChatSession;
   context?: ChatContext;
+}
+
+export interface ChatMessageCreatedEvent {
+  sessionId: string;
+  message: ChatMessage;
+  emittedAt?: string;
+}
+
+export interface ChatSessionUpdatedEvent {
+  sessionId: string;
+  session: Partial<ChatSession> & { _id?: string; id?: string };
+  emittedAt?: string;
+}
+
+export interface ChatReadUpdatedEvent {
+  sessionId: string;
+  session: Partial<ChatSession> & { _id?: string; id?: string };
+  actor?: {
+    actorId?: string;
+    actorType?: ChatSenderType;
+    role?: string;
+  };
+  emittedAt?: string;
+}
+
+export interface ChatTypingEvent {
+  sessionId: string;
+  isTyping: boolean;
+  actorId?: string;
+  actorType?: ChatSenderType;
+  role?: string;
+  timestamp?: string;
 }
 
 export interface AIFeedback {

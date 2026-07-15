@@ -41,8 +41,9 @@ const formatDate = (value?: string) => {
   }).format(new Date(value))
 }
 
-const roadmapId = (roadmap: AdminRoadmap) => roadmap._id || roadmap.id || ''
+const roadmapId = (roadmap: AdminRoadmap) => roadmap.roadmapId || roadmap._id || roadmap.id || ''
 const roadmapOwner = (roadmap: AdminRoadmap): AdminRoadmapOwner | null => {
+  if (roadmap.user) return roadmap.user
   if (!roadmap.userId || typeof roadmap.userId === 'string') return null
   return roadmap.userId
 }
@@ -53,8 +54,9 @@ const ownerName = (roadmap: AdminRoadmap) => {
 }
 
 const ownerEmail = (roadmap: AdminRoadmap) => roadmapOwner(roadmap)?.email || 'Chưa có email'
-const roadmapTitle = (roadmap: AdminRoadmap) => roadmap.mainPath?.title || roadmap.targetRole || 'Roadmap chưa đặt tên'
-const phasesOf = (roadmap: AdminRoadmap) => roadmap.mainPath?.phases ?? []
+const roadmapTitle = (roadmap: AdminRoadmap) => roadmap.title || roadmap.mainRoadmap?.title || roadmap.mainPath?.title || roadmap.targetRole || 'Roadmap chưa đặt tên'
+const repositoryName = (roadmap: AdminRoadmap) => roadmap.repository?.fullName || roadmap.repository?.name || 'Repository unavailable'
+const phasesOf = (roadmap: AdminRoadmap) => roadmap.mainRoadmap?.phases ?? roadmap.mainPath?.phases ?? []
 const taskCountOf = (roadmap: AdminRoadmap) => phasesOf(roadmap).reduce((total, phase) => total + (phase.tasks?.length ?? 0), 0)
 const hourCountOf = (roadmap: AdminRoadmap) => phasesOf(roadmap).reduce(
   (total, phase) => total + (phase.tasks ?? []).reduce((sum, task) => sum + (task.estimatedHours ?? 0), 0),
@@ -85,7 +87,8 @@ export const AdminRoadmapsPanel = () => {
       containsText(roadmapTitle(roadmap), keyword) ||
       containsText(roadmap.targetRole, keyword) ||
       containsText(ownerName(roadmap), keyword) ||
-      containsText(ownerEmail(roadmap), keyword)
+      containsText(ownerEmail(roadmap), keyword) ||
+      containsText(repositoryName(roadmap), keyword)
     ))
   }, [roadmaps, search])
 
@@ -97,6 +100,7 @@ export const AdminRoadmapsPanel = () => {
       const payload = await adminApi.getRoadmaps({
         page,
         limit: defaultPagination.limit,
+        search: search.trim() || undefined,
         status: status || undefined
       })
       setRoadmaps(payload.items ?? [])
@@ -241,6 +245,9 @@ export const AdminRoadmapsPanel = () => {
                           <Badge variant="info">{phasesOf(roadmap).length} giai đoạn</Badge>
                           <Badge variant="default">{taskCountOf(roadmap)} việc học</Badge>
                           <Badge variant="warning">{hourCountOf(roadmap)} giờ</Badge>
+                          <Badge variant="success">{roadmap.progressSummary?.completedItems ?? 0}/{roadmap.progressSummary?.totalItems ?? 0} completed</Badge>
+                          <Badge variant="info">{roadmap.progressSummary?.inProgressItems ?? 0} in progress</Badge>
+                          <Badge variant="warning">{roadmap.progressSummary?.pendingItems ?? 0} pending</Badge>
                         </div>
                         <p className="mt-2 text-xs text-slate-500">
                           {roadmap.sourceContextSummary?.repositoriesCount ?? 0} repository được dùng làm ngữ cảnh

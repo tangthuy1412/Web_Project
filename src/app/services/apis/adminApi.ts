@@ -68,7 +68,9 @@ export type AdminRoadmapStatus = 'active' | 'archived'
 export type AdminRoadmapQuery = {
   page?: number
   limit?: number
+  search?: string
   status?: string
+  includeDeleted?: boolean
 }
 
 export type AdminRoadmapOwner = {
@@ -81,10 +83,29 @@ export type AdminRoadmapOwner = {
   status?: string
 }
 
+export type AdminRoadmapRepository = {
+  id?: string
+  _id?: string
+  name?: string
+  fullName?: string
+  htmlUrl?: string
+  language?: string
+}
+
 export type AdminRoadmapTask = {
+  itemId?: string
   _id?: string
   title?: string
   description?: string
+  skillName?: string
+  canonicalSkillName?: string
+  category?: string
+  priority?: string
+  week?: number
+  phase?: string
+  progressPercent?: number
+  startedAt?: string | null
+  completedAt?: string | null
   skillTags?: string[]
   status?: string
   estimatedHours?: number
@@ -119,14 +140,49 @@ export type AdminRoadmapSourceContext = {
 export type AdminRoadmap = {
   _id: string
   id?: string
+  roadmapId?: string
+  title?: string
   userId?: AdminRoadmapOwner | string
+  user?: AdminRoadmapOwner | null
+  repository?: AdminRoadmapRepository | null
+  repositoryId?: AdminRoadmapRepository | string | null
   targetRole?: string
+  roleId?: string
+  requestedLevel?: string
+  effectiveLevel?: string
+  durationWeeks?: number
+  language?: string
   currentGithubDirection?: string
   summary?: string
   mainPath?: AdminRoadmapPath
+  mainRoadmap?: AdminRoadmapPath
   supportingPaths?: AdminRoadmapPath[]
+  alternativeRoadmaps?: AdminRoadmapPath[]
+  roadmapSource?: Record<string, unknown>
+  roleMatch?: Record<string, unknown>
+  skillGapSummary?: unknown[]
   sourceContextSummary?: AdminRoadmapSourceContext
+  progressSummary?: {
+    totalItems?: number
+    completedItems?: number
+    inProgressItems?: number
+    pendingItems?: number
+    overallProgress?: number
+  }
+  learningProgress?: {
+    currentTask?: AdminRoadmapTask | null
+    recentlyCompleted?: AdminRoadmapTask[]
+    nextRecommendedTask?: AdminRoadmapTask | null
+    completedTasks?: AdminRoadmapTask[]
+    inProgressTasks?: AdminRoadmapTask[]
+    pendingTasks?: AdminRoadmapTask[]
+    orphanProgressItems?: AdminRoadmapTask[]
+    items?: AdminRoadmapTask[]
+  }
   status?: AdminRoadmapStatus | string
+  isDeleted?: boolean
+  deletedAt?: string | null
+  deletedBy?: string | null
   createdAt?: string
   updatedAt?: string
 }
@@ -444,11 +500,11 @@ export const adminApi = {
 
   async getRoadmaps(params?: AdminRoadmapQuery) {
     const response = await apiClient.get('/admin/roadmaps', { params })
-    return extractApiResource<AdminRoadmapListResponse>(response.data, ['roadmaps'])
+    return unwrapResponse<AdminRoadmapListResponse>(response.data)
   },
 
-  async getRoadmap(roadmapId: string) {
-    const response = await apiClient.get(`/admin/roadmaps/${roadmapId}`)
+  async getRoadmap(roadmapId: string, params?: Pick<AdminRoadmapQuery, 'includeDeleted'>) {
+    const response = await apiClient.get(`/admin/roadmaps/${roadmapId}`, { params })
     return extractApiResource<AdminRoadmap>(response.data, ['roadmap', 'item', 'detail'])
   },
 

@@ -62,6 +62,7 @@ export const normalizeChatMessage = (payload: unknown): ChatMessage => {
   return {
     _id: firstString(message._id) || undefined,
     id: firstString(message.id, message._id, `message-${Date.now()}`),
+    sessionId: firstString(message.sessionId) || undefined,
     senderType,
     role: roleFromSenderType(senderType),
     content: firstString(message.content, message.message, message.text, message.reply, message.response, message.aiResponse),

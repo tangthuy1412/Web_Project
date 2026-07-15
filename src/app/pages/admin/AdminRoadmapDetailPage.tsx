@@ -33,6 +33,7 @@ const formatDate = (value?: string) => {
 }
 
 const roadmapOwner = (roadmap?: AdminRoadmap): AdminRoadmapOwner | null => {
+  if (roadmap?.user) return roadmap.user
   if (!roadmap?.userId || typeof roadmap.userId === 'string') return null
   return roadmap.userId
 }
@@ -43,8 +44,10 @@ const ownerName = (roadmap?: AdminRoadmap) => {
 }
 
 const ownerEmail = (roadmap?: AdminRoadmap) => roadmapOwner(roadmap)?.email || 'Chưa có email'
-const roadmapTitle = (roadmap?: AdminRoadmap) => roadmap?.mainPath?.title || roadmap?.targetRole || 'Chi tiết roadmap'
-const phasesOf = (roadmap?: AdminRoadmap) => roadmap?.mainPath?.phases ?? []
+const repositoryName = (roadmap?: AdminRoadmap) => roadmap?.repository?.fullName || roadmap?.repository?.name || 'Repository unavailable'
+const roadmapTitle = (roadmap?: AdminRoadmap) => roadmap?.title || roadmap?.mainRoadmap?.title || roadmap?.mainPath?.title || roadmap?.targetRole || 'Chi tiết roadmap'
+const phasesOf = (roadmap?: AdminRoadmap) => roadmap?.mainRoadmap?.phases ?? roadmap?.mainPath?.phases ?? []
+const learningItemsOf = (roadmap?: AdminRoadmap) => roadmap?.learningProgress?.items ?? []
 const taskCountOf = (roadmap?: AdminRoadmap) => phasesOf(roadmap).reduce((total, phase) => total + (phase.tasks?.length ?? 0), 0)
 const hourCountOf = (roadmap?: AdminRoadmap) => phasesOf(roadmap).reduce(
   (total, phase) => total + (phase.tasks ?? []).reduce((sum, task) => sum + (task.estimatedHours ?? 0), 0),
@@ -59,10 +62,10 @@ export const AdminRoadmapDetailPage = () => {
   const [error, setError] = useState('')
 
   const summaryCards = useMemo(() => [
-    { label: 'Giai đoạn', value: phasesOf(roadmap).length },
-    { label: 'Việc học', value: taskCountOf(roadmap) },
-    { label: 'Giờ ước tính', value: hourCountOf(roadmap) },
-    { label: 'Repository tham chiếu', value: roadmap?.sourceContextSummary?.repositoriesCount ?? 0 }
+    { label: 'Total items', value: roadmap?.progressSummary?.totalItems ?? learningItemsOf(roadmap).length },
+    { label: 'Completed', value: roadmap?.progressSummary?.completedItems ?? 0 },
+    { label: 'In progress', value: roadmap?.progressSummary?.inProgressItems ?? 0 },
+    { label: 'Pending', value: roadmap?.progressSummary?.pendingItems ?? 0 }
   ], [roadmap])
 
   const fetchRoadmap = async () => {
@@ -176,6 +179,77 @@ export const AdminRoadmapDetailPage = () => {
 
           <Card>
             <CardHeader>
+              <CardTitle>Learning progress</CardTitle>
+              <CardDescription>Task-level progress from data.roadmap.learningProgress, including metadata merged by BE.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {learningItemsOf(roadmap).length === 0 ? (
+                <p className="text-sm text-slate-500">No learning progress items returned.</p>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                      <tr>
+                        <th className="px-4 py-3">Task</th>
+                        <th className="px-4 py-3">Week</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Progress</th>
+                        <th className="px-4 py-3">Timing</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                      {learningItemsOf(roadmap).map((task) => (
+                        <tr key={task.itemId || task._id || task.title} className="align-top">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-slate-950 dark:text-slate-50">{task.title || task.skillName || 'Untitled task'}</p>
+                            {task.description && <p className="mt-1 text-xs text-slate-500">{task.description}</p>}
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {task.phase && <Badge variant="default">{task.phase}</Badge>}
+                              {task.category && <Badge variant="info">{task.category}</Badge>}
+                              {task.priority && <Badge variant="warning">{task.priority}</Badge>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-slate-500">{task.week ?? '-'}</td>
+                          <td className="px-4 py-3">
+                            <Badge variant={task.status === 'completed' ? 'success' : task.status === 'in_progress' ? 'info' : 'default'}>
+                              {taskStatusLabels[task.status ?? ''] ?? task.status ?? 'not_started'}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="min-w-32">
+                              <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                                <div className="h-full bg-indigo-600" style={{ width: `${Math.max(0, Math.min(100, task.progressPercent ?? 0))}%` }} />
+                              </div>
+                              <p className="mt-1 text-xs text-slate-500">{task.progressPercent ?? 0}%</p>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-slate-500">
+                            <p>Hours: {task.estimatedHours ?? '-'}</p>
+                            <p>Started: {formatDate(task.startedAt ?? undefined)}</p>
+                            <p>Done: {formatDate(task.completedAt ?? undefined)}</p>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {(roadmap.learningProgress?.orphanProgressItems?.length ?? 0) > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+                  <p className="font-semibold text-amber-900 dark:text-amber-200">Orphan progress items</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {roadmap.learningProgress?.orphanProgressItems?.map((task) => (
+                      <Badge key={task.itemId || task._id || task.title} variant="warning">{task.title || task.itemId || 'Unknown item'}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <CardTitle>Tổng quan roadmap</CardTitle>
@@ -255,8 +329,8 @@ export const AdminRoadmapDetailPage = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>{roadmap.mainPath?.title || 'Lộ trình chính'}</CardTitle>
-              <CardDescription>{roadmap.mainPath?.reason || 'Các giai đoạn học chính trong roadmap.'}</CardDescription>
+              <CardTitle>{roadmap.mainRoadmap?.title || roadmap.mainPath?.title || 'Lộ trình chính'}</CardTitle>
+              <CardDescription>{roadmap.mainRoadmap?.reason || roadmap.mainPath?.reason || 'Các giai đoạn học chính trong roadmap.'}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {phasesOf(roadmap).length === 0 ? (

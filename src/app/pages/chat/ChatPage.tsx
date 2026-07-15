@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react'
+import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { AlertCircle, Headphones, MoreHorizontal, Plus, Send, Sparkles, Trash2 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
@@ -10,6 +10,10 @@ import { useChatStore } from '../../stores/chatStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatRelativeTime } from '../../lib/utils'
+import { useChatRealtime } from '../../hooks/useChatRealtime'
+import { normalizeChatMessage, normalizeChatSession } from '../../services/apis/chat'
+import type { ChatMessageCreatedEvent, ChatReadUpdatedEvent, ChatSessionUpdatedEvent } from '../../types'
+import { emitChatTyping } from '../../services/socket/chatSocket'
 
 type TextBlock = {
   type: 'paragraph' | 'ul' | 'ol'
@@ -122,7 +126,7 @@ const renderChatMessageContent = (content: string) => {
 }
 
 export const ChatPage = () => {
-  const { sessions, currentSession, sendMessage, createSession, deleteSession, selectSession, fetchSessions, isLoading, isSending, isAiTyping, manualWaiting, error } = useChatStore()
+  const { sessions, currentSession, sendMessage, createSession, deleteSession, selectSession, fetchSessions, applyRealtimeMessage, applyRealtimeSession, isLoading, isSending, isAiTyping, manualWaiting, error } = useChatStore()
   const user = useAuthStore(state => state.user)
   const {
     repositories,
@@ -148,6 +152,27 @@ export const ChatPage = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [currentSession?.messages, isAiTyping])
 
+  const handleRealtimeMessage = useCallback((event: ChatMessageCreatedEvent) => {
+    applyRealtimeMessage(event.sessionId, normalizeChatMessage(event.message))
+  }, [applyRealtimeMessage])
+
+  const handleRealtimeSession = useCallback((event: ChatSessionUpdatedEvent) => {
+    applyRealtimeSession(event.sessionId, normalizeChatSession(event.session))
+  }, [applyRealtimeSession])
+
+  const handleRealtimeRead = useCallback((event: ChatReadUpdatedEvent) => {
+    applyRealtimeSession(event.sessionId, normalizeChatSession(event.session))
+  }, [applyRealtimeSession])
+
+  useChatRealtime({
+    sessionId: currentSession?.id,
+    sessionIds: [currentSession?.id, currentSession?._id],
+    onMessageCreated: handleRealtimeMessage,
+    onSessionUpdated: handleRealtimeSession,
+    onReadUpdated: handleRealtimeRead,
+    markRead: Boolean(currentSession?.id)
+  })
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!input.trim() || currentSession?.status === 'closed') return
@@ -155,6 +180,11 @@ export const ChatPage = () => {
     const message = input
     setInput('')
     await sendMessage(message)
+  }
+
+  const handleInputChange = (value: string) => {
+    setInput(value)
+    if (currentSession?.id) emitChatTyping(currentSession.id, Boolean(value.trim()))
   }
 
   const handleCreateSession = async (event: FormEvent<HTMLFormElement>) => {
@@ -593,7 +623,7 @@ export const ChatPage = () => {
               <input
                 type="text"
                 value={input}
-                onChange={(event) => setInput(event.target.value)}
+                onChange={(event) => handleInputChange(event.target.value)}
                 placeholder="Nhập câu hỏi..."
                 disabled={isSending || isLoading || isClosed}
                 className="h-12 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"

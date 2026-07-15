@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { Bot, Headphones, MessageSquare, RefreshCw, Send, UserRound } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -14,7 +14,9 @@ import {
   type AdminChatUserRef,
   type AdminPagination
 } from '../../services/apis/admin'
-import type { ChatMessage, ChatMode, ChatSenderType } from '../../types'
+import type { ChatMessage, ChatMessageCreatedEvent, ChatMode, ChatReadUpdatedEvent, ChatSenderType, ChatSessionUpdatedEvent } from '../../types'
+import { useChatRealtime } from '../../hooks/useChatRealtime'
+import { emitChatTyping } from '../../services/socket/chatSocket'
 
 const defaultPagination: AdminPagination = { page: 1, limit: 20, total: 0, totalPages: 0 }
 
@@ -69,6 +71,9 @@ const formatDate = (value?: string | null) => {
 }
 
 const sessionId = (session: AdminChatSession) => session._id || session.id || ''
+const isSameSession = (session: Pick<AdminChatSession, '_id' | 'id'> | null | undefined, id: string) => {
+  return Boolean(id && (session?._id === id || session?.id === id))
+}
 const mergeAdminSession = (base: AdminChatSession, next: AdminChatSession): AdminChatSession => ({
   ...base,
   ...next,
@@ -116,6 +121,7 @@ const normalizeMessage = (payload: unknown): ChatMessage | null => {
   return {
     _id: typeof record._id === 'string' ? record._id : undefined,
     id: String(record.id ?? record._id ?? `${senderType}-${createdAt}-${content.slice(0, 16)}`),
+    sessionId: typeof record.sessionId === 'string' ? record.sessionId : undefined,
     senderType,
     role: senderType === 'USER' ? 'user' : 'assistant',
     content,
@@ -126,10 +132,13 @@ const normalizeMessage = (payload: unknown): ChatMessage | null => {
 }
 
 const normalizeMessages = (messages?: ChatMessage[]) => {
-  return (messages ?? [])
+  const byId = new Map<string, ChatMessage>()
+  ;(messages ?? [])
     .map(normalizeMessage)
     .filter((message): message is ChatMessage => Boolean(message))
-    .sort((a, b) => new Date(a.createdAt ?? a.timestamp).getTime() - new Date(b.createdAt ?? b.timestamp).getTime())
+    .forEach((message) => byId.set(message._id || message.id, message))
+
+  return Array.from(byId.values()).sort((a, b) => new Date(a.createdAt ?? a.timestamp).getTime() - new Date(b.createdAt ?? b.timestamp).getTime())
 }
 
 const renderInlineMarkdown = (text: string, keyPrefix: string): ReactNode[] => {
@@ -227,6 +236,57 @@ export const AdminChatPage = () => {
   const selectedUser = sessionUser(selectedSession)
   const messages = useMemo(() => normalizeMessages(selectedSession?.messages), [selectedSession])
   const isSelectedClosed = selectedSession?.status === 'closed'
+
+  const mergeRealtimeSession = useCallback((sessionIdValue: string, partial: Partial<AdminChatSession>) => {
+    setSessions((current) => current.map((session) => {
+      if (!isSameSession(session, sessionIdValue)) return session
+      return mergeAdminSession(session, partial as AdminChatSession)
+    }))
+    setSelectedSession((current) => {
+      if (!current || !isSameSession(current, sessionIdValue)) return current
+      return mergeAdminSession(current, partial as AdminChatSession)
+    })
+  }, [])
+
+  const handleRealtimeMessage = useCallback((event: ChatMessageCreatedEvent) => {
+    const message = normalizeMessage(event.message)
+    if (!message) return
+    setSelectedSession((current) => {
+      if (!current || !isSameSession(current, event.sessionId)) return current
+      return {
+        ...current,
+        messages: normalizeMessages([...(current.messages ?? []), message]),
+        lastMessage: message,
+        lastMessageAt: message.createdAt ?? message.timestamp
+      }
+    })
+    setSessions((current) => current.map((session) => {
+      if (!isSameSession(session, event.sessionId)) return session
+      return {
+        ...session,
+        lastMessage: message,
+        lastMessageAt: message.createdAt ?? message.timestamp,
+        unreadByAdmin: message.senderType === 'USER' ? true : session.unreadByAdmin
+      }
+    }))
+  }, [])
+
+  const handleRealtimeSession = useCallback((event: ChatSessionUpdatedEvent) => {
+    mergeRealtimeSession(event.sessionId, event.session as Partial<AdminChatSession>)
+  }, [mergeRealtimeSession])
+
+  const handleRealtimeRead = useCallback((event: ChatReadUpdatedEvent) => {
+    mergeRealtimeSession(event.sessionId, event.session as Partial<AdminChatSession>)
+  }, [mergeRealtimeSession])
+
+  useChatRealtime({
+    sessionId: selectedSessionId,
+    sessionIds: [selectedSessionId, selectedSession?.id, selectedSession?._id],
+    onMessageCreated: handleRealtimeMessage,
+    onSessionUpdated: handleRealtimeSession,
+    onReadUpdated: handleRealtimeRead,
+    markRead: Boolean(selectedSessionId)
+  })
 
   const loadSettings = async () => {
     setIsSettingsLoading(true)
@@ -405,6 +465,11 @@ export const AdminChatPage = () => {
     } finally {
       setIsActionLoading(false)
     }
+  }
+
+  const handleReplyChange = (value: string) => {
+    setReply(value)
+    if (selectedSessionId) emitChatTyping(selectedSessionId, Boolean(value.trim()))
   }
 
   return (
@@ -587,7 +652,7 @@ export const AdminChatPage = () => {
                 </div>
 
                 <form onSubmit={sendReply} className="space-y-3">
-                  <Textarea value={reply} onChange={(event) => setReply(event.target.value)} placeholder={isSelectedClosed ? 'Session đã đóng' : 'Nhập phản hồi admin...'} className="min-h-24 bg-white dark:bg-slate-950" disabled={isActionLoading || isSelectedClosed} />
+                  <Textarea value={reply} onChange={(event) => handleReplyChange(event.target.value)} placeholder={isSelectedClosed ? 'Session đã đóng' : 'Nhập phản hồi admin...'} className="min-h-24 bg-white dark:bg-slate-950" disabled={isActionLoading || isSelectedClosed} />
                   <div className="flex justify-end">
                     <Button type="submit" disabled={!reply.trim() || isActionLoading || isSelectedClosed} isLoading={isActionLoading}>
                       <Send className="mr-2 h-4 w-4" />

@@ -16,6 +16,8 @@ type ChatState = {
   createSession: (payload: string | CreateChatSessionPayload, repositoryContext?: string) => Promise<ChatSession>
   sendMessage: (content: string, context?: Omit<SendMessagePayload, 'message'>) => Promise<void>
   selectSession: (id: string) => Promise<void>
+  applyRealtimeMessage: (sessionId: string, message: ChatMessage) => void
+  applyRealtimeSession: (sessionId: string, session: Partial<ChatSession>) => void
   deleteSession: (id: string) => Promise<void>
   clearError: () => void
 }
@@ -123,7 +125,7 @@ const pickAssistantMessage = (payload: unknown): ChatMessage | null => {
 }
 
 const messageKey = (message: ChatMessage) => {
-  return message.id || message._id || `${message.senderType}-${message.createdAt}-${message.content}`
+  return message._id || message.id || `${message.senderType}-${message.createdAt}-${message.content}`
 }
 
 const mergeMessages = (messages: ChatMessage[]) => {
@@ -175,6 +177,17 @@ const upsertSession = (sessions: ChatSession[], session: ChatSession) => {
   return sessions.some((item) => item.id === session.id)
     ? sessions.map((item) => item.id === session.id ? session : item)
     : [session, ...sessions]
+}
+
+const normalizeRealtimeSession = (sessionId: string, session: Partial<ChatSession>): ChatSession => {
+  return normalizeChatSession({
+    id: session.id ?? session._id ?? sessionId,
+    _id: session._id ?? session.id ?? sessionId,
+    title: session.title,
+    createdAt: session.createdAt,
+    messages: [],
+    ...session
+  })
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -373,6 +386,47 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch (error) {
       set({ error: getApiErrorMessage(error) })
     }
+  },
+
+  applyRealtimeMessage: (sessionId, message) => {
+    const normalizedMessage = normalizeChatMessage(message)
+    set((state) => {
+      const updateSession = (session: ChatSession) => {
+        if (session.id !== sessionId && session._id !== sessionId) return session
+        const messages = mergeMessages([...session.messages, normalizedMessage])
+        return {
+          ...session,
+          messages,
+          lastMessage: normalizedMessage,
+          lastMessageAt: normalizedMessage.createdAt ?? normalizedMessage.timestamp,
+          updatedAt: normalizedMessage.updatedAt ?? normalizedMessage.createdAt ?? session.updatedAt
+        }
+      }
+      const currentSession = state.currentSession ? updateSession(state.currentSession) : state.currentSession
+      return {
+        currentSession,
+        sessions: state.sessions.map(updateSession),
+        isAiTyping: normalizedMessage.senderType === 'AI' ? false : state.isAiTyping,
+        manualWaiting: isManualWaitingSession(currentSession)
+      }
+    })
+  },
+
+  applyRealtimeSession: (sessionId, session) => {
+    const normalized = normalizeRealtimeSession(sessionId, session)
+    set((state) => {
+      const currentSession = state.currentSession && (state.currentSession.id === sessionId || state.currentSession._id === sessionId)
+        ? mergeSession(state.currentSession, normalized)
+        : state.currentSession
+      const sessions = state.sessions.some((item) => item.id === sessionId || item._id === sessionId)
+        ? state.sessions.map((item) => (item.id === sessionId || item._id === sessionId) ? mergeSession(item, normalized) : item)
+        : state.sessions
+      return {
+        currentSession,
+        sessions,
+        manualWaiting: isManualWaitingSession(currentSession)
+      }
+    })
   },
 
   deleteSession: async (id) => {
