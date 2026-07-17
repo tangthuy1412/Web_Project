@@ -270,8 +270,105 @@ export type AdminAnalysisCommitSummary = {
   activeDays?: number
   vagueCommitRatio?: number
   conventionalCommitRatio?: number
-  firstCommitDate?: string
-  lastCommitDate?: string
+  firstCommitDate?: string | null
+  lastCommitDate?: string | null
+}
+
+export type AdminAnalysisSummary = {
+  careerDirection?: string
+  userLevel?: string
+  userReadinessScore?: number
+  overallScore?: number
+  projectType?: string
+  confidence?: number | string
+}
+
+export type AdminAnalysisScope = {
+  type?: string
+  githubUsername?: string
+  totalRepoCommits?: number
+  userCommits?: number
+  activeDays?: number
+  firstCommitDate?: string | null
+  lastCommitDate?: string | null
+  analyzedCommitShas?: string[]
+  source?: string
+}
+
+export type AdminAnalysisSkillVector = {
+  skill?: string
+  canonicalSkillName?: string
+  normalizedSkillName?: string
+  category?: string
+  score?: number
+  level?: string
+  similarity?: number
+  dev2vecStatus?: string
+  evidenceDetected?: boolean
+  evidenceStatus?: string
+  evidence?: string[]
+  sources?: string[]
+  reason?: string
+  lastCalculatedAt?: string
+}
+
+export type AdminAnalysisRolePrediction = {
+  roleId?: string
+  roleName?: string
+  modelLabel?: string
+  probability?: number
+  rank?: number
+}
+
+export type AdminAnalysisSkillGap = {
+  matchedSkillNames?: string[]
+  weakSkillNames?: string[]
+  missingSkillNames?: string[]
+  recommendedNextSkills?: string[]
+  details?: Array<{
+    skillName?: string
+    canonicalSkillName?: string
+    similarity?: number
+    status?: string
+  }>
+}
+
+export type AdminAnalysisScoreBreakdown = {
+  scoringMethod?: string
+  modelVersion?: string
+  topRoleProbability?: number
+  vectorSources?: Record<string, boolean>
+  sourceStats?: Record<string, unknown>
+  repoFeatureEvidence?: Record<string, { detected?: boolean; evidence?: unknown[] }>
+  skillScore?: number
+  contributionScore?: number
+  commitQualityScore?: number
+  projectCompletenessScore?: number
+  missingCriticalPenalty?: number
+  confidence?: number
+}
+
+export type AdminAnalysisDev2Vec = {
+  modelVersion?: string
+  vectorDims?: Record<string, number>
+  vectorSources?: Record<string, boolean>
+  sourceStats?: Record<string, unknown>
+  rolePredictions?: AdminAnalysisRolePrediction[]
+  skillGaps?: Record<string, AdminAnalysisSkillGap>
+  scoringMethod?: string
+  cacheMetadata?: Record<string, unknown>
+}
+
+export type AdminAnalysisProvenance = {
+  analyzedHeadSha?: string
+  previousAnalysisId?: string | null
+  previousSnapshotId?: string | null
+  newCommitShas?: string[]
+  reusedCommitShasCount?: number
+  newEvidenceCount?: number
+  reusedEvidenceCount?: number
+  incremental?: boolean
+  incrementalReason?: string
 }
 
 export type AdminAnalysisChecklist = {
@@ -307,9 +404,16 @@ export type AdminAnalysis = {
   missingSkills?: string[]
   recommendations?: string[]
   scores?: AdminAnalysisScores
+  summary?: AdminAnalysisSummary
+  analysisScope?: AdminAnalysisScope
+  scoreBreakdown?: AdminAnalysisScoreBreakdown
   commitSummary?: AdminAnalysisCommitSummary
   checklist?: AdminAnalysisChecklist
   rawAnalysis?: Record<string, unknown>
+  skillEvidence?: unknown[]
+  skillVector?: AdminAnalysisSkillVector[]
+  dev2vec?: AdminAnalysisDev2Vec
+  analysisProvenance?: AdminAnalysisProvenance
   analyzedAt?: string
   createdAt?: string
   updatedAt?: string
