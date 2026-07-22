@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router'
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -17,7 +18,7 @@ import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
 import { formatDate } from '../../lib/utils'
 import { getApiErrorMessage } from '../../services/apis/core'
-import { type AnalysisSnapshot, snapshotApi, type SkillComparisonItem, type SnapshotComparison } from '../../services/apis/progress'
+import { type AnalysisSnapshot, snapshotApi, type RepositoryProgressComparisonState, type SkillComparisonItem, type SnapshotComparison, type SnapshotComparisonState } from '../../services/apis/progress'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import type { SkillVectorItem } from '../../types'
 
@@ -72,6 +73,13 @@ const trendVariant = (trend?: string): 'success' | 'warning' | 'danger' | 'defau
 
 const snapshotLabel = (snapshot: AnalysisSnapshot, index: number) =>
   `Mốc ${index + 1} - ${snapshot.createdAt ? formatDate(snapshot.createdAt) : snapshot.id}`
+
+const sameSnapshotGeneration = (left?: AnalysisSnapshot, right?: AnalysisSnapshot) => {
+  if (!left || !right) return true
+  if (left.modelVersion && right.modelVersion && left.modelVersion !== right.modelVersion) return false
+  if (left.pipelineVersion && right.pipelineVersion && left.pipelineVersion !== right.pipelineVersion) return false
+  return true
+}
 
 const currentAssessment = (snapshot?: AnalysisSnapshot | null) => {
   const score = toScore(snapshot?.overallScore)
@@ -140,13 +148,15 @@ export const RepositoryProgressPage = () => {
   const { repositories, fetchRepositories } = useRepositoryStore()
   const [repositoryId, setRepositoryId] = useState('')
   const [snapshots, setSnapshots] = useState<AnalysisSnapshot[]>([])
-  const [baselineComparison, setBaselineComparison] = useState<SnapshotComparison | null>(null)
-  const [manualComparison, setManualComparison] = useState<SnapshotComparison | null>(null)
+  const [baselineComparison, setBaselineComparison] = useState<RepositoryProgressComparisonState | null>(null)
+  const [manualComparison, setManualComparison] = useState<SnapshotComparisonState | null>(null)
   const [firstId, setFirstId] = useState('')
   const [secondId, setSecondId] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isComparing, setIsComparing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const loadRequestRef = useRef(0)
+  const compareRequestRef = useRef(0)
 
   useEffect(() => {
     void fetchRepositories().catch(() => undefined)
@@ -158,6 +168,7 @@ export const RepositoryProgressPage = () => {
 
   const loadSnapshots = async () => {
     if (!repositoryId) return
+    const requestId = ++loadRequestRef.current
 
     setIsLoading(true)
     setError(null)
@@ -166,58 +177,104 @@ export const RepositoryProgressPage = () => {
     try {
       const history = await snapshotApi.getSnapshots(repositoryId)
       const ordered = [...history].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-      const latestDetail = ordered.at(-1)
-        ? await snapshotApi.getSnapshot(ordered.at(-1)!.id).catch(() => null)
+      const currentListSnapshot = ordered.find((snapshot) => snapshot.isCurrentVersion)
+      const latestDetail = currentListSnapshot
+        ? await snapshotApi.getSnapshot(currentListSnapshot.id).catch(() => null)
         : null
       const hydrated = latestDetail
         ? ordered.map((snapshot) => snapshot.id === latestDetail.id ? latestDetail : snapshot)
         : ordered
-      const comparison = hydrated.length > 1
-        ? await snapshotApi.getProgressComparison(repositoryId).catch(() => null)
-        : null
+      const comparison = await snapshotApi.getProgressComparison(repositoryId)
+      if (requestId !== loadRequestRef.current) return
+      const comparable = hydrated.filter((snapshot) => snapshot.isComparableWithCurrent !== false && snapshot.isCompatible !== false)
 
       setSnapshots(hydrated)
       setBaselineComparison(comparison)
-      setFirstId(hydrated[0]?.id ?? '')
-      setSecondId(hydrated.at(-1)?.id ?? '')
+      setFirstId(comparable[0]?.id ?? '')
+      setSecondId(comparable.find((snapshot) => snapshot.id !== comparable[0]?.id)?.id ?? '')
     } catch (requestError) {
+      if (requestId !== loadRequestRef.current) return
       setSnapshots([])
       setBaselineComparison(null)
       setError(getApiErrorMessage(requestError))
     } finally {
-      setIsLoading(false)
+      if (requestId === loadRequestRef.current) setIsLoading(false)
     }
   }
 
   useEffect(() => {
+    setSnapshots([])
+    setBaselineComparison(null)
+    setManualComparison(null)
+    setFirstId('')
+    setSecondId('')
     void loadSnapshots()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repositoryId])
 
   const compareSnapshots = async () => {
     if (!firstId || !secondId || firstId === secondId) return
+    const requestId = ++compareRequestRef.current
 
     setIsComparing(true)
     setError(null)
+    setManualComparison(null)
 
     try {
-      setManualComparison(await snapshotApi.compareSnapshots(firstId, secondId))
+      const comparison = await snapshotApi.compareSnapshots(firstId, secondId)
+      if (requestId !== compareRequestRef.current) return
+      setManualComparison(comparison)
+      if (comparison.comparisonStatus === 'incompatible_snapshot_versions') {
+        setError('Không thể so sánh snapshot khác phiên bản')
+      }
     } catch (requestError) {
+      if (requestId !== compareRequestRef.current) return
       setError(getApiErrorMessage(requestError))
     } finally {
-      setIsComparing(false)
+      if (requestId === compareRequestRef.current) setIsComparing(false)
     }
   }
 
-  const activeComparison = manualComparison ?? baselineComparison
+  const openSnapshot = async (snapshotId: string) => {
+    try {
+      const detail = await snapshotApi.getSnapshot(snapshotId)
+      setSnapshots((current) => current.map((snapshot) => snapshot.id === snapshotId ? detail : snapshot))
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError))
+    }
+  }
+
+  useEffect(() => {
+    compareRequestRef.current += 1
+    setIsComparing(false)
+    setManualComparison(null)
+    setError(null)
+  }, [firstId, secondId])
+
+  const activeComparison = manualComparison?.comparisonStatus === 'comparable'
+    ? manualComparison
+    : baselineComparison?.comparisonStatus === 'comparable'
+      ? baselineComparison.data
+      : null
+  const insufficientComparison = baselineComparison?.comparisonStatus === 'insufficient_compatible_snapshots'
   const selectedRepository = repositories.find((repository) => repository.id === repositoryId)
-  const firstSnapshot = activeComparison?.firstSnapshot ?? snapshots[0] ?? null
-  const latestSnapshot = activeComparison?.latestSnapshot ?? snapshots.at(-1) ?? null
+  const firstSnapshot = activeComparison?.firstSnapshot ?? null
+  const latestSnapshot = activeComparison?.latestSnapshot ?? snapshots.find((snapshot) => snapshot.isCurrentVersion) ?? null
   const contributionScope = latestSnapshot?.analysisScope
-  const overallChange = activeComparison?.overallChange ?? ((latestSnapshot?.overallScore ?? 0) - (firstSnapshot?.overallScore ?? 0))
+  const overallChange = activeComparison?.overallChange ?? 0
   const repoTitle = activeComparison?.fullName || latestSnapshot?.fullName || selectedRepository?.fullName || selectedRepository?.name || 'Dự án'
   const topSkills = latestSnapshot?.topSkills?.length ? latestSnapshot.topSkills : latestSnapshot?.skillVector ?? []
   const skillGroups = getSkillGroups(activeComparison)
+  const selectedFirstSnapshot = snapshots.find((snapshot) => snapshot.id === firstId)
+  const selectedSecondSnapshot = snapshots.find((snapshot) => snapshot.id === secondId)
+  const pairIsComparable = Boolean(
+    firstId && secondId && firstId !== secondId
+    && selectedFirstSnapshot?.isComparableWithCurrent !== false
+    && selectedSecondSnapshot?.isComparableWithCurrent !== false
+    && selectedFirstSnapshot?.isCompatible !== false
+    && selectedSecondSnapshot?.isCompatible !== false
+    && sameSnapshotGeneration(selectedFirstSnapshot, selectedSecondSnapshot)
+  )
   const chartData = useMemo(() => snapshots.map((snapshot, index) => ({
     label: snapshot.createdAt ? formatDate(snapshot.createdAt) : `Mốc ${index + 1}`,
     score: toScore(snapshot.overallScore)
@@ -368,6 +425,12 @@ export const RepositoryProgressPage = () => {
                         <Badge variant="info">{toScore(snapshot.overallScore)}</Badge>
                       </div>
                       <p className="mt-2 text-xs text-slate-500">Trình độ: {levelLabel(snapshot.userLevel)}</p>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {snapshot.pipelineVersion && <Badge variant="info">Pipeline {snapshot.pipelineVersion}</Badge>}
+                        {snapshot.isCurrentVersion ? <Badge variant="success">Phiên bản hiện tại</Badge> : <Badge>Phiên bản cũ</Badge>}
+                        {snapshot.isComparableWithCurrent === false && <Badge variant="warning">Không thể so sánh</Badge>}
+                        <Button size="sm" variant="ghost" onClick={() => openSnapshot(snapshot.id)}>Xem chi tiết</Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -436,7 +499,9 @@ export const RepositoryProgressPage = () => {
                     className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
                   >
                     {snapshots.map((snapshot, index) => (
-                      <option key={snapshot.id} value={snapshot.id}>{snapshotLabel(snapshot, index)}</option>
+                      <option key={snapshot.id} value={snapshot.id} disabled={snapshot.isComparableWithCurrent === false || snapshot.isCompatible === false || snapshot.id === secondId}>
+                        {snapshotLabel(snapshot, index)}{snapshot.pipelineVersion ? ` · Pipeline ${snapshot.pipelineVersion}` : ''}{snapshot.isCurrentVersion ? ' · Phiên bản hiện tại' : snapshot.isCompatible === false ? ' · Phiên bản cũ' : ''}{snapshot.isComparableWithCurrent === false ? ' · Không thể so sánh' : ''}
+                      </option>
                     ))}
                   </select>
                   <select
@@ -445,14 +510,17 @@ export const RepositoryProgressPage = () => {
                     className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
                   >
                     {snapshots.map((snapshot, index) => (
-                      <option key={snapshot.id} value={snapshot.id}>{snapshotLabel(snapshot, index)}</option>
+                      <option key={snapshot.id} value={snapshot.id} disabled={snapshot.isComparableWithCurrent === false || snapshot.isCompatible === false || snapshot.id === firstId || !sameSnapshotGeneration(selectedFirstSnapshot, snapshot)}>
+                        {snapshotLabel(snapshot, index)}{snapshot.pipelineVersion ? ` · Pipeline ${snapshot.pipelineVersion}` : ''}{snapshot.isCurrentVersion ? ' · Phiên bản hiện tại' : snapshot.isCompatible === false ? ' · Phiên bản cũ' : ''}{snapshot.isComparableWithCurrent === false ? ' · Không thể so sánh' : ''}
+                      </option>
                     ))}
                   </select>
-                  <Button onClick={compareSnapshots} isLoading={isComparing} disabled={firstId === secondId}>
+                  <Button onClick={compareSnapshots} isLoading={isComparing} disabled={!pairIsComparable || isComparing}>
                     <GitCompareArrows className="mr-2 h-4 w-4" />So sánh
                   </Button>
                 </div>
 
+                {activeComparison ? <>
                 <div className="grid gap-3 md:grid-cols-4">
                   <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                     <p className="text-xs text-slate-500">Điểm thay đổi</p>
@@ -548,6 +616,16 @@ export const RepositoryProgressPage = () => {
                     )}
                   </div>
                 ) : null}
+                </> : (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    {manualComparison?.comparisonStatus === 'incompatible_snapshot_versions'
+                      ? 'Không thể so sánh snapshot khác phiên bản'
+                      : insufficientComparison
+                        ? baselineComparison.message || 'Cần ít nhất hai snapshot tương thích để so sánh tiến độ.'
+                        : 'Chọn hai snapshot tương thích để so sánh.'}
+                    {insufficientComparison && <div className="mt-3"><Link to={`/repositories/${repositoryId}`}><Button size="sm" variant="outline">Phân tích lại repository</Button></Link></div>}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : (

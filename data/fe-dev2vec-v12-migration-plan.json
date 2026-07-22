@@ -1,0 +1,233 @@
+{
+  "version": "fe-dev2vec-v12-migration-plan-v1",
+  "summary": {
+    "total": 20,
+    "compatible": 3,
+    "partially_compatible": 7,
+    "needs_change": 9,
+    "missing": 1,
+    "manual_review": 0
+  },
+  "features": [
+    {
+      "feature": "repository_analysis",
+      "status": "partially_compatible",
+      "priority": "P0",
+      "files": ["src/app/services/apis/analysisApi.ts", "src/app/stores/repositoryStore.ts", "src/app/types/index.ts"],
+      "endpoints": ["POST /api/analysis/repositories/{repoId}"],
+      "currentBehavior": "Runs analysis with includeEvidence and normalizes the resolved body into AnalysisResult.",
+      "requiredBehavior": "Preserve analysis/snapshot IDs, model/pipeline versions, compatibility and authoritative status.",
+      "changes": ["Add optional version/compatibility DTOs", "Preserve typed response metadata in the store"],
+      "tests": ["Compatible v12 analysis", "Response containing IDs and version metadata"]
+    },
+    {
+      "feature": "analysis_result",
+      "status": "needs_change",
+      "priority": "P0",
+      "files": ["src/app/services/apis/analysisApi.ts", "src/app/services/apis/normalizerParts/analysis.ts", "src/app/stores/repositoryStore.ts", "src/app/pages/analysis/AnalysisResultPage.tsx"],
+      "endpoints": ["GET /api/analysis/results/{repoId}"],
+      "currentBehavior": "Every successful payload is normalized and rendered as a current analysis.",
+      "requiredBehavior": "Branch on analysisStatus, reason and compatibility; show re-analysis CTA for incompatible/no compatible analysis.",
+      "changes": ["Introduce typed result-state union", "Do not normalize typed state as analysis", "Add transition-state UI"],
+      "tests": ["available", "analysis_required", "incompatible_analysis_history", "no_compatible_dev2vec_analysis"]
+    },
+    {
+      "feature": "analysis_list",
+      "status": "needs_change",
+      "priority": "P0",
+      "files": ["src/app/services/apis/analysisApi.ts", "src/app/stores/repositoryStore.ts", "src/app/pages/dashboard/DashboardPage.tsx"],
+      "endpoints": ["GET /api/analysis/me"],
+      "currentBehavior": "Normalizes an analysis array and trusts list order in consumers.",
+      "requiredBehavior": "Retain every repository and its compatible/analysis-required state; never select current by timestamp or index.",
+      "changes": ["Store per-repository state", "Remove analyses[0] current fallback"],
+      "tests": ["Mixed compatible and legacy histories", "Repository with no v12 analysis"]
+    },
+    {
+      "feature": "single_repository_role_matching",
+      "status": "needs_change",
+      "priority": "P0",
+      "files": ["src/app/components/analysis/RoleMatchPanel.tsx", "src/app/services/apis/roleMatchApi.ts", "src/app/types/index.ts"],
+      "endpoints": ["GET /api/analysis/repositories/{repoId}/role-matches"],
+      "currentBehavior": "Renders topRole plus up to three matches as one inference list.",
+      "requiredBehavior": "Render current-repository primaryRole separately from additionalRoleOptions and label provenance.",
+      "changes": ["Add RoleOption/RoleSelection types", "Render primary and portfolio sections"],
+      "tests": ["Primary only", "Primary plus two portfolio options", "Source repository labels"]
+    },
+    {
+      "feature": "portfolio_role_options",
+      "status": "needs_change",
+      "priority": "P0",
+      "files": ["src/app/services/apis/roleMatchApi.ts", "src/features/roadmaps/pages/RoadmapsPage.tsx"],
+      "endpoints": ["POST /api/analysis/role-matches"],
+      "currentBehavior": "Forces limit 3 and uses old multi-repository/top-role semantics.",
+      "requiredBehavior": "Treat results as per-repository primary roles and consume aggregation metadata without merged-inference copy.",
+      "changes": ["Remove top-3 assumption", "Retain selectionType and source IDs", "Update UI copy"],
+      "tests": ["repository_primary_roles aggregation", "classifierInferencePerformed false"]
+    },
+    {
+      "feature": "role_selection",
+      "status": "needs_change",
+      "priority": "P0",
+      "files": ["src/features/roadmaps/pages/RoadmapsPage.tsx", "src/features/roadmaps/constants/roadmapTargetRoles.ts"],
+      "endpoints": ["GET /api/roles/catalog"],
+      "currentBehavior": "Allows selection from hard-coded role names/IDs independent of backend RoleOption provenance.",
+      "requiredBehavior": "Allow only primary/additional/portfolio options returned by backend; catalog is display metadata.",
+      "changes": ["Store full selected RoleOption", "Remove arbitrary role authorization"],
+      "tests": ["Default primary", "Portfolio selection", "Reject catalog-only role"]
+    },
+    {
+      "feature": "roadmap_generation",
+      "status": "needs_change",
+      "priority": "P0",
+      "files": ["src/features/roadmaps/services/roadmapService.ts", "src/features/roadmaps/stores/roadmapStore.ts", "src/features/roadmaps/pages/RoadmapsPage.tsx"],
+      "endpoints": ["POST /api/roadmaps/generate"],
+      "currentBehavior": "Sends roleId, nested selectedRole, sourceMode and repoId/repoIds; omits selected-role provenance.",
+      "requiredBehavior": "Send repoId/currentRepositoryId, selectedRoleId and source repository/analysis/snapshot IDs.",
+      "changes": ["Build provenance payload from RoleOption", "Keep legacy repoId fallback only where required", "Remove old multi-repo authority semantics"],
+      "tests": ["Primary role payload", "Portfolio role payload", "Legacy repoId fallback"]
+    },
+    {
+      "feature": "roadmap_provenance",
+      "status": "partially_compatible",
+      "priority": "P0",
+      "files": ["src/features/roadmaps/types/index.ts", "src/features/roadmaps/services/roadmapService.ts", "src/features/roadmaps/pages/RoadmapDetailPage.tsx"],
+      "endpoints": ["GET /api/roadmaps/{roadmapId}", "POST /api/roadmaps/generate"],
+      "currentBehavior": "Displays source mode/repository/effective level but locally synthesizes part of roadmapSource.",
+      "requiredBehavior": "Preserve and display server selected role/source/version provenance; do not synthesize authority.",
+      "changes": ["Expand RoadmapSource", "Stop local authoritative enrichment", "Update provenance copy"],
+      "tests": ["Server provenance preserved", "Old roadmap without provenance"]
+    },
+    {
+      "feature": "roadmap_detail",
+      "status": "partially_compatible",
+      "priority": "P1",
+      "files": ["src/features/roadmaps/pages/RoadmapDetailPage.tsx", "src/features/roadmaps/components/RoadmapTree.tsx"],
+      "endpoints": ["GET /api/roadmaps/{roadmapId}"],
+      "currentBehavior": "Loads normalized roadmap by route ID, renders provenance, phases/tasks, learning availability and progress.",
+      "requiredBehavior": "Keep current flow, correct provenance semantics, and host additive Coursera section after all roadmap content.",
+      "changes": ["Correct source copy", "Add isolated Coursera section after Tabs"],
+      "tests": ["Route ID loading", "Archived roadmap", "No provenance"]
+    },
+    {
+      "feature": "learning_by_roadmap_item",
+      "status": "compatible",
+      "priority": "P2",
+      "files": ["src/app/services/apis/learningApi.ts", "src/features/roadmaps/stores/learningStore.ts", "src/features/roadmaps/pages/SkillLearningDetailPage.tsx"],
+      "endpoints": ["GET /api/roadmaps/{roadmapId}/learning", "GET /api/roadmaps/{roadmapId}/learning/items/{itemId}", "POST /api/roadmaps/{roadmapId}/learning/items/{itemId}/generate"],
+      "currentBehavior": "Uses item IDs, includes resources, supports missing-content generation and renders dedicated detail route.",
+      "requiredBehavior": "Contract unchanged; remain the primary learning flow.",
+      "changes": ["No functional migration"],
+      "tests": ["Availability overlay", "Item detail", "Finite generation retry"]
+    },
+    {
+      "feature": "youtube_resources",
+      "status": "compatible",
+      "priority": "P2",
+      "files": ["src/app/services/apis/learningApi.ts", "src/features/roadmaps/pages/SkillLearningDetailPage.tsx"],
+      "endpoints": ["GET /api/roadmaps/{roadmapId}/learning/items/{itemId}"],
+      "currentBehavior": "Normalizes learning resources and renders provider/thumbnail/external anchors with a falsy-thumbnail placeholder.",
+      "requiredBehavior": "Remain part of item learning and not be mixed with Coursera.",
+      "changes": ["No functional migration"],
+      "tests": ["YouTube resource", "Empty thumbnail", "External link"]
+    },
+    {
+      "feature": "roadmap_progress",
+      "status": "compatible",
+      "priority": "P1",
+      "files": ["src/features/roadmaps/services/roadmapService.ts", "src/features/roadmaps/stores/roadmapStore.ts", "src/features/roadmaps/pages/RoadmapDetailPage.tsx"],
+      "endpoints": ["GET /api/roadmaps/{roadmapId}/progress", "PATCH /api/roadmaps/{roadmapId}/progress/items", "POST /api/roadmaps/{roadmapId}/progress/reset"],
+      "currentBehavior": "Fetches, updates and resets item learning progress separately from repository snapshot comparison.",
+      "requiredBehavior": "Contract unchanged; Coursera must never mutate it.",
+      "changes": ["Regression protection only"],
+      "tests": ["Complete item", "Reset", "Coursera click does not update progress"]
+    },
+    {
+      "feature": "snapshot_list_detail_comparison",
+      "status": "partially_compatible",
+      "priority": "P0",
+      "files": ["src/app/services/apis/snapshotApi.ts", "src/app/pages/progress/RepositoryProgressPage.tsx"],
+      "endpoints": ["GET /api/repositories/{repoId}/snapshots", "GET /api/snapshots/{snapshotId}", "POST /api/snapshots/compare"],
+      "currentBehavior": "Loads and normalizes snapshots but omits compatibility/version metadata, offers all pairs, and treats HTTP 409 as a generic error.",
+      "requiredBehavior": "Show versions, distinguish viewable/current/comparable, disable incompatible pairs, and render the typed 409 state without a delta chart.",
+      "changes": ["Normalize compatibility fields", "Add version/legacy badges", "Disable incompatible choices", "Parse incompatible_snapshot_versions"],
+      "tests": ["Current snapshot", "Viewable legacy snapshot", "Non-comparable snapshot", "incompatible_snapshot_versions"]
+    },
+    {
+      "feature": "progress_comparison",
+      "status": "needs_change",
+      "priority": "P0",
+      "files": ["src/app/services/apis/snapshotApi.ts", "src/app/pages/progress/RepositoryProgressPage.tsx"],
+      "endpoints": ["GET /api/repositories/{repoId}/progress-comparison"],
+      "currentBehavior": "Swallows automatic comparison errors and can derive fallback charts from first/latest snapshots.",
+      "requiredBehavior": "Handle insufficient_compatible_snapshots as a successful domain state and never fall back to legacy snapshot deltas.",
+      "changes": ["Typed progress-comparison union", "Remove legacy fallback charts"],
+      "tests": ["comparable", "insufficient_compatible_snapshots"]
+    },
+    {
+      "feature": "dashboard",
+      "status": "needs_change",
+      "priority": "P0",
+      "files": ["src/app/services/apis/dashboardApi.ts", "src/app/pages/dashboard/DashboardPage.tsx"],
+      "endpoints": ["GET /api/dashboard/me"],
+      "currentBehavior": "Calls dashboard endpoint but also aggregates analyses and falls back to analyses[0] for current-looking metrics.",
+      "requiredBehavior": "Honor dev2vecStatus and backend current entities; hide legacy career result for analysis_required.",
+      "changes": ["Type dashboard DTO", "Remove current-state client aggregation", "Add analysis CTA"],
+      "tests": ["current", "analysis_required", "Legacy histories present"]
+    },
+    {
+      "feature": "ai_feedback",
+      "status": "needs_change",
+      "priority": "P1",
+      "files": ["src/app/services/apis/aiFeedbackApi.ts", "src/app/stores/repositoryStore.ts", "src/app/pages/repositories/RepositoryDetailPage.tsx", "src/app/types/index.ts"],
+      "endpoints": ["POST /api/ai-feedback/repositories/{repoId}", "GET /api/ai-feedback/results/{repoId}", "GET /api/ai-feedback/me"],
+      "currentBehavior": "Endpoint coverage and legacy rendering exist; freshness and typed analysis conflicts are ignored.",
+      "requiredBehavior": "Show stale badge/regenerate CTA and route analysis conflicts to re-analysis without repeated Gemini retry.",
+      "changes": ["Add freshness fields", "Typed error handling", "Stale UI"],
+      "tests": ["Current feedback", "Stale feedback", "analysis_required conflict"]
+    },
+    {
+      "feature": "ai_mentor_chat",
+      "status": "partially_compatible",
+      "priority": "P1",
+      "files": ["src/app/services/apis/chatApi.ts", "src/app/stores/chatStore.ts", "src/app/pages/chat/ChatPage.tsx", "src/app/types/index.ts"],
+      "endpoints": ["POST /api/chat/sessions/{sessionId}/messages"],
+      "currentBehavior": "Supports sessions, one repository context and realtime messages; omits authoritative context metadata.",
+      "requiredBehavior": "Send explicit repositoryIds for comparison and preserve contextSources/dev2vecAuthoritative.",
+      "changes": ["Extend send payload", "Normalize metadata", "Add transparent context labels"],
+      "tests": ["Single repository", "2-5 repository comparison", "Technical context not shown as personal skill"]
+    },
+    {
+      "feature": "role_catalog",
+      "status": "partially_compatible",
+      "priority": "P1",
+      "files": ["src/app/services/apis/roleMatchApi.ts", "src/app/components/analysis/RoleMatchPanel.tsx", "src/features/roadmaps/pages/RoadmapsPage.tsx"],
+      "endpoints": ["GET /api/roles/catalog"],
+      "currentBehavior": "Fetches catalog for display enrichment, but roadmap creation also relies on hard-coded arbitrary roles.",
+      "requiredBehavior": "Use catalog only as metadata and read modelVersion from response.",
+      "changes": ["Separate display catalog from selectable RoleOptions", "Do not hard-code version"],
+      "tests": ["v4 catalog", "Catalog-only role cannot generate authoritative roadmap"]
+    },
+    {
+      "feature": "coursera_recommendations",
+      "status": "missing",
+      "priority": "P1",
+      "files": ["src/features/roadmaps/pages/RoadmapDetailPage.tsx", "src/features/roadmaps/types/courseRecommendations.ts", "src/features/roadmaps/services/courseRecommendationService.ts", "src/features/roadmaps/stores/courseRecommendationStore.ts", "src/features/roadmaps/components/CourseraRecommendationSection.tsx", "src/features/roadmaps/utils/courseraUrl.ts"],
+      "endpoints": ["GET /api/roadmaps/{roadmapId}/course-recommendations"],
+      "currentBehavior": "No implementation exists.",
+      "requiredBehavior": "Fetch once per roadmap ID and render an isolated section after RoadmapDetailPage Tabs without affecting learning/progress.",
+      "changes": ["Add DTO/service/state/component", "Add HTTPS Coursera allowlist", "Handle empty/error/thumbnail locally"],
+      "tests": ["One request per roadmap", "courses empty", "Invalid URL", "Blank thumbnail", "No progress mutation"]
+    },
+    {
+      "feature": "error_loading_empty_states",
+      "status": "partially_compatible",
+      "priority": "P1",
+      "files": ["src/app/routes.tsx", "src/features/roadmaps/pages/RoadmapDetailPage.tsx", "src/features/roadmaps/pages/SkillLearningDetailPage.tsx", "src/app/pages/progress/RepositoryProgressPage.tsx"],
+      "endpoints": [],
+      "currentBehavior": "Route IDs are preserved for repository/analysis/roadmap/learning; generic loading/empty/error states exist, but typed compatibility states do not.",
+      "requiredBehavior": "Preserve provenance across role-to-roadmap navigation and render typed 200/409 states as domain states, not generic failures.",
+      "changes": ["Carry full RoleOption", "Add typed state components", "Keep section errors local"],
+      "tests": ["Deep-link roadmap", "Learning return position", "Typed state is not whole-page error"]
+    }
+  ]
+}

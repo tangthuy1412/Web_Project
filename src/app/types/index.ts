@@ -58,7 +58,10 @@ export interface RepositoryCommit {
 
 export interface AnalysisResult {
   id: string;
+  analysisId?: string;
   snapshotId?: string;
+  modelVersion?: string;
+  pipelineVersion?: string;
   repositoryId: string;
   repositoryName: string;
   repoName?: string;
@@ -218,6 +221,7 @@ export type ChatModeSource = 'GLOBAL' | 'SESSION' | string;
 
 export interface ChatContext {
   repositoryId?: string;
+  repositoryIds?: string[];
   repoName?: string;
   roadmapId?: string;
   analysisId?: string;
@@ -231,7 +235,54 @@ export interface ChatContext {
   hasRoadmapContext?: boolean;
   hasComparisonContext?: boolean;
   comparedRepoCount?: number;
+  contextSources?: Array<'authoritative_dev2vec' | 'user_contribution' | 'technical_repository_context' | string>;
+  dev2vecAuthoritative?: boolean;
 }
+
+export type ChatContextMetadata = Pick<ChatContext, 'contextSources' | 'dev2vecAuthoritative' | 'repositoryIds'>;
+
+export interface FeedbackFreshness {
+  isStale?: boolean;
+  staleReason?: string;
+  sourceModelVersion?: string;
+  sourcePipelineVersion?: string;
+  currentModelVersion?: string;
+  currentPipelineVersion?: string;
+}
+
+export interface Dev2VecVersionInfo {
+  modelVersion?: string;
+  pipelineVersion?: string;
+  repoDocumentVersion?: string;
+  issueDocumentVersion?: string;
+  apiEvidenceVersion?: string;
+}
+
+export interface Dev2VecCompatibility extends Dev2VecVersionInfo {
+  isCompatible?: boolean;
+  isCurrentVersion?: boolean;
+  isComparableWithCurrent?: boolean;
+}
+
+export type AnalysisRequiredReason =
+  | 'incompatible_analysis_history'
+  | 'no_compatible_dev2vec_analysis'
+  | string;
+
+export type RepositoryAnalysisState =
+  | {
+      analysisStatus: 'available';
+      repositoryId: string;
+      analysis: AnalysisResult;
+      compatibility?: Dev2VecCompatibility;
+      reason?: string;
+    }
+  | {
+      analysisStatus: 'analysis_required';
+      repositoryId: string;
+      reason: AnalysisRequiredReason;
+      compatibility?: Dev2VecCompatibility;
+    };
 
 export interface ChatMessage {
   _id?: string;
@@ -251,6 +302,7 @@ export interface ChatSession {
   id: string;
   title: string;
   repositoryId?: string;
+  repositoryIds?: string[];
   roadmapId?: string;
   analysisId?: string;
   snapshotId?: string;
@@ -278,6 +330,7 @@ export interface CreateChatSessionPayload {
   title: string;
   roadmapId?: string;
   repositoryId?: string;
+  repositoryIds?: string[];
   analysisId?: string;
   snapshotId?: string;
 }
@@ -330,7 +383,7 @@ export interface ChatTypingEvent {
   timestamp?: string;
 }
 
-export interface AIFeedback {
+export interface AIFeedback extends FeedbackFreshness {
   id?: string;
   repositoryId?: string;
   analysisSnapshotId?: string;
@@ -394,6 +447,66 @@ export interface ProgressData {
 
 export type RoleMatchLevel = 'high' | 'medium' | 'low' | 'very_low' | string;
 
+export type RoleSelectionType =
+  | 'current_repository_primary'
+  | 'portfolio_repository_primary'
+  | 'portfolio_suggestion';
+
+export interface RoleOption extends Dev2VecVersionInfo {
+  roleId: string;
+  roleName: string;
+  matchScore: number;
+  matchLevel?: string;
+  matchLevelLabel?: string;
+  sourceRepositoryId?: string;
+  sourceRepositoryName?: string;
+  sourceAnalysisId?: string;
+  sourceSnapshotId?: string;
+  selectionType?: RoleSelectionType;
+  matchedSkillNames?: string[];
+  weakSkillNames?: string[];
+  missingSkillNames?: string[];
+  recommendedNextSkills?: string[];
+}
+
+export interface DashboardTopRole {
+  roleId: string;
+  roleName: string;
+  matchScore?: number;
+}
+
+export interface DashboardCurrentSnapshot extends Dev2VecCompatibility {
+  id?: string;
+  snapshotId?: string;
+  repositoryId?: string;
+  repositoryName?: string;
+  overallScore?: number;
+  userLevel?: string;
+  createdAt?: string;
+}
+
+export interface DashboardResponse extends Dev2VecVersionInfo {
+  dev2vecStatus: 'current' | 'analysis_required';
+  message?: string;
+  totalRepositories?: number;
+  analyzedRepositories?: number;
+  githubConnected?: boolean;
+  overallScore?: number;
+  topRoles?: DashboardTopRole[];
+  currentSnapshot?: DashboardCurrentSnapshot | null;
+  currentFeedback?: AIFeedback | null;
+  recentAnalyses?: AnalysisResult[];
+}
+
+export interface RoleSelection {
+  primaryRole?: RoleOption;
+  additionalRoleOptions?: RoleOption[];
+  aggregationMode?: 'repository_primary_roles';
+  classifierInferencePerformed?: boolean;
+  authoritativeScope?: 'per_repository_dev2vec';
+  sourceRepositoryCount?: number;
+}
+
 export interface RoleMatch {
   roleId: string;
   roleName: string;
@@ -432,8 +545,15 @@ export interface RepositoryRoleMatches {
   repoName: string;
   fullName: string;
   analyzedAt: string;
-  topRole: Pick<RoleMatch, 'roleId' | 'roleName' | 'matchScore' | 'matchLevel' | 'matchLevelLabel'>;
+  topRole?: Pick<RoleMatch, 'roleId' | 'roleName' | 'matchScore' | 'matchLevel' | 'matchLevelLabel'>;
   matches: RoleMatch[];
+  roleSelection?: RoleSelection;
+  primaryRole?: RoleOption;
+  additionalRoleOptions?: RoleOption[];
+  aggregationMode?: 'repository_primary_roles';
+  classifierInferencePerformed?: boolean;
+  authoritativeScope?: 'per_repository_dev2vec';
+  sourceRepositoryCount?: number;
 }
 
 export interface RoleCatalogItem {

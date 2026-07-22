@@ -184,8 +184,17 @@ export interface RoadmapSourceRepository {
 export interface RoadmapSource {
   type?: string
   sourceMode?: string
+  selectedRoleId?: string
+  roleSelectionType?: import('../../../app/types').RoleSelectionType
+  sourceRepositoryId?: string
+  sourceRepositoryName?: string
+  sourceAnalysisId?: string
+  sourceSnapshotId?: string
+  currentRepositoryId?: string
   contextSource?: string
   modelVersion?: string
+  pipelineVersion?: string
+  evidenceFingerprint?: string
   scoringMethod?: string
   vectorSources?: string[]
   sourceStats?: Record<string, unknown>
@@ -209,6 +218,7 @@ export interface RoadmapSource {
   userReadinessScore?: number
   careerDirection?: string
   projectType?: string
+  [key: string]: unknown
 }
 
 export interface RoadmapSkillGap {
@@ -303,3 +313,8 @@ export interface RoadmapFilters {
   duration: 'All' | 'Short' | 'Medium' | 'Long'
 }
 
+export type {
+  CourseraCourseRecommendation,
+  RoadmapCourseRecommendationTopic,
+  RoadmapCourseRecommendationsData
+} from './courseRecommendations'

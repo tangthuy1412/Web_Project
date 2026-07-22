@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { motion } from 'motion/react'
 import { Archive, BookmarkCheck, CheckCircle2, ChevronLeft, ChevronRight, FolderOpen, Loader2, Search, Sparkles } from 'lucide-react'
 import { Badge } from '../../../app/components/ui/Badge'
@@ -15,7 +15,7 @@ import { getApiErrorMessage } from '../../../app/services/apis/core'
 import { useRoadmapStore } from '../stores/roadmapStore'
 import type { Roadmap, RoadmapCategory, RoadmapDifficulty } from '../types'
 import type { RoadmapSourceMode } from '../services/roadmapService'
-import type { RoleMatch } from '../../../app/types'
+import type { RoleMatch, RoleOption } from '../../../app/types'
 import { filterRoadmaps, formatCategoryFilter, formatDifficultyFilter, formatDurationFilter, formatUserLevel } from '../utils/roadmapUtils'
 
 const categories: (RoadmapCategory | 'All')[] = [
@@ -65,22 +65,23 @@ const sourceModeLabel = (sourceMode: RoadmapSourceMode) => {
     case 'single_repo':
       return 'Một dự án đã phân tích'
     case 'selected_repos':
-      return 'Nhóm dự án đã chọn'
+      return 'Vai trò nổi bật từ các repository đã chọn'
     case 'all_analyzed_repos':
-      return 'Toàn bộ dự án đã phân tích'
+      return 'Vai trò nổi bật từ repository đã phân tích'
   }
 }
 
 
 interface RoleSuggestionCardProps {
   match: RoleMatch
+  roleOption: RoleOption
   featured?: boolean
   isGenerating: boolean
   disabled: boolean
-  onCreate: (match: RoleMatch) => void
+  onCreate: (option: RoleOption) => void
 }
 
-const RoleSuggestionCard = ({ match, featured = false, isGenerating, disabled, onCreate }: RoleSuggestionCardProps) => {
+const RoleSuggestionCard = ({ match, roleOption, featured = false, isGenerating, disabled, onCreate }: RoleSuggestionCardProps) => {
   const matchedSkills = [
     ...skillList(match.matchedSkillNames),
     ...skillList(match.topMatchedSkills),
@@ -106,7 +107,8 @@ const RoleSuggestionCard = ({ match, featured = false, isGenerating, disabled, o
         <div>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              {featured && <Badge variant="info" className="mb-2">Gợi ý phù hợp nhất</Badge>}
+              {featured && <Badge variant="info" className="mb-2">Vai trò chính từ repository hiện tại</Badge>}
+              {!featured && <Badge variant="default" className="mb-2">Vai trò khác từ repository đã phân tích</Badge>}
               <p className="font-semibold text-slate-950 dark:text-slate-50">{match.roleName}</p>
               <p className="mt-1 text-xs text-slate-500">{match.matchLevelLabel}</p>
             </div>
@@ -147,10 +149,11 @@ const RoleSuggestionCard = ({ match, featured = false, isGenerating, disabled, o
         <div className={featured ? 'flex flex-col justify-end gap-3 rounded-lg bg-indigo-50 p-4 dark:bg-indigo-950/30' : ''}>
           {featured && (
             <p className="text-sm text-slate-600 dark:text-slate-300">
-              Vai trò này đang phù hợp nhất với dữ liệu học tập và dự án đã phân tích của bạn.
+              Vai trò này là lựa chọn authoritative từ kết quả phân tích repository hiện tại.
             </p>
           )}
-          <Button className="w-full" size="sm" isLoading={isGenerating} disabled={disabled} onClick={() => onCreate(match)}>
+          {!featured && roleOption.sourceRepositoryName && <p className="text-xs text-slate-500">Nguồn vai trò: {roleOption.sourceRepositoryName}</p>}
+          <Button className="w-full" size="sm" isLoading={isGenerating} disabled={disabled} onClick={() => onCreate(roleOption)}>
             Tạo lộ trình học
           </Button>
         </div>
@@ -161,6 +164,7 @@ const RoleSuggestionCard = ({ match, featured = false, isGenerating, disabled, o
 
 export const RoadmapsPage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const {
     roadmaps,
     filters,
@@ -173,8 +177,7 @@ export const RoadmapsPage = () => {
     deleteRoadmap,
     setFilters
   } = useRoadmapStore()
-  const { analyses, fetchMyAnalyses } = useRepositoryStore()
-  const [targetRole, setTargetRole] = useState('Backend Developer')
+  const { analyses, fetchMyAnalyses, selectedRoleOption, setSelectedRoleOption } = useRepositoryStore()
   const [sourceMode, setSourceMode] = useState<RoadmapSourceMode>('single_repo')
   const [selectedRepoIds, setSelectedRepoIds] = useState<string[]>([])
   const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner')
@@ -182,6 +185,7 @@ export const RoadmapsPage = () => {
   const useRoleMatching = true
   const [forceRegenerate, setForceRegenerate] = useState(false)
   const [roleMatches, setRoleMatches] = useState<RoleMatch[]>([])
+  const [authoritativeRoleOptions, setAuthoritativeRoleOptions] = useState<RoleOption[]>(selectedRoleOption ? [selectedRoleOption] : [])
   const [roleMatchSource, setRoleMatchSource] = useState<{
     sourceMode?: string
     totalRepositories?: number
@@ -225,17 +229,14 @@ export const RoadmapsPage = () => {
     return Array.from(repos.values())
   }, [analyses])
   const repositoryId = selectedRepoIds[0]
-  const targetRoleOptions = useMemo(() => {
-    return Array.from(new Set(roleMatches.map((match) => match.roleName))).slice(0, 3)
-  }, [roleMatches])
-  const canGenerate = sourceMode === 'all_analyzed_repos'
+  const canConfirmSource = sourceMode === 'all_analyzed_repos'
     ? analyzedRepos.length > 0
     : sourceMode === 'single_repo'
       ? Boolean(repositoryId)
       : selectedRepoIds.length > 0
+  const canGenerate = Boolean(repositoryId && selectedRoleOption?.roleId && selectedRoleOption?.roleName)
   const sourceSelectionKey = `${sourceMode}:${sourceMode === 'all_analyzed_repos' ? analyzedRepos.map((repo) => repo.id).sort().join(',') : selectedRepoIds.slice().sort().join(',')}`
   const sourceSelectionKeyRef = useRef(sourceSelectionKey)
-  const effectiveTargetRole = targetRole || targetRoleOptions[0] || 'Backend Developer'
   const isRoleMatchesLoading = isMatchingRoles
   const selectedSourceStats = useMemo(() => {
     const selectedIds = sourceMode === 'all_analyzed_repos'
@@ -272,8 +273,13 @@ export const RoadmapsPage = () => {
   }
 
   useEffect(() => {
-    setSelectedRepoIds((current) => current.length || !analyzedRepos[0]?.id ? current : [analyzedRepos[0].id])
-  }, [analyzedRepos])
+    const preferredRepositoryId = selectedRoleOption?.selectionType === 'current_repository_primary'
+      ? selectedRoleOption.sourceRepositoryId
+      : undefined
+    setSelectedRepoIds((current) => current.length
+      ? current
+      : [preferredRepositoryId ?? analyzedRepos[0]?.id].filter((id): id is string => Boolean(id)))
+  }, [analyzedRepos, selectedRoleOption])
 
   useEffect(() => {
     fetchRoadmaps({ status: statusFilter })
@@ -284,22 +290,39 @@ export const RoadmapsPage = () => {
   }, [fetchMyAnalyses])
 
   useEffect(() => {
-    if (!targetRoleOptions.some((role) => role === targetRole)) {
-      setTargetRole(targetRoleOptions[0] ?? 'Backend Developer')
+    const navigationState = location.state as { selectedRoleOption?: RoleOption; currentRepositoryId?: string } | null
+    const navigationOption = navigationState?.selectedRoleOption
+    if (!navigationOption) return
+    setSelectedRoleOption(navigationOption)
+    setAuthoritativeRoleOptions((current) => [navigationOption, ...current.filter((item) => item.roleId !== navigationOption.roleId)])
+    if (navigationState?.currentRepositoryId) {
+      setSourceMode('single_repo')
+      setSelectedRepoIds([navigationState.currentRepositoryId])
     }
-  }, [targetRole, targetRoleOptions])
+  }, [location.state, setSelectedRoleOption])
 
   useEffect(() => {
     sourceSelectionKeyRef.current = sourceSelectionKey
     setIsMatchingRoles(false)
     setConfirmedSourceKey('')
     setRoleMatches([])
+    const navigationState = location.state as { selectedRoleOption?: RoleOption; currentRepositoryId?: string } | null
+    const navigationOption = navigationState && navigationState.currentRepositoryId === repositoryId
+      ? navigationState.selectedRoleOption
+      : undefined
+    const storedPrimaryOption = selectedRoleOption?.selectionType === 'current_repository_primary'
+      && selectedRoleOption.sourceRepositoryId === repositoryId
+      ? selectedRoleOption
+      : undefined
+    const preservedOption = navigationOption ?? storedPrimaryOption
+    setAuthoritativeRoleOptions(preservedOption ? [preservedOption] : [])
+    setSelectedRoleOption(preservedOption ?? null)
     setRoleMatchSource(null)
     setRoleMatchError('')
-  }, [sourceSelectionKey])
+  }, [location.state, repositoryId, selectedRoleOption, setSelectedRoleOption, sourceSelectionKey])
 
   const handleConfirmSource = async () => {
-    if (!canGenerate || isMatchingRoles) return
+    if (!canConfirmSource || isMatchingRoles) return
 
     const requestedSourceKey = sourceSelectionKey
     setIsMatchingRoles(true)
@@ -316,9 +339,18 @@ export const RoadmapsPage = () => {
       if (sourceSelectionKeyRef.current !== requestedSourceKey) return
       const matches = response.matches ?? []
       setRoleMatches(matches)
+      const options = [
+        response.primaryRole,
+        ...(response.additionalRoleOptions ?? []),
+        ...(response.roleSelection?.additionalRoleOptions ?? [])
+      ].filter((option): option is RoleOption => Boolean(option?.roleId))
+      setAuthoritativeRoleOptions(options.filter((option, index, list) => list.findIndex((item) => item.roleId === option.roleId) === index))
+      const primaryOption = response.primaryRole ?? response.roleSelection?.primaryRole ?? options[0]
+      if (primaryOption) {
+        setSelectedRoleOption(primaryOption)
+      }
       setRoleMatchSource(response.analysisSource ?? null)
       setConfirmedSourceKey(requestedSourceKey)
-      if (matches[0]?.roleName) setTargetRole(matches[0].roleName)
     } catch (requestError) {
       if (sourceSelectionKeyRef.current !== requestedSourceKey) return
       setRoleMatches([])
@@ -329,16 +361,21 @@ export const RoadmapsPage = () => {
     }
   }
 
-  const handleGenerate = async (role?: Pick<RoleMatch, 'roleId' | 'roleName'>, key = 'manual') => {
-    const selectedRole = role ?? roleMatches.find((match) => match.roleName === effectiveTargetRole) ?? roleMatches[0]
+  const handleGenerate = async (roleOption?: RoleOption, key = 'manual') => {
+    const fullRoleOption = roleOption ?? selectedRoleOption
+    if (!fullRoleOption || !repositoryId) {
+      setRoleMatchError('Chưa có vai trò hợp lệ từ kết quả phân tích. Vui lòng tải lại vai trò hoặc quay lại repository.')
+      return
+    }
+    if (isGenerating) return
+    setSelectedRoleOption(fullRoleOption)
     setGeneratingKey(key)
     try {
-      const recommendation = await generateAIRoadmap(selectedRole?.roleName ?? effectiveTargetRole, {
-        sourceMode,
-        repoId: sourceMode === 'single_repo' ? repositoryId : undefined,
-        repoIds: sourceMode === 'selected_repos' ? selectedRepoIds : undefined,
-        roleId: selectedRole?.roleId,
-        selectedRole: selectedRole ? { roleId: selectedRole.roleId, roleName: selectedRole.roleName } : undefined,
+      const recommendation = await generateAIRoadmap(fullRoleOption.roleName, {
+        sourceMode: 'single_repo',
+        repoId: repositoryId,
+        currentRepositoryId: repositoryId,
+        selectedRoleOption: fullRoleOption,
         level,
         durationWeeks,
         language: 'vi',
@@ -496,8 +533,8 @@ export const RoadmapsPage = () => {
           <div className="grid gap-2 md:grid-cols-3">
             {[
               { value: 'single_repo', label: 'Một dự án', description: 'Đề xuất vai trò từ một dự án cụ thể.' },
-              { value: 'selected_repos', label: 'Một vài dự án', description: 'Kết hợp các dự án bạn muốn đưa vào đánh giá.' },
-              { value: 'all_analyzed_repos', label: 'Tất cả dự án', description: 'Dùng toàn bộ dự án đã có kết quả phân tích.' }
+              { value: 'selected_repos', label: 'Một vài dự án', description: 'Xem vai trò chính của từng repository đã chọn; không tạo inference gộp.' },
+              { value: 'all_analyzed_repos', label: 'Portfolio đã phân tích', description: 'Xem các vai trò chính nổi bật từ từng repository; không merge vector.' }
             ].map((option) => (
               <button
                 key={option.value}
@@ -578,7 +615,7 @@ export const RoadmapsPage = () => {
               className="shrink-0"
               onClick={handleConfirmSource}
               isLoading={isMatchingRoles}
-              disabled={!canGenerate || isMatchingRoles}
+              disabled={!canConfirmSource || isMatchingRoles}
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
               {confirmedSourceKey === sourceSelectionKey ? 'Cập nhật gợi ý' : 'Xác nhận và tiếp tục'}
@@ -611,7 +648,7 @@ export const RoadmapsPage = () => {
             <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">Gợi ý vai trò phù hợp với hồ sơ học tập</p>
+                  <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">Vai trò từ kết quả phân tích repository</p>
                   {isRoleMatchesLoading && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm shadow-indigo-500/30">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -635,7 +672,7 @@ export const RoadmapsPage = () => {
                 </div>
               )}
             </div>
-            {(roleMatchSource || canGenerate) && (
+            {(roleMatchSource || canConfirmSource) && (
               <div className="mt-4 grid gap-2 sm:grid-cols-4">
                 <div className="rounded-md bg-white/70 p-2 dark:bg-slate-900/70">
                   <p className="text-xs text-slate-500">Nguồn dữ liệu</p>
@@ -665,24 +702,26 @@ export const RoadmapsPage = () => {
             </p>
           )}
 
-          {roleMatches.length > 0 ? (
+          {authoritativeRoleOptions.length > 0 ? (
             <div className="space-y-3">
               <RoleSuggestionCard
-                match={roleMatches[0]}
+                match={roleOptionAsMatch(authoritativeRoleOptions[0], roleMatches)}
+                roleOption={authoritativeRoleOptions[0]}
                 featured
-                isGenerating={isGenerating && generatingKey === `role:${roleMatches[0].roleId}`}
+                isGenerating={isGenerating && generatingKey === `role:${authoritativeRoleOptions[0].roleId}`}
                 disabled={!canGenerate || isGenerating}
-                onCreate={(match) => handleGenerate(match, `role:${match.roleId}`)}
+                onCreate={(option) => handleGenerate(option, `role:${option.roleId}`)}
               />
-              {roleMatches.length > 1 && (
+              {authoritativeRoleOptions.length > 1 && (
                 <div className="grid gap-3 lg:grid-cols-2">
-                  {roleMatches.slice(1).map((match) => (
+                  {authoritativeRoleOptions.slice(1, 3).map((option) => (
                     <RoleSuggestionCard
-                      key={match.roleId}
-                      match={match}
-                      isGenerating={isGenerating && generatingKey === `role:${match.roleId}`}
+                      key={`${option.roleId}:${option.sourceRepositoryId ?? ''}`}
+                      match={roleOptionAsMatch(option, roleMatches)}
+                      roleOption={option}
+                      isGenerating={isGenerating && generatingKey === `role:${option.roleId}`}
                       disabled={!canGenerate || isGenerating}
-                      onCreate={(selectedMatch) => handleGenerate(selectedMatch, `role:${selectedMatch.roleId}`)}
+                      onCreate={(selectedOption) => handleGenerate(selectedOption, `role:${selectedOption.roleId}`)}
                     />
                   ))}
                 </div>
@@ -690,7 +729,7 @@ export const RoadmapsPage = () => {
             </div>
           ) : !isRoleMatchesLoading && (
             <div className="rounded-lg border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-              {canGenerate ? 'Nguồn dữ liệu chưa được xác nhận. Bấm Xác nhận và tiếp tục để xem gợi ý vai trò.' : 'Hãy chọn ít nhất một dự án đã phân tích để tiếp tục.'}
+              {canConfirmSource ? 'Nguồn dữ liệu chưa được xác nhận. Bấm Xác nhận và tiếp tục để tải vai trò từ kết quả phân tích.' : 'Hãy chọn ít nhất một dự án đã phân tích để tiếp tục.'}
             </div>
           )}
 
@@ -857,6 +896,30 @@ export const RoadmapsPage = () => {
     />
     </>
   )
+}
+
+const roleOptionAsMatch = (option: RoleOption, matches: RoleMatch[]): RoleMatch => matches.find((match) => match.roleId === option.roleId) ?? {
+  roleId: option.roleId,
+  roleName: option.roleName,
+  description: '',
+  category: '',
+  matchScore: option.matchScore,
+  matchLevel: option.matchLevel ?? '',
+  matchLevelLabel: option.matchLevelLabel ?? '',
+  requiredScore: 0,
+  optionalScore: 0,
+  coverageScore: 0,
+  matchedSkillCount: option.matchedSkillNames?.length ?? 0,
+  weakSkillCount: option.weakSkillNames?.length ?? 0,
+  missingRequiredSkillCount: option.missingSkillNames?.length ?? 0,
+  recommendedNextSkills: option.recommendedNextSkills ?? [],
+  topMatchedSkills: option.matchedSkillNames ?? [],
+  topMissingSkills: option.missingSkillNames ?? [],
+  matchedSkillNames: option.matchedSkillNames,
+  weakSkillNames: option.weakSkillNames,
+  missingSkillNames: option.missingSkillNames,
+  modelVersion: option.modelVersion,
+  summary: ''
 }
 
 

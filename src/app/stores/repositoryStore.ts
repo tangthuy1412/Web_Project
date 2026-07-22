@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AIFeedback, AnalysisResult, Repository } from '../types'
+import type { AIFeedback, AnalysisResult, Repository, RepositoryAnalysisState, RoleOption } from '../types'
 import { getApiErrorMessage, getToken } from '../services/apis/core'
 import {
   aiFeedbackApi,
@@ -7,6 +7,8 @@ import {
   githubApi,
   normalizeAnalyses,
   normalizeAnalysis,
+  normalizeRepositoryAnalysisState,
+  normalizeRepositoryAnalysisStates,
   normalizeCommits,
   normalizeFiles,
   normalizeRepositories,
@@ -16,6 +18,10 @@ import {
 type RepositoryState = {
   repositories: Repository[]
   analyses: AnalysisResult[]
+  analysisStatesByRepoId: Record<string, RepositoryAnalysisState>
+  analysisLoadingByRepoId: Record<string, boolean>
+  analysisErrorsByRepoId: Record<string, string>
+  selectedRoleOption: RoleOption | null
   selectedRepository: Repository | null
   packagesByRepoId: Record<string, unknown[]>
   commitsByRepoId: Record<string, unknown[]>
@@ -29,12 +35,14 @@ type RepositoryState = {
   fetchPackages: (id: string, sync?: boolean) => Promise<void>
   fetchCommits: (id: string, sync?: boolean) => Promise<void>
   analyzeRepository: (id: string) => Promise<AnalysisResult>
-  fetchAnalysis: (repoId: string) => Promise<AnalysisResult | null>
+  fetchAnalysis: (repoId: string) => Promise<RepositoryAnalysisState | null>
   fetchMyAnalyses: () => Promise<void>
   generateFeedback: (repoId: string) => Promise<AIFeedback>
   fetchFeedback: (repoId: string) => Promise<AIFeedback | null>
   fetchMyFeedbacks: () => Promise<void>
   getAnalysisById: (id: string) => AnalysisResult | undefined
+  getAnalysisState: (repoId: string) => RepositoryAnalysisState | undefined
+  setSelectedRoleOption: (option: RoleOption | null) => void
   setSelectedRepository: (repo: Repository | null) => void
   clearError: () => void
   reset: () => void
@@ -73,6 +81,7 @@ const asReferenceId = (value: unknown) => {
 const asFeedback = (payload: unknown): AIFeedback => {
   const feedbackPayload = pickFeedbackPayload(payload)
   const record = toRecord(feedbackPayload)
+  const freshness = toRecord(record.freshness)
 
   return {
     id: String(record.id ?? record._id ?? ''),
@@ -96,6 +105,12 @@ const asFeedback = (payload: unknown): AIFeedback => {
     portfolioAdvice: asStringField(record.portfolioAdvice),
     riskNotes: asStringArray(record.riskNotes),
     recommendations: asStringArray(record.recommendations),
+    isStale: typeof record.isStale === 'boolean' ? record.isStale : typeof freshness.isStale === 'boolean' ? freshness.isStale : undefined,
+    staleReason: asStringField(record.staleReason ?? freshness.staleReason),
+    sourceModelVersion: asStringField(record.sourceModelVersion ?? freshness.sourceModelVersion),
+    sourcePipelineVersion: asStringField(record.sourcePipelineVersion ?? freshness.sourcePipelineVersion),
+    currentModelVersion: asStringField(record.currentModelVersion ?? freshness.currentModelVersion),
+    currentPipelineVersion: asStringField(record.currentPipelineVersion ?? freshness.currentPipelineVersion),
     raw: feedbackPayload
   }
 }
@@ -119,6 +134,10 @@ const hasFeedbackContent = (feedback: AIFeedback) =>
 const emptyRepositoryState = {
   repositories: [],
   analyses: [],
+  analysisStatesByRepoId: {},
+  analysisLoadingByRepoId: {},
+  analysisErrorsByRepoId: {},
+  selectedRoleOption: null,
   selectedRepository: null,
   packagesByRepoId: {},
   commitsByRepoId: {},
@@ -216,10 +235,18 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         githubApi.syncPackages(id),
         githubApi.syncCommits(id)
       ])
-      const result = normalizeAnalysis(await analysisApi.analyzeRepository(id, { includeEvidence: true }))
+      const normalizedResult = normalizeAnalysis(await analysisApi.analyzeRepository(id, { includeEvidence: true }))
+      const result = { ...normalizedResult, repositoryId: normalizedResult.repositoryId || id }
+      const analysisState: RepositoryAnalysisState = {
+        analysisStatus: 'available',
+        repositoryId: result.repositoryId || id,
+        analysis: { ...result, repositoryId: result.repositoryId || id }
+      }
 
       set((state) => ({
         analyses: [result, ...state.analyses.filter((analysis) => analysis.repositoryId !== id && analysis.id !== result.id)],
+        analysisStatesByRepoId: { ...state.analysisStatesByRepoId, [id]: analysisState },
+        analysisErrorsByRepoId: { ...state.analysisErrorsByRepoId, [id]: '' },
         repositories: state.repositories.map((repo) =>
           repo.id === id ? { ...repo, analyzed: true, analysisId: result.id } : repo
         ),
@@ -237,15 +264,29 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   },
 
   fetchAnalysis: async (repoId) => {
+    set((state) => ({
+      analysisLoadingByRepoId: { ...state.analysisLoadingByRepoId, [repoId]: true },
+      analysisErrorsByRepoId: { ...state.analysisErrorsByRepoId, [repoId]: '' }
+    }))
     try {
-      const result = normalizeAnalysis(await analysisApi.getResult(repoId, { includeEvidence: true }))
-      if (!result.id && !result.repositoryId) return null
+      const analysisState = normalizeRepositoryAnalysisState(
+        await analysisApi.getResult(repoId, { includeEvidence: true }),
+        repoId
+      )
 
       set((state) => ({
-        analyses: [result, ...state.analyses.filter((analysis) => analysis.repositoryId !== repoId && analysis.id !== result.id)]
+        analysisStatesByRepoId: { ...state.analysisStatesByRepoId, [repoId]: analysisState },
+        analysisLoadingByRepoId: { ...state.analysisLoadingByRepoId, [repoId]: false },
+        analyses: analysisState.analysisStatus === 'available'
+          ? [analysisState.analysis, ...state.analyses.filter((analysis) => analysis.repositoryId !== repoId && analysis.id !== analysisState.analysis.id)]
+          : state.analyses.filter((analysis) => analysis.repositoryId !== repoId)
       }))
-      return result
-    } catch {
+      return analysisState
+    } catch (error) {
+      set((state) => ({
+        analysisLoadingByRepoId: { ...state.analysisLoadingByRepoId, [repoId]: false },
+        analysisErrorsByRepoId: { ...state.analysisErrorsByRepoId, [repoId]: getApiErrorMessage(error) }
+      }))
       return null
     }
   },
@@ -253,11 +294,23 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   fetchMyAnalyses: async () => {
     const requestToken = getToken()
     try {
-      const analyses = normalizeAnalyses(await analysisApi.getMine())
+      const payload = await analysisApi.getMine()
+      const analysisStates = normalizeRepositoryAnalysisStates(payload)
+      const analyses = analysisStates.length
+        ? analysisStates
+          .filter((item): item is Extract<RepositoryAnalysisState, { analysisStatus: 'available' }> => item.analysisStatus === 'available')
+          .map((item) => item.analysis)
+        : normalizeAnalyses(payload)
       if (!isSameAuthSession(requestToken)) return
-      set({ analyses })
+      set((state) => ({
+        analyses,
+        analysisStatesByRepoId: analysisStates.reduce((acc, item) => {
+          if (item.repositoryId) acc[item.repositoryId] = item
+          return acc
+        }, { ...state.analysisStatesByRepoId } as Record<string, RepositoryAnalysisState>)
+      }))
     } catch {
-      set({ analyses: [] })
+      return
     }
   },
 
@@ -273,7 +326,12 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       }))
       return { ...feedback, repositoryId: feedbackRepoId }
     } catch (error) {
-      set({ isGeneratingFeedback: false, error: getApiErrorMessage(error) })
+      const rawMessage = getApiErrorMessage(error)
+      const normalized = rawMessage.toLowerCase()
+      const message = normalized.includes('analysis_required') || normalized.includes('incompatible_analysis_history')
+        ? 'Cần phân tích lại repository trước khi tạo feedback mới.'
+        : rawMessage
+      set({ isGeneratingFeedback: false, error: message })
       throw error
     }
   },
@@ -315,6 +373,10 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   getAnalysisById: (id) => {
     return get().analyses.find((analysis) => analysis.id === id || analysis.repositoryId === id)
   },
+
+  getAnalysisState: (repoId) => get().analysisStatesByRepoId[repoId],
+
+  setSelectedRoleOption: (option) => set({ selectedRoleOption: option }),
 
   setSelectedRepository: (repo) => set({ selectedRepository: repo }),
 

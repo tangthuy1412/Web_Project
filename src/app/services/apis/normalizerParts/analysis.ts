@@ -1,4 +1,4 @@
-import type { AnalysisResult } from '../../../types'
+import type { AnalysisResult, Dev2VecCompatibility, RepositoryAnalysisState } from '../../../types'
 import { cleanAnalysisText } from './analysisText'
 import { asArray, asNumber, asRecord, extractObject, firstString } from './helpers'
 
@@ -23,7 +23,10 @@ export const normalizeAnalysis = (payload: unknown): AnalysisResult => {
 
   return {
     id: firstString(source.id, source._id, source.analysisId),
+    analysisId: firstString(source.analysisId, source.id, source._id) || undefined,
     snapshotId: firstString(source.snapshotId) || undefined,
+    modelVersion: firstString(source.modelVersion) || undefined,
+    pipelineVersion: firstString(source.pipelineVersion, source.analysisPipelineVersion) || undefined,
     repositoryId,
     repositoryName: repoName,
     repoName,
@@ -178,7 +181,104 @@ export const normalizeAnalyses = (payload: unknown) => {
       ? payload
       : []
 
-  return analyses
-    .map(normalizeAnalysis)
-    .sort((a, b) => new Date(b.analyzedAt || b.createdAt).getTime() - new Date(a.analyzedAt || a.createdAt).getTime())
+  return analyses.map(normalizeAnalysis)
+}
+
+const normalizeCompatibility = (payload: unknown): Dev2VecCompatibility | undefined => {
+  const source = asRecord(payload)
+  if (!Object.keys(source).length) return undefined
+
+  return {
+    isCompatible: typeof source.isCompatible === 'boolean' ? source.isCompatible : undefined,
+    isCurrentVersion: typeof source.isCurrentVersion === 'boolean' ? source.isCurrentVersion : undefined,
+    isComparableWithCurrent: typeof source.isComparableWithCurrent === 'boolean' ? source.isComparableWithCurrent : undefined,
+    modelVersion: firstString(source.modelVersion) || undefined,
+    pipelineVersion: firstString(source.pipelineVersion, source.analysisPipelineVersion) || undefined,
+    repoDocumentVersion: firstString(source.repoDocumentVersion) || undefined,
+    issueDocumentVersion: firstString(source.issueDocumentVersion) || undefined,
+    apiEvidenceVersion: firstString(source.apiEvidenceVersion) || undefined
+  }
+}
+
+export const normalizeRepositoryAnalysisState = (
+  payload: unknown,
+  fallbackRepositoryId = ''
+): RepositoryAnalysisState => {
+  const envelope = asRecord(payload)
+  const data = asRecord(envelope.data)
+  const source = Object.keys(data).length ? data : envelope
+  const analysisStatus = firstString(source.analysisStatus, envelope.analysisStatus)
+  const reason = firstString(source.reason, envelope.reason)
+  const compatibility = normalizeCompatibility(source.compatibility ?? envelope.compatibility)
+  const analysisPayload = source.analysis ?? source.result ?? source.snapshot ?? source
+  const analysisRecord = asRecord(analysisPayload)
+  const repository = asRecord(source.repository ?? analysisRecord.repository)
+  const repositoryId = firstString(
+    source.repositoryId,
+    analysisRecord.repositoryId,
+    repository.repositoryId,
+    repository.id,
+    repository._id,
+    fallbackRepositoryId
+  )
+
+  const typedRequiredReason = analysisStatus === 'incompatible_analysis_history' || analysisStatus === 'no_compatible_dev2vec_analysis'
+    ? analysisStatus
+    : reason
+  if (analysisStatus === 'analysis_required' || typedRequiredReason === 'incompatible_analysis_history' || typedRequiredReason === 'no_compatible_dev2vec_analysis') {
+    return {
+      analysisStatus: 'analysis_required',
+      repositoryId,
+      reason: typedRequiredReason || 'no_compatible_dev2vec_analysis',
+      compatibility
+    }
+  }
+
+  const analysis = normalizeAnalysis(analysisPayload)
+  const normalizedRepositoryId = analysis.repositoryId || repositoryId
+  const hasLegacyAnalysis = Boolean(
+    analysis.id ||
+    firstString(analysisRecord.repositoryId, analysisRecord.analysisId, analysisRecord.snapshotId)
+  )
+
+  // Legacy responses did not include analysisStatus. A payload with a real
+  // analysis identity remains available for backward compatibility.
+  if (analysisStatus === 'available' || hasLegacyAnalysis) {
+    return {
+      analysisStatus: 'available',
+      repositoryId: normalizedRepositoryId,
+      analysis: {
+        ...analysis,
+        repositoryId: normalizedRepositoryId,
+        modelVersion: analysis.modelVersion ?? compatibility?.modelVersion,
+        pipelineVersion: analysis.pipelineVersion ?? compatibility?.pipelineVersion
+      },
+      compatibility,
+      reason: reason || undefined
+    }
+  }
+
+  return {
+    analysisStatus: 'analysis_required',
+    repositoryId: fallbackRepositoryId,
+    reason: reason || 'no_compatible_dev2vec_analysis',
+    compatibility
+  }
+}
+
+export const normalizeRepositoryAnalysisStates = (payload: unknown): RepositoryAnalysisState[] => {
+  const envelope = asRecord(payload)
+  const data = asRecord(envelope.data)
+  const source = Object.keys(data).length ? data : envelope
+  const entries = Array.isArray(source.analyses)
+    ? source.analyses
+    : Array.isArray(source.repositories)
+      ? source.repositories
+      : Array.isArray(source.items)
+        ? source.items
+        : Array.isArray(payload)
+          ? payload
+          : []
+
+  return entries.map((entry) => normalizeRepositoryAnalysisState(entry))
 }

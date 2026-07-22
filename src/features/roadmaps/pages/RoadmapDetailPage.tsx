@@ -7,11 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { ConfirmDialog } from '../../../app/components/common/ConfirmDialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../app/components/ui/tabs'
 import { RoadmapTree } from '../components/RoadmapTree'
+import { CourseraRecommendationSection } from '../components/CourseraRecommendationSection'
 import { useRoadmapProgress } from '../hooks/useRoadmapProgress'
 import { useLearningStore } from '../stores/learningStore'
 import { useRoadmapStore } from '../stores/roadmapStore'
 import { useChatStore } from '../../../app/stores/chatStore'
-import { formatRoadmapDifficulty, formatUserLevel, getDifficultyTone, getRoadmapNodes, getRoadmapSourceRepositoryCount } from '../utils/roadmapUtils'
+import { formatRoadmapDifficulty, formatUserLevel, getDifficultyTone, getRoadmapNodes } from '../utils/roadmapUtils'
 
 export const RoadmapDetailPage = () => {
   const { id } = useParams()
@@ -221,38 +222,17 @@ export const RoadmapDetailPage = () => {
   const completedTaskCount = roadmap.progressSummary?.completedItems ?? completedNodes
   const totalTaskCount = roadmap.progressSummary?.totalItems ?? nodes.length
   const roadmapSource = roadmap.roadmapSource && typeof roadmap.roadmapSource === 'object' ? roadmap.roadmapSource : undefined
-  const sourceMode = roadmapSource?.sourceMode || roadmapSource?.type || ''
-  const sourceRepositoryCount = getRoadmapSourceRepositoryCount(roadmap)
-  const sourceUserCommits = roadmapSource?.userCommits ?? roadmapSource?.totalUserCommits
-  const sourceTotalCommits = roadmapSource?.totalRepoCommits
-  const sourceModeLabel = sourceMode === 'single_repo'
-    ? 'Một repository'
-    : sourceMode === 'selected_repos'
-      ? 'Một vài repository đã chọn'
-      : sourceMode === 'all_analyzed_repos'
-        ? 'Tất cả repository đã phân tích'
-        : 'Dữ liệu phân tích GitHub'
-  const sourceRepositoryLabel = roadmapSource?.fullName || roadmapSource?.repoName || (
-    sourceRepositoryCount
-      ? `${sourceRepositoryCount} repository đã phân tích`
-      : 'Tổng hợp từ các repo'
-  )
-  const sourceCommitText = typeof sourceUserCommits === 'number'
-    ? typeof sourceTotalCommits === 'number' && sourceTotalCommits !== sourceUserCommits
-      ? `${sourceUserCommits} commit của bạn trong ${sourceTotalCommits} commit của nguồn`
-      : `${sourceUserCommits} commit của bạn`
-    : typeof sourceTotalCommits === 'number'
-      ? `${sourceTotalCommits} commit trong nguồn phân tích`
-      : 'Chưa có thống kê commit'
-  const effectiveLevelSource = roadmap.effectiveLevel || roadmapSource?.userLevel || roadmap.difficulty
-  const effectiveLevelText = effectiveLevelSource ? formatUserLevel(effectiveLevelSource) : undefined
-  const sourceDescription = sourceMode === 'all_analyzed_repos'
-    ? 'Roadmap này được cá nhân hóa từ toàn bộ repository đã có kết quả phân tích trong tài khoản của bạn.'
-    : sourceMode === 'selected_repos'
-      ? 'Roadmap này được cá nhân hóa từ nhóm repository bạn đã chọn khi tạo lộ trình.'
-      : sourceMode === 'single_repo'
-        ? 'Roadmap này được cá nhân hóa từ một repository cụ thể.'
-        : 'Roadmap này được cá nhân hóa từ dữ liệu phân tích GitHub hiện có.'
+  const selectedRoleLabel = roadmap.roleMatch?.roleName || roadmapSource?.selectedRoleId || roadmap.careerOutcome
+  const sourceRepositoryLabel = roadmapSource?.sourceRepositoryName || roadmapSource?.fullName || roadmapSource?.repoName
+  const selectionTypeLabel = roadmapSource?.roleSelectionType === 'current_repository_primary'
+    ? 'Vai trò chính'
+    : roadmapSource?.roleSelectionType === 'portfolio_repository_primary' || roadmapSource?.roleSelectionType === 'portfolio_suggestion'
+      ? 'Vai trò từ portfolio'
+      : undefined
+  const pipelineLabel = typeof roadmapSource?.pipelineVersion === 'string' ? roadmapSource.pipelineVersion : undefined
+  const effectiveLevelText = roadmap.effectiveLevel ? formatUserLevel(roadmap.effectiveLevel) : undefined
+  const requestedLevelText = roadmap.requestedLevel ? formatUserLevel(roadmap.requestedLevel) : undefined
+  const hasDetailedProvenance = Boolean(roadmapSource?.selectedRoleId || sourceRepositoryLabel || selectionTypeLabel || pipelineLabel)
 
   return (
     <>
@@ -357,26 +337,30 @@ export const RoadmapDetailPage = () => {
         <Card>
           <CardHeader>
             <CardTitle>Cơ sở cá nhân hóa roadmap</CardTitle>
-            <CardDescription>{sourceDescription}</CardDescription>
+            <CardDescription>{hasDetailedProvenance ? 'Thông tin nguồn do backend trả về khi tạo roadmap.' : 'Roadmap cũ không có thông tin nguồn chi tiết.'}</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-              <p className="text-xs text-slate-500">Phạm vi đánh giá</p>
-              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{sourceModeLabel}</p>
+              <p className="text-xs text-slate-500">Roadmap theo vai trò</p>
+              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{selectedRoleLabel}</p>
             </div>
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-              <p className="text-xs text-slate-500">Nguồn phân tích</p>
-              <p className="mt-1 truncate font-semibold text-slate-900 dark:text-slate-100">{sourceRepositoryLabel}</p>
+              <p className="text-xs text-slate-500">Nguồn vai trò</p>
+              <p className="mt-1 truncate font-semibold text-slate-900 dark:text-slate-100">{sourceRepositoryLabel || 'Không có thông tin nguồn chi tiết'}</p>
             </div>
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-              <p className="text-xs text-slate-500">Đóng góp được tính</p>
-              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{sourceCommitText}</p>
+              <p className="text-xs text-slate-500">Loại lựa chọn</p>
+              <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{selectionTypeLabel || 'Không có thông tin'}</p>
             </div>
             <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-              <p className="text-xs text-slate-500">Trình độ dùng để tạo</p>
+              <p className="text-xs text-slate-500">Trình độ yêu cầu / thực tế</p>
               <p className="mt-1 font-semibold text-indigo-700 dark:text-indigo-300">
-                {effectiveLevelText || 'Chưa có dữ liệu'}
+                {requestedLevelText || '—'} / {effectiveLevelText || '—'}
               </p>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+              <p className="text-xs text-slate-500">Pipeline</p>
+              <p className="mt-1 break-all font-semibold text-slate-900 dark:text-slate-100">{pipelineLabel || 'Không có thông tin'}</p>
             </div>
           </CardContent>
         </Card>
@@ -439,6 +423,8 @@ export const RoadmapDetailPage = () => {
           </CardContent>
         </Card>
       )}
+
+      <CourseraRecommendationSection roadmapId={roadmap.id} />
 
       <Tabs defaultValue="roadmap">
         <TabsList className="bg-white/90 dark:bg-slate-900/90">

@@ -10,12 +10,12 @@ export const analysisApi = {
     return unwrapResponse(response.data)
   },
 
-  async getResult(repoId: string, params?: AnalysisQueryParams) {
+  async getResult(repoId: string, params?: AnalysisQueryParams): Promise<unknown> {
     const response = await apiClient.get(`/analysis/results/${repoId}`, { params })
     return unwrapResponse(response.data)
   },
 
-  async getMine() {
+  async getMine(): Promise<unknown> {
     const response = await apiClient.get('/analysis/me')
     return unwrapResponse(response.data)
   }

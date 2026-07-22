@@ -8,34 +8,44 @@ import { dashboardApi, getApiErrorMessage } from '../../services/apis/core'
 import { useAuthStore } from '../../stores/authStore'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatRelativeTime, getScoreColor } from '../../lib/utils'
-import { buildRepositoryAnalysisOverview } from '../../services/analysis/analysisOverview'
+import type { DashboardResponse } from '../../types'
 
 export const DashboardPage = () => {
   const user = useAuthStore(state => state.user)
-  const { repositories, analyses, fetchRepositories, fetchMyAnalyses } = useRepositoryStore()
-  const [dashboardPayload, setDashboardPayload] = useState<Record<string, unknown> | null>(null)
+  const { analyses, fetchRepositories, fetchMyAnalyses } = useRepositoryStore()
+  const [dashboardPayload, setDashboardPayload] = useState<DashboardResponse | null>(null)
+  const [isDashboardLoading, setIsDashboardLoading] = useState(true)
   const [error, setError] = useState('')
-  const analysisOverview = buildRepositoryAnalysisOverview(analyses)
 
   useEffect(() => {
     dashboardApi.me()
-      .then((payload) => setDashboardPayload(payload as Record<string, unknown>))
+      .then(setDashboardPayload)
       .catch((err) => setError(getApiErrorMessage(err)))
+      .finally(() => setIsDashboardLoading(false))
 
     fetchRepositories().catch(() => undefined)
     fetchMyAnalyses().catch(() => undefined)
   }, [fetchMyAnalyses, fetchRepositories])
 
   const stats = useMemo(() => {
-    const payload = dashboardPayload ?? {}
-
     return {
-      totalRepositories: Number(payload.totalRepositories ?? payload.repositoryCount ?? repositories.length),
-      analyzedRepositories: Number(payload.analyzedRepositories ?? payload.analysisCount ?? analyses.length),
-      githubConnected: Boolean(payload.githubConnected ?? user?.githubConnected),
-      overallScore: Number(payload.overallScore ?? analysisOverview?.averageOverallScore ?? analyses[0]?.scores.overall ?? 0)
+      totalRepositories: dashboardPayload?.totalRepositories ?? 0,
+      analyzedRepositories: dashboardPayload?.analyzedRepositories ?? 0,
+      githubConnected: dashboardPayload?.githubConnected ?? Boolean(user?.githubConnected),
+      overallScore: dashboardPayload?.dev2vecStatus === 'current' ? dashboardPayload.overallScore ?? dashboardPayload.currentSnapshot?.overallScore ?? 0 : 0
     }
-  }, [analyses, analysisOverview?.averageOverallScore, dashboardPayload, repositories.length, user?.githubConnected])
+  }, [dashboardPayload, user?.githubConnected])
+  const analysisOverview = dashboardPayload?.dev2vecStatus === 'current' ? {
+    summary: dashboardPayload.message || 'Trạng thái Dev2Vec hiện tại do backend xác nhận.',
+    repositoriesCount: dashboardPayload.analyzedRepositories ?? 0,
+    averageOverallScore: dashboardPayload.overallScore ?? dashboardPayload.currentSnapshot?.overallScore ?? 0,
+    averageTestingScore: dashboardPayload.modelVersion || '—',
+    averageDeploymentScore: dashboardPayload.pipelineVersion || '—',
+    topCareerDirections: (dashboardPayload.topRoles ?? []).map((role) => ({ label: role.roleName, count: role.matchScore ? Math.round(role.matchScore * 100) : 1 })),
+    topLanguages: [] as Array<{ label: string; count: number }>,
+    topFrameworks: [] as Array<{ label: string; count: number }>,
+    missingSkills: [] as Array<{ label: string; count: number }>
+  } : null
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -51,6 +61,13 @@ export const DashboardPage = () => {
       {error && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
           Chưa tải được dữ liệu dashboard: {error}
+        </div>
+      )}
+
+      {!isDashboardLoading && dashboardPayload?.dev2vecStatus === 'analysis_required' && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+          <p>{dashboardPayload.message || 'Cần phân tích repository bằng pipeline hiện tại để cập nhật dashboard.'}</p>
+          <Link to="/repositories"><Button className="mt-3" size="sm">Phân tích repository</Button></Link>
         </div>
       )}
 
@@ -137,11 +154,11 @@ export const DashboardPage = () => {
                 </div>
                 <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
                   <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{analysisOverview.averageTestingScore}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">testing trung bình</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">model hiện tại</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
                   <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{analysisOverview.averageDeploymentScore}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">deployment trung bình</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">pipeline hiện tại</p>
                 </div>
               </div>
               <div className="grid gap-4 lg:grid-cols-3">
@@ -185,8 +202,8 @@ export const DashboardPage = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Phân tích gần đây</CardTitle>
-                <CardDescription>Kết quả mới nhất của tài khoản hiện tại.</CardDescription>
+                <CardTitle>Lịch sử phân tích</CardTitle>
+                <CardDescription>Dữ liệu lịch sử để tham khảo; trạng thái hiện tại lấy từ dashboard backend.</CardDescription>
               </div>
               <Link to="/repositories">
                 <Button variant="ghost" size="sm">Repository <ArrowRight className="ml-2 h-4 w-4" /></Button>

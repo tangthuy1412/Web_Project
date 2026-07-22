@@ -1,5 +1,6 @@
 import { apiClient, unwrapResponse } from './apiClient'
 import type { SkillVectorItem } from '../../types'
+import axios from 'axios'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -35,6 +36,14 @@ export type AnalysisSnapshot = {
   testingScore?: number
   deploymentScore?: number
   portfolioReadinessScore?: number
+  modelVersion?: string
+  pipelineVersion?: string
+  repoDocumentVersion?: string
+  issueDocumentVersion?: string
+  apiEvidenceVersion?: string
+  isCurrentVersion?: boolean
+  isCompatible?: boolean
+  isComparableWithCurrent?: boolean
 }
 
 export type SkillVectorSummary = {
@@ -94,6 +103,11 @@ export type SkillComparisonSummary = {
 }
 
 export type SnapshotComparison = {
+  comparisonStatus: 'comparable'
+  comparisonVersion?: {
+    modelVersion?: string
+    pipelineVersion?: string
+  }
   repositoryId?: string
   repoName?: string
   fullName?: string
@@ -123,10 +137,24 @@ export type SnapshotComparison = {
   raw: unknown
 }
 
+export type IncompatibleSnapshotComparison = {
+  comparisonStatus: 'incompatible_snapshot_versions'
+  message?: string
+  leftVersion?: Record<string, unknown>
+  rightVersion?: Record<string, unknown>
+}
+
+export type SnapshotComparisonState = SnapshotComparison | IncompatibleSnapshotComparison
+
+export type RepositoryProgressComparisonState =
+  | { comparisonStatus: 'comparable'; data: SnapshotComparison }
+  | { comparisonStatus: 'insufficient_compatible_snapshots'; message?: string }
+
 const asRecord = (value: unknown): UnknownRecord => value && typeof value === 'object' ? value as UnknownRecord : {}
 const asNumber = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : Number(value) || 0
 const asArray = (value: unknown) => Array.isArray(value) ? value : []
 const asString = (value: unknown) => typeof value === 'string' && value.trim() ? value : undefined
+const asOptionalBoolean = (value: unknown) => typeof value === 'boolean' ? value : undefined
 
 type SnapshotQueryParams = {
   includeEvidence?: boolean
@@ -203,7 +231,15 @@ const normalizeSnapshot = (payload: unknown): AnalysisSnapshot => {
     commitQualityScore: getScore(source, 'commitQualityScore', 'commitQuality'),
     testingScore: getScore(source, 'testingScore'),
     deploymentScore: getScore(source, 'deploymentScore'),
-    portfolioReadinessScore: getScore(source, 'portfolioReadinessScore')
+    portfolioReadinessScore: getScore(source, 'portfolioReadinessScore'),
+    modelVersion: asString(source.modelVersion),
+    pipelineVersion: asString(source.pipelineVersion),
+    repoDocumentVersion: asString(source.repoDocumentVersion),
+    issueDocumentVersion: asString(source.issueDocumentVersion),
+    apiEvidenceVersion: asString(source.apiEvidenceVersion),
+    isCurrentVersion: asOptionalBoolean(source.isCurrentVersion),
+    isCompatible: asOptionalBoolean(source.isCompatible),
+    isComparableWithCurrent: asOptionalBoolean(source.isComparableWithCurrent)
   }
 }
 
@@ -286,6 +322,11 @@ const normalizeComparison = (payload: unknown): SnapshotComparison => {
   }).filter(Boolean)
 
   return {
+    comparisonStatus: 'comparable',
+    comparisonVersion: Object.keys(asRecord(data.comparisonVersion)).length ? {
+      modelVersion: asString(asRecord(data.comparisonVersion).modelVersion),
+      pipelineVersion: asString(asRecord(data.comparisonVersion).pipelineVersion)
+    } : undefined,
     repositoryId: asString(data.repositoryId),
     repoName: asString(data.repoName),
     fullName: asString(data.fullName),
@@ -338,9 +379,22 @@ const normalizeComparison = (payload: unknown): SnapshotComparison => {
 }
 
 export const snapshotApi = {
-  async getProgressComparison(repositoryId: string, params: SnapshotQueryParams = { includeSkillDetails: true }) {
-    const response = await apiClient.get(`/repositories/${repositoryId}/progress-comparison`, { params })
-    return normalizeComparison(response.data)
+  async getProgressComparison(repositoryId: string, params: SnapshotQueryParams = { includeSkillDetails: true }): Promise<RepositoryProgressComparisonState> {
+    try {
+      const response = await apiClient.get(`/repositories/${repositoryId}/progress-comparison`, { params })
+      const data = asRecord(unwrapResponse<unknown>(response.data))
+      if (data.comparisonStatus === 'insufficient_compatible_snapshots') {
+        return { comparisonStatus: 'insufficient_compatible_snapshots', message: asString(data.message) }
+      }
+      return { comparisonStatus: 'comparable', data: normalizeComparison(response.data) }
+    } catch (error) {
+      const data = asRecord(axios.isAxiosError(error) ? error.response?.data : undefined)
+      const details = asRecord(data.data)
+      if (data.comparisonStatus === 'insufficient_compatible_snapshots' || details.comparisonStatus === 'insufficient_compatible_snapshots') {
+        return { comparisonStatus: 'insufficient_compatible_snapshots', message: asString(data.message) ?? asString(details.message) }
+      }
+      throw error
+    }
   },
 
   async getSnapshots(repositoryId: string) {
@@ -353,8 +407,24 @@ export const snapshotApi = {
     return normalizeSnapshot(unwrapResponse(response.data))
   },
 
-  async compareSnapshots(fromSnapshotId: string, toSnapshotId: string, params: SnapshotQueryParams = { includeSkillDetails: true }) {
-    const response = await apiClient.post('/snapshots/compare', { fromSnapshotId, toSnapshotId }, { params })
-    return normalizeComparison(response.data)
+  async compareSnapshots(fromSnapshotId: string, toSnapshotId: string, params: SnapshotQueryParams = { includeSkillDetails: true }): Promise<SnapshotComparisonState> {
+    try {
+      const response = await apiClient.post('/snapshots/compare', { fromSnapshotId, toSnapshotId }, { params })
+      return normalizeComparison(response.data)
+    } catch (error) {
+      const responseData = asRecord(axios.isAxiosError(error) ? error.response?.data : undefined)
+      const data = asRecord(responseData.data)
+      const source = Object.keys(data).length ? data : responseData
+      if (axios.isAxiosError(error) && error.response?.status === 409 && source.comparisonStatus === 'incompatible_snapshot_versions') {
+        const errors = asRecord(source.errors)
+        return {
+          comparisonStatus: 'incompatible_snapshot_versions',
+          message: asString(source.message),
+          leftVersion: asRecord(errors.leftVersion),
+          rightVersion: asRecord(errors.rightVersion)
+        }
+      }
+      throw error
+    }
   }
 }

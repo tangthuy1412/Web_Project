@@ -10,6 +10,7 @@ import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatRelativeTime } from '../../lib/utils'
 import { getApiErrorMessage } from '../../services/apis/core'
 import { reportApi } from '../../services/apis/repositories'
+import type { RoleOption } from '../../types'
 
 const reportReasons = [
   'Nội dung không phù hợp',
@@ -60,6 +61,10 @@ export const RepositoryDetailPage = () => {
   const {
     repositories,
     analyses,
+    analysisStatesByRepoId,
+    analysisLoadingByRepoId,
+    analysisErrorsByRepoId,
+    selectedRoleOption,
     selectedRepository,
     packagesByRepoId,
     commitsByRepoId,
@@ -68,9 +73,11 @@ export const RepositoryDetailPage = () => {
     fetchPackages,
     fetchCommits,
     fetchMyAnalyses,
+    fetchAnalysis,
     fetchMyFeedbacks,
     analyzeRepository,
     generateFeedback,
+    setSelectedRoleOption,
     fetchFeedback,
     isLoading,
     isAnalyzing,
@@ -102,8 +109,14 @@ export const RepositoryDetailPage = () => {
   const totalCommitPages = Math.max(1, Math.ceil(commits.length / COMMITS_PER_PAGE))
   const visibleCommits = commits.slice((commitPage - 1) * COMMITS_PER_PAGE, commitPage * COMMITS_PER_PAGE)
   const latestAnalysis = useMemo(() => {
+    const state = analysisStatesByRepoId[id]
+    if (state?.analysisStatus === 'available') return state.analysis
+    if (state?.analysisStatus === 'analysis_required') return undefined
     return analyses.find((analysis) => analysis.repositoryId === id)
-  }, [analyses, id])
+  }, [analyses, analysisStatesByRepoId, id])
+  const analysisState = analysisStatesByRepoId[id]
+  const isLoadingAnalysis = Boolean(analysisLoadingByRepoId[id])
+  const analysisRequestError = analysisErrorsByRepoId[id]
   const latestSummary = latestAnalysis?.summary
   const latestScope = latestAnalysis?.analysisScope
   const latestScoreValue = latestSummary?.userReadinessScore ?? latestSummary?.overallScore ?? latestAnalysis?.scores.overallScore ?? latestAnalysis?.scores.overall
@@ -116,9 +129,10 @@ export const RepositoryDetailPage = () => {
     fetchPackages(id).catch(() => undefined)
     fetchCommits(id).catch(() => undefined)
     fetchMyAnalyses().catch(() => undefined)
+    fetchAnalysis(id).catch(() => undefined)
     fetchMyFeedbacks().catch(() => undefined)
     fetchFeedback(id).catch(() => undefined)
-  }, [fetchCommits, fetchFeedback, fetchMyAnalyses, fetchMyFeedbacks, fetchPackages, fetchRepository, id, repository])
+  }, [fetchAnalysis, fetchCommits, fetchFeedback, fetchMyAnalyses, fetchMyFeedbacks, fetchPackages, fetchRepository, id, repository])
 
   useEffect(() => {
     setCommitPage(1)
@@ -126,6 +140,11 @@ export const RepositoryDetailPage = () => {
 
   const handleAnalyze = async () => {
     await analyzeRepository(id)
+  }
+
+  const handleSelectRole = (option: RoleOption) => {
+    setSelectedRoleOption(option)
+    navigate('/roadmaps', { state: { selectedRoleOption: option, currentRepositoryId: id } })
   }
 
   const handleFetchPackages = async () => {
@@ -149,7 +168,7 @@ export const RepositoryDetailPage = () => {
   const handleGenerateFeedback = async () => {
     if (feedback) return
     const existingFeedback = await fetchFeedback(id)
-    if (existingFeedback) return
+    if (existingFeedback && !existingFeedback.isStale) return
 
     await generateFeedback(id)
   }
@@ -357,7 +376,45 @@ export const RepositoryDetailPage = () => {
         </Card>
       )}
 
-      {!latestAnalysis && (
+      {isLoadingAnalysis && !latestAnalysis && (
+        <Card className="border-dashed">
+          <CardContent className="p-5">
+            <div className="h-5 w-56 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+            <div className="mt-3 h-4 w-full max-w-xl animate-pulse rounded bg-slate-100 dark:bg-slate-900" />
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoadingAnalysis && analysisState?.analysisStatus === 'analysis_required' && (
+        <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
+          <CardContent className="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-100">
+                {analysisState.reason === 'incompatible_analysis_history'
+                  ? 'Kết quả phân tích trước đây không còn tương thích'
+                  : 'Repository cần được phân tích bằng phiên bản hiện tại'}
+              </h2>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                {analysisState.reason === 'incompatible_analysis_history'
+                  ? 'Lịch sử cũ vẫn được giữ lại, nhưng không được dùng như kết quả Dev2Vec hiện hành.'
+                  : 'Chưa có kết quả Dev2Vec tương thích để hiển thị điểm số và vai trò.'}
+              </p>
+            </div>
+            <Button onClick={handleAnalyze} isLoading={isAnalyzing}><RefreshCw className="mr-2 h-4 w-4" />Phân tích lại repository</Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoadingAnalysis && analysisRequestError && !analysisState && (
+        <Card className="border-red-200 dark:border-red-900">
+          <CardContent className="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center">
+            <div><h2 className="font-semibold">Không thể tải kết quả phân tích</h2><p className="mt-1 text-sm text-slate-500">{analysisRequestError}</p></div>
+            <Button variant="outline" onClick={() => fetchAnalysis(id)}><RefreshCw className="mr-2 h-4 w-4" />Thử lại</Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoadingAnalysis && !latestAnalysis && !analysisState && !analysisRequestError && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center">
             <div>
@@ -372,7 +429,14 @@ export const RepositoryDetailPage = () => {
         </Card>
       )}
 
-      {latestAnalysis && <RoleMatchPanel key={latestAnalysis.id || latestAnalysis.analyzedAt || id} repositoryId={id} />}
+      {latestAnalysis && (
+        <RoleMatchPanel
+          key={latestAnalysis.id || latestAnalysis.analyzedAt || id}
+          repositoryId={id}
+          selectedRoleId={selectedRoleOption?.roleId}
+          onSelectRole={handleSelectRole}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -539,6 +603,7 @@ export const RepositoryDetailPage = () => {
               <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="info">{feedback.projectType || repository.language || 'Project'}</Badge>
+                  {feedback.isStale && <Badge variant="warning">Feedback cũ</Badge>}
                   {feedback.careerDirection && <Badge variant="success">{feedback.careerDirection}</Badge>}
                   {(feedback.generatedAt || feedback.createdAt) && (
                     <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -548,6 +613,12 @@ export const RepositoryDetailPage = () => {
                 </div>
                 {feedback.summary && (
                   <p className="mt-3 leading-6 text-slate-700 dark:text-slate-300">{feedback.summary}</p>
+                )}
+                {feedback.isStale && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    <span>{feedback.staleReason || 'Feedback này được tạo từ phiên bản phân tích cũ.'}</span>
+                    <Button size="sm" onClick={handleGenerateFeedback} isLoading={isGeneratingFeedback}>Tạo lại feedback</Button>
+                  </div>
                 )}
               </div>
 

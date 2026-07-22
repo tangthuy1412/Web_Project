@@ -22,6 +22,10 @@ const getRoadmapGenerationErrorMessage = (error: unknown) => {
     return 'Chưa thể tạo lộ trình từ dữ liệu phân tích hiện tại. Bạn có thể thử phân tích lại dự án rồi tạo lộ trình mới.'
   }
 
+  if (status === 409 || normalizedMessage.includes('stale_role') || normalizedMessage.includes('stale role') || normalizedMessage.includes('role option conflict')) {
+    return 'Lựa chọn vai trò đã cũ. Vui lòng tải lại kết quả phân tích vai trò.'
+  }
+
   return rawMessage || 'Không thể tạo lộ trình lúc này.'
 }
 

@@ -311,6 +311,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           effectiveMode: response.effectiveMode ?? mode,
           status: response.status ?? (mode === 'MANUAL' ? 'waiting_admin' : currentAfterOptimistic.status),
           repositoryId: response.context?.repositoryId ?? context?.repositoryId ?? currentAfterOptimistic.repositoryId,
+          repositoryIds: response.context?.repositoryIds ?? context?.repositoryIds ?? currentAfterOptimistic.repositoryIds,
           roadmapId: response.context?.roadmapId ?? context?.roadmapId ?? currentAfterOptimistic.roadmapId,
           analysisId: response.context?.analysisId ?? context?.analysisId ?? currentAfterOptimistic.analysisId,
           snapshotId: response.context?.snapshotId ?? context?.snapshotId ?? currentAfterOptimistic.snapshotId,
@@ -327,6 +328,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         nextSession = {
           ...nextSession,
           repositoryId: response.context.repositoryId ?? nextSession.repositoryId,
+          repositoryIds: response.context.repositoryIds ?? nextSession.repositoryIds,
           roadmapId: response.context.roadmapId ?? nextSession.roadmapId,
           analysisId: response.context.analysisId ?? nextSession.analysisId,
           snapshotId: response.context.snapshotId ?? nextSession.snapshotId,

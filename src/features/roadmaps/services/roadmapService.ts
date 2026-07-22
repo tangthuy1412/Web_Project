@@ -1,5 +1,6 @@
 import { apiClient, extractApiResource } from '../../../app/services/apis/core'
 import { roadmapTargetRoles } from '../constants/roadmapTargetRoles'
+import type { RoleOption } from '../../../app/types'
 import type {
   AIRecommendation,
   LearningNodeStatus,
@@ -144,19 +145,81 @@ export type RoadmapListParams = {
 export type RoadmapSourceMode = 'single_repo' | 'selected_repos' | 'all_analyzed_repos'
 
 export type GenerateRoadmapOptions = {
-  sourceMode?: RoadmapSourceMode
+  sourceMode?: 'single_repo'
   repoId?: string
-  roleId?: string
-  repoIds?: string[]
-  repositoryIds?: string[]
+  currentRepositoryId?: string
   level?: 'beginner' | 'intermediate' | 'advanced' | string
   durationWeeks?: number
   language?: string
   useRoleMatching?: boolean
   forceRegenerate?: boolean
-  selectedRole?: {
-    roleId?: string
-    roleName?: string
+  selectedRoleOption?: RoleOption
+}
+
+export type RoadmapGenerationPayload = {
+  repoId: string
+  currentRepositoryId: string
+  selectedRoleId: string
+  targetRole: string
+  roleId: string
+  level: string
+  durationWeeks: number
+  language: string
+  useRoleMatching: boolean
+  forceRegenerate: boolean
+  sourceMode: 'single_repo'
+  sourceRepositoryId?: string
+  sourceAnalysisId?: string
+  sourceSnapshotId?: string
+}
+
+export type BuildRoadmapGenerationPayloadInput = {
+  currentRepositoryId: string
+  selectedRoleOption: RoleOption
+  level?: string
+  durationWeeks?: number
+  language?: string
+  useRoleMatching?: boolean
+  forceRegenerate?: boolean
+}
+
+const optionalTrimmed = (value?: string) => value?.trim() || undefined
+
+export const buildRoadmapGenerationPayload = ({
+  currentRepositoryId,
+  selectedRoleOption,
+  level = 'beginner',
+  durationWeeks = 6,
+  language = 'vi',
+  useRoleMatching = true,
+  forceRegenerate = false
+}: BuildRoadmapGenerationPayloadInput): RoadmapGenerationPayload => {
+  const repoId = currentRepositoryId.trim()
+  const roleId = selectedRoleOption.roleId.trim()
+  const roleName = selectedRoleOption.roleName.trim()
+
+  if (!repoId) throw new Error('Hãy chọn repository hiện tại trước khi tạo roadmap.')
+  if (!roleId || !roleName) throw new Error('Lựa chọn vai trò không hợp lệ. Vui lòng tải lại kết quả phân tích vai trò.')
+
+  const sourceRepositoryId = optionalTrimmed(selectedRoleOption.sourceRepositoryId)
+  const sourceAnalysisId = optionalTrimmed(selectedRoleOption.sourceAnalysisId)
+  const sourceSnapshotId = optionalTrimmed(selectedRoleOption.sourceSnapshotId)
+
+  return {
+    repoId,
+    currentRepositoryId: repoId,
+    selectedRoleId: roleId,
+    targetRole: roleName,
+    roleId,
+    level: level.trim() || 'beginner',
+    durationWeeks,
+    language: language.trim() || 'vi',
+    useRoleMatching,
+    forceRegenerate,
+    sourceMode: 'single_repo',
+    ...(sourceRepositoryId ? { sourceRepositoryId } : {}),
+    ...(sourceAnalysisId ? { sourceAnalysisId } : {}),
+    ...(sourceSnapshotId ? { sourceSnapshotId } : {})
   }
 }
 
@@ -704,78 +767,31 @@ export const roadmapService = {
   },
 
   async generateAIRoadmap(targetRole = 'Backend Developer', optionsOrForce: GenerateRoadmapOptions | boolean = false, legacyRepoId?: string): Promise<AIRecommendation> {
-    if (false) {
-      throw new Error('Hãy phân tích một repository trước khi tạo roadmap.')
-    }
-
     const options: GenerateRoadmapOptions = typeof optionsOrForce === 'boolean'
-      ? { forceRegenerate: optionsOrForce, repoId: legacyRepoId, sourceMode: legacyRepoId ? 'single_repo' : 'all_analyzed_repos' }
+      ? { forceRegenerate: optionsOrForce, repoId: legacyRepoId, currentRepositoryId: legacyRepoId, sourceMode: 'single_repo' }
       : optionsOrForce
-    const selectedRepositoryIds = options.repositoryIds ?? options.repoIds ?? []
-    const sourceMode = options.sourceMode ?? (selectedRepositoryIds.length ? 'selected_repos' : options.repoId ? 'single_repo' : 'all_analyzed_repos')
+    const currentRepositoryId = options.currentRepositoryId ?? options.repoId ?? legacyRepoId ?? ''
+    // The optional legacy repoId argument is the only compatibility fallback.
+    // Role identity and provenance must always be supplied as a complete
+    // RoleOption returned by repository analysis.
+    const selectedRoleOption = options.selectedRoleOption
 
-    if (sourceMode === 'single_repo' && !options.repoId) {
-      throw new Error('Hay chon mot repository da phan tich truoc khi tao roadmap.')
-    }
-    if (sourceMode === 'selected_repos' && !selectedRepositoryIds.length) {
-      throw new Error('Hay chon it nhat mot repository da phan tich.')
+    if (!selectedRoleOption) {
+      throw new Error('Chưa có vai trò từ kết quả phân tích. Vui lòng quay lại repository và chọn vai trò.')
     }
 
-    const requestedRoleName = options.selectedRole?.roleName ?? targetRole
-    const safeRole = roadmapTargetRoles.includes(requestedRoleName as typeof roadmapTargetRoles[number])
-      ? requestedRoleName
-      : 'Backend Developer'
-    const roleIds: Record<string, string> = {
-      'Backend Developer': 'backend',
-      'Frontend Developer': 'frontend',
-      'Mobile Developer': 'mobile',
-      'DevOps Engineer': 'devops',
-      'Data Scientist': 'data_scientist',
-      'Fullstack Developer': 'backend',
-      'Tester / QA Engineer': 'backend',
-      'DevOps Beginner': 'devops',
-      'Data Analyst': 'data_scientist',
-      'AI Engineer': 'data_scientist',
-      'AI / Machine Learning Beginner': 'data_scientist'
-    }
-    const response = await apiClient.post('/roadmaps/generate', {
-      targetRole: safeRole,
-      roleId: options.selectedRole?.roleId ?? options.roleId ?? roleIds[safeRole] ?? 'backend',
-      selectedRole: {
-        roleId: options.selectedRole?.roleId ?? options.roleId ?? roleIds[safeRole] ?? 'backend',
-        roleName: safeRole
-      },
-      level: options.level ?? 'beginner',
-      durationWeeks: options.durationWeeks ?? 6,
-      language: options.language ?? 'vi',
-      useRoleMatching: options.useRoleMatching ?? true,
-      forceRegenerate: options.forceRegenerate ?? false,
-      sourceMode,
-      ...(sourceMode === 'single_repo' ? { repoId: options.repoId } : {}),
-      ...(sourceMode === 'selected_repos' ? { repoIds: selectedRepositoryIds } : {})
+    const payload = buildRoadmapGenerationPayload({
+      currentRepositoryId,
+      selectedRoleOption,
+      level: options.level,
+      durationWeeks: options.durationWeeks,
+      language: options.language,
+      useRoleMatching: options.useRoleMatching,
+      forceRegenerate: options.forceRegenerate
     })
+    const response = await apiClient.post('/roadmaps/generate', payload)
     const roadmap = extractApiResource<BackendRoadmap>(response.data, ['roadmap'])
-    const selectedSourceCount = sourceMode === 'single_repo'
-      ? 1
-      : sourceMode === 'selected_repos'
-        ? selectedRepositoryIds.length
-        : undefined
-    const existingSource = roadmap.roadmapSource && typeof roadmap.roadmapSource === 'object' ? roadmap.roadmapSource : {}
-    const enrichedRoadmap: BackendRoadmap = selectedSourceCount === undefined ? roadmap : {
-      ...roadmap,
-      sourceContextSummary: {
-        ...roadmap.sourceContextSummary,
-        repositoriesCount: selectedSourceCount
-      },
-      roadmapSource: {
-        ...existingSource,
-        sourceMode,
-        totalRepositories: selectedSourceCount,
-        ...(sourceMode === 'single_repo' ? { repositoryId: options.repoId } : {}),
-        ...(sourceMode === 'selected_repos' ? { repositoryIds: selectedRepositoryIds } : {})
-      }
-    }
-    return buildRecommendation(enrichedRoadmap)
+    return buildRecommendation(roadmap)
   },
 
   async archiveRoadmap(roadmapId: string): Promise<Roadmap> {

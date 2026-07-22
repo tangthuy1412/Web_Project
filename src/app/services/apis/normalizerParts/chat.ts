@@ -35,6 +35,7 @@ const normalizeChatContext = (payload: unknown): ChatContext | undefined => {
   const source = asRecord(payload)
   const context: ChatContext = {
     repositoryId: firstString(source.repositoryId) || undefined,
+    repositoryIds: asStringArray(source.repositoryIds),
     repoName: firstString(source.repoName, source.repositoryName, source.fullName) || undefined,
     roadmapId: firstString(source.roadmapId) || undefined,
     analysisId: firstString(source.analysisId) || undefined,
@@ -47,7 +48,9 @@ const normalizeChatContext = (payload: unknown): ChatContext | undefined => {
     intents: asStringArray(source.intents),
     hasRoadmapContext: asBoolean(source.hasRoadmapContext),
     hasComparisonContext: asBoolean(source.hasComparisonContext),
-    comparedRepoCount: asNumber(source.comparedRepoCount)
+    comparedRepoCount: asNumber(source.comparedRepoCount),
+    contextSources: asStringArray(source.contextSources),
+    dev2vecAuthoritative: asBoolean(source.dev2vecAuthoritative)
   }
 
   return Object.values(context).some((value) => value !== undefined) ? context : undefined
@@ -85,6 +88,7 @@ export const normalizeChatSession = (payload: unknown): ChatSession => {
     id: firstString(session.id, session._id, session.sessionId),
     title: firstString(session.title, session.name, 'Cuoc tro chuyen moi'),
     repositoryId: firstString(session.repositoryId) || context?.repositoryId,
+    repositoryIds: asStringArray(session.repositoryIds) ?? context?.repositoryIds,
     roadmapId: firstString(session.roadmapId) || context?.roadmapId,
     analysisId: firstString(session.analysisId) || context?.analysisId,
     snapshotId: firstString(session.snapshotId) || context?.snapshotId,
