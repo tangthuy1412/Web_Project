@@ -2,11 +2,17 @@ import { apiClient, unwrapResponse } from './apiClient'
 
 type AnalysisQueryParams = {
   includeEvidence?: boolean
+  forceRegenerate?: boolean
 }
 
 export const analysisApi = {
   async analyzeRepository(repoId: string, params?: AnalysisQueryParams) {
-    const response = await apiClient.post(`/analysis/repositories/${repoId}`, undefined, { params })
+    const response = await apiClient.post(`/analysis/repositories/${repoId}`, undefined, {
+      params: {
+        ...(params?.includeEvidence !== undefined ? { includeEvidence: params.includeEvidence } : {}),
+        ...(params?.forceRegenerate ? { forceRegenerate: true } : {})
+      }
+    })
     return unwrapResponse(response.data)
   },
 

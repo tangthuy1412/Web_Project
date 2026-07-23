@@ -6,16 +6,23 @@ const optionalNumber = (value: unknown) => typeof value === 'number' && Number.i
 
 const normalizeDashboard = (payload: unknown): DashboardResponse => {
   const source = asRecord(unwrapResponse<unknown>(payload))
-  const snapshot = asRecord(source.currentSnapshot)
+  const stats = asRecord(source.stats ?? source.statistics ?? source.counters)
+  const snapshot = asRecord(source.currentSnapshot ?? source.snapshot)
   return {
     dev2vecStatus: source.dev2vecStatus === 'current' ? 'current' : 'analysis_required',
     message: typeof source.message === 'string' ? source.message : undefined,
     modelVersion: typeof source.modelVersion === 'string' ? source.modelVersion : undefined,
     pipelineVersion: typeof source.pipelineVersion === 'string' ? source.pipelineVersion : undefined,
-    totalRepositories: optionalNumber(source.totalRepositories ?? source.repositoryCount),
-    analyzedRepositories: optionalNumber(source.analyzedRepositories ?? source.analysisCount),
+    totalRepositories: optionalNumber(
+      source.totalRepositories ?? source.repositoryCount ?? source.totalRepos
+      ?? stats.totalRepositories ?? stats.repositoryCount ?? stats.totalRepos
+    ),
+    analyzedRepositories: optionalNumber(
+      source.analyzedRepositories ?? source.analysisCount ?? source.analyzedRepos
+      ?? stats.analyzedRepositories ?? stats.analysisCount ?? stats.analyzedRepos
+    ),
     githubConnected: typeof source.githubConnected === 'boolean' ? source.githubConnected : undefined,
-    overallScore: optionalNumber(source.overallScore ?? snapshot.overallScore),
+    overallScore: optionalNumber(source.overallScore ?? source.averageOverallScore ?? stats.overallScore ?? stats.averageOverallScore ?? snapshot.overallScore),
     topRoles: Array.isArray(source.topRoles) ? source.topRoles.map((item) => {
       const role = asRecord(item)
       return { roleId: String(role.roleId ?? role.id ?? ''), roleName: String(role.roleName ?? role.name ?? ''), matchScore: optionalNumber(role.matchScore) }

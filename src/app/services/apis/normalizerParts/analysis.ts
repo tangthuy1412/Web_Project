@@ -7,7 +7,9 @@ const optionalNumber = (value: unknown) => {
 }
 
 export const normalizeAnalysis = (payload: unknown): AnalysisResult => {
+  const envelope = asRecord(payload)
   const source = asRecord(extractObject(payload, ['analysis', 'result', 'snapshot']))
+  const snapshotReference = asRecord(envelope.snapshot ?? envelope.analysisSnapshot)
   const summary = asRecord(source.summary)
   const analysisScope = asRecord(source.analysisScope)
   const scoreBreakdown = asRecord(source.scoreBreakdown)
@@ -24,7 +26,15 @@ export const normalizeAnalysis = (payload: unknown): AnalysisResult => {
   return {
     id: firstString(source.id, source._id, source.analysisId),
     analysisId: firstString(source.analysisId, source.id, source._id) || undefined,
-    snapshotId: firstString(source.snapshotId) || undefined,
+    snapshotId: firstString(
+      source.snapshotId,
+      source.analysisSnapshotId,
+      snapshotReference.snapshotId,
+      snapshotReference.id,
+      snapshotReference._id,
+      envelope.snapshotId,
+      envelope.analysisSnapshotId
+    ) || undefined,
     modelVersion: firstString(source.modelVersion) || undefined,
     pipelineVersion: firstString(source.pipelineVersion, source.analysisPipelineVersion) || undefined,
     repositoryId,

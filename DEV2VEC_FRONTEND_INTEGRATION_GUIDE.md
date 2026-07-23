@@ -1236,3 +1236,76 @@ Vì vậy user cũ có thể cần phân tích lại repo một lần để:
 - tạo feedback current.
 
 FE nên chuẩn bị trạng thái chuyển tiếp này thay vì coi là lỗi hệ thống.
+
+---
+
+# 19. Snapshot refresh và progress comparison
+
+## 19.1 Force re-analysis
+
+Khi người dùng chủ động bấm **Phân tích lại**, FE gọi:
+
+```http
+POST /api/analysis/repositories/{repoId}?includeEvidence=true&forceRegenerate=true
+```
+
+Backend hiện chỉ hỗ trợ đúng `forceRegenerate=true` ở query hoặc body. Các tên `force`, `forceRefresh`, `forceReanalyze`, `refresh`, `bypassCache`, `skipCache`, `reuseCache` và `exactCache` không có hiệu lực. Analyze thường không gửi flag; thao tác **Phân tích lại** do người dùng chủ động mới luôn gửi flag này.
+
+HTTP 200 không đủ để kết luận đã có snapshot mới. FE lưu `analysisId`, `snapshotId`, `analyzedAt` và version metadata từ response, sau đó refetch history và xác nhận `snapshotId` có trong history. FE không tự sinh ID, clone snapshot hay append một snapshot giả.
+
+Sau mutation thành công, FE phải await/refetch:
+
+- repository analysis summary;
+- `GET /repositories/{repoId}/snapshots?view=summary`;
+- `GET /repositories/{repoId}/progress-comparison`;
+- `GET /snapshots/{snapshotId}` cho snapshot vừa trả về.
+
+History backend trả newest-first. FE chọn `snapshots[0]` làm `toSnapshot`, `snapshots[1]` làm `fromSnapshot`, nhưng lưu selection bằng ID. Trước POST compare, FE kiểm tra `analyzedAt ?? createdAt` và tự đổi thứ tự nếu người dùng chọn ngược. Backend không tự normalize from/to.
+
+## 19.2 Snapshot summary/detail
+
+Các field cũ được giữ nguyên. Các field sau là optional/additive:
+
+- `scoringMethod`;
+- `analysisScopeType`;
+- `matchedSkillNames`;
+- `weakSkillNames`;
+- `missingSkillNames`;
+- `recommendedNextSkills`;
+- `rolePredictions` / `roleMatches`;
+- `skillGapSummary`;
+- `vectorSources`;
+- `sourceStats`.
+
+FE mặc định dùng `view=summary`. Khi người dùng bấm **Xem chi tiết**, FE gọi `GET /snapshots/{snapshotId}?view=detail&includeEvidence=true`. Các field Dev2Vec có thể nằm trong `debug.dev2vec`; adapter đọc root trước rồi fallback vào object này. UI không render full vector arrays.
+
+## 19.3 Compare full và score_only
+
+Request chính:
+
+```json
+{
+  "fromSnapshotId": "...",
+  "toSnapshotId": "..."
+}
+```
+
+Backend có thể tiếp tục nhận `snapshotAId`/`snapshotBId` như deprecated aliases.
+
+- `comparisonMode = "full"` và `comparableSkillScores = true`: render score, level và toàn bộ skill changes.
+- `comparisonMode = "score_only"` và `comparableSkillScores = false`: vẫn render score/level delta, ẩn các section skill và hiển thị `warnings`.
+
+FE không tự tính skill delta. Nếu compare trả HTTP 409 incompatible version, FE giữ hai mốc và hiển thị cảnh báo cụ thể. History và progress có thể có số snapshot khác nhau vì progress chỉ xét version hiện tại; FE không dùng `progress.snapshotsCount` để ẩn history.
+
+## 19.4 Migration và test checklist
+
+- [ ] Force re-analysis tạo snapshot ID mới.
+- [ ] Cache bị bypass khi `forceRegenerate=true`.
+- [ ] Inference failure không tạo snapshot.
+- [ ] History tăng một bản ghi sau mutation thành công.
+- [ ] Latest/previous được chọn lại theo timestamp.
+- [ ] Compare request đi qua authenticated `apiClient`.
+- [ ] `full` render skill changes.
+- [ ] `score_only` chỉ render score/level và warning.
+- [ ] Detail snapshot render an toàn khi field additive vắng mặt.
+- [ ] Lịch sử và comparison không overflow hoặc che nội dung.

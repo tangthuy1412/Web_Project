@@ -139,7 +139,7 @@ export const RepositoryDetailPage = () => {
   }, [id, commits.length])
 
   const handleAnalyze = async () => {
-    await analyzeRepository(id)
+    await analyzeRepository(id, { forceRegenerate: Boolean(repository?.analyzed || latestAnalysis) })
   }
 
   const handleSelectRole = (option: RoleOption) => {

@@ -14,6 +14,7 @@ import {
   normalizeRepositories,
   normalizeRepository
 } from '../services/apis/repositories'
+import { snapshotApi } from '../services/apis/progress'
 
 type RepositoryState = {
   repositories: Repository[]
@@ -34,7 +35,7 @@ type RepositoryState = {
   fetchRepository: (id: string) => Promise<Repository | null>
   fetchPackages: (id: string, sync?: boolean) => Promise<void>
   fetchCommits: (id: string, sync?: boolean) => Promise<void>
-  analyzeRepository: (id: string) => Promise<AnalysisResult>
+  analyzeRepository: (id: string, options?: { forceRegenerate?: boolean }) => Promise<AnalysisResult>
   fetchAnalysis: (repoId: string) => Promise<RepositoryAnalysisState | null>
   fetchMyAnalyses: () => Promise<void>
   generateFeedback: (repoId: string) => Promise<AIFeedback>
@@ -227,7 +228,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     }
   },
 
-  analyzeRepository: async (id) => {
+  analyzeRepository: async (id, options = {}) => {
     set({ isAnalyzing: true, error: null })
 
     try {
@@ -235,8 +236,23 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         githubApi.syncPackages(id),
         githubApi.syncCommits(id)
       ])
-      const normalizedResult = normalizeAnalysis(await analysisApi.analyzeRepository(id, { includeEvidence: true }))
+      const normalizedResult = normalizeAnalysis(await analysisApi.analyzeRepository(id, {
+        includeEvidence: true,
+        forceRegenerate: options.forceRegenerate
+      }))
       const result = { ...normalizedResult, repositoryId: normalizedResult.repositoryId || id }
+      let snapshotRefreshWarning = ''
+      if (options.forceRegenerate) {
+        try {
+          const history = await snapshotApi.getSnapshots(id, { page: 1, limit: 20, view: 'summary' })
+          if (result.snapshotId && !history.snapshots.some((snapshot) => snapshot.id === result.snapshotId)) {
+            snapshotRefreshWarning = 'Phân tích đã hoàn tất nhưng snapshot mới chưa xuất hiện trong lịch sử mốc.'
+            if (import.meta.env.DEV) console.warn(snapshotRefreshWarning, { repositoryId: id, snapshotId: result.snapshotId })
+          }
+        } catch {
+          snapshotRefreshWarning = 'Phân tích đã hoàn tất nhưng chưa tải lại được lịch sử mốc.'
+        }
+      }
       const analysisState: RepositoryAnalysisState = {
         analysisStatus: 'available',
         repositoryId: result.repositoryId || id,
@@ -253,7 +269,8 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         selectedRepository: state.selectedRepository?.id === id
           ? { ...state.selectedRepository, analyzed: true, analysisId: result.id }
           : state.selectedRepository,
-        isAnalyzing: false
+        isAnalyzing: false,
+        error: snapshotRefreshWarning || null
       }))
 
       return result

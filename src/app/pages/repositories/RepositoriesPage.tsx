@@ -70,10 +70,10 @@ export const RepositoriesPage = () => {
     setPage((current) => Math.min(current, totalPages))
   }, [totalPages])
 
-  const handleAnalyze = async (repoId: string) => {
+  const handleAnalyze = async (repoId: string, forceRegenerate = false) => {
     try {
       setAnalyzingRepoId(repoId)
-      const result = await analyzeRepository(repoId)
+      const result = await analyzeRepository(repoId, { forceRegenerate })
       navigate(`/repositories/${result.repositoryId || repoId}`)
     } finally {
       setAnalyzingRepoId(null)
@@ -228,7 +228,7 @@ export const RepositoriesPage = () => {
                           Hỏi AI
                         </Button>
                       )}
-                      <Button size="sm" className="col-span-2 w-full whitespace-nowrap sm:w-auto" onClick={() => handleAnalyze(repo.id)} disabled={isRepoAnalyzing}>
+                      <Button size="sm" className="col-span-2 w-full whitespace-nowrap sm:w-auto" onClick={() => handleAnalyze(repo.id, hasAnalysis)} disabled={isRepoAnalyzing}>
                         {isRepoAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : hasAnalysis ? <RefreshCw className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
                         {isRepoAnalyzing ? 'Đang phân tích...' : hasAnalysis ? 'Phân tích lại' : 'Phân tích'}
                       </Button>
@@ -313,7 +313,7 @@ export const RepositoriesPage = () => {
                                 <MessageSquare className="mr-2 h-4 w-4" />
                                 Hỏi AI
                               </Button>
-                              <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={() => handleAnalyze(repo.id)} disabled={isRepoAnalyzing}>
+                              <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={() => handleAnalyze(repo.id, true)} disabled={isRepoAnalyzing}>
                                 {isRepoAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                                 {isRepoAnalyzing ? 'Đang phân tích...' : 'Phân tích lại'}
                               </Button>

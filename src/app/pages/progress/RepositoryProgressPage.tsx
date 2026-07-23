@@ -18,7 +18,7 @@ import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
 import { formatDate } from '../../lib/utils'
 import { getApiErrorMessage } from '../../services/apis/core'
-import { type AnalysisSnapshot, snapshotApi, type RepositoryProgressComparisonState, type SkillComparisonItem, type SnapshotComparison, type SnapshotComparisonState } from '../../services/apis/progress'
+import { type AnalysisSnapshot, formatReadinessDelta, formatReadinessScore, normalizeSnapshotPair, selectDefaultSnapshotPair, snapshotApi, type RepositoryProgressComparisonState, type SkillComparisonItem, type SnapshotComparison, type SnapshotComparisonState } from '../../services/apis/progress'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import type { SkillVectorItem } from '../../types'
 
@@ -145,22 +145,28 @@ const MissingSkillList = ({ items }: { items: string[] }) => {
 }
 
 export const RepositoryProgressPage = () => {
-  const { repositories, fetchRepositories } = useRepositoryStore()
+  const { repositories, fetchRepositories, fetchMyAnalyses } = useRepositoryStore()
   const [repositoryId, setRepositoryId] = useState('')
   const [snapshots, setSnapshots] = useState<AnalysisSnapshot[]>([])
+  const [snapshotTotal, setSnapshotTotal] = useState(0)
   const [baselineComparison, setBaselineComparison] = useState<RepositoryProgressComparisonState | null>(null)
   const [manualComparison, setManualComparison] = useState<SnapshotComparisonState | null>(null)
   const [firstId, setFirstId] = useState('')
   const [secondId, setSecondId] = useState('')
+  const [selectedSnapshotDetail, setSelectedSnapshotDetail] = useState<AnalysisSnapshot | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isComparing, setIsComparing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const loadRequestRef = useRef(0)
   const compareRequestRef = useRef(0)
+  const comparisonResultRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    void fetchRepositories().catch(() => undefined)
-  }, [fetchRepositories])
+    void Promise.all([
+      fetchRepositories().catch(() => undefined),
+      fetchMyAnalyses().catch(() => undefined)
+    ])
+  }, [fetchMyAnalyses, fetchRepositories])
 
   useEffect(() => {
     if (!repositoryId && repositories.length) setRepositoryId(repositories[0].id)
@@ -175,26 +181,30 @@ export const RepositoryProgressPage = () => {
     setManualComparison(null)
 
     try {
-      const history = await snapshotApi.getSnapshots(repositoryId)
-      const ordered = [...history].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-      const currentListSnapshot = ordered.find((snapshot) => snapshot.isCurrentVersion)
-      const latestDetail = currentListSnapshot
-        ? await snapshotApi.getSnapshot(currentListSnapshot.id).catch(() => null)
+      await fetchMyAnalyses().catch(() => undefined)
+      const [history, comparison] = await Promise.all([
+        snapshotApi.getSnapshots(repositoryId, { page: 1, limit: 50, view: 'summary' }),
+        snapshotApi.getProgressComparison(repositoryId)
+      ])
+      const newestSnapshot = history.snapshots[0]
+      const latestDetail = newestSnapshot
+        ? await snapshotApi.getSnapshot(newestSnapshot.id, { view: 'detail', includeEvidence: true }).catch(() => null)
         : null
       const hydrated = latestDetail
-        ? ordered.map((snapshot) => snapshot.id === latestDetail.id ? latestDetail : snapshot)
-        : ordered
-      const comparison = await snapshotApi.getProgressComparison(repositoryId)
+        ? history.snapshots.map((snapshot) => snapshot.id === latestDetail.id ? latestDetail : snapshot)
+        : history.snapshots
       if (requestId !== loadRequestRef.current) return
-      const comparable = hydrated.filter((snapshot) => snapshot.isComparableWithCurrent !== false && snapshot.isCompatible !== false)
+      const defaultPair = selectDefaultSnapshotPair(hydrated)
 
       setSnapshots(hydrated)
+      setSnapshotTotal(history.pagination.total)
       setBaselineComparison(comparison)
-      setFirstId(comparable[0]?.id ?? '')
-      setSecondId(comparable.find((snapshot) => snapshot.id !== comparable[0]?.id)?.id ?? '')
+      setFirstId(defaultPair.fromSnapshotId)
+      setSecondId(defaultPair.toSnapshotId)
     } catch (requestError) {
       if (requestId !== loadRequestRef.current) return
       setSnapshots([])
+      setSnapshotTotal(0)
       setBaselineComparison(null)
       setError(getApiErrorMessage(requestError))
     } finally {
@@ -204,6 +214,7 @@ export const RepositoryProgressPage = () => {
 
   useEffect(() => {
     setSnapshots([])
+    setSnapshotTotal(0)
     setBaselineComparison(null)
     setManualComparison(null)
     setFirstId('')
@@ -214,6 +225,11 @@ export const RepositoryProgressPage = () => {
 
   const compareSnapshots = async () => {
     if (!firstId || !secondId || firstId === secondId) return
+    const first = snapshots.find((snapshot) => snapshot.id === firstId)
+    const second = snapshots.find((snapshot) => snapshot.id === secondId)
+    if (!first || !second) return
+    const pair = normalizeSnapshotPair(first, second)
+    if (!pair) return
     const requestId = ++compareRequestRef.current
 
     setIsComparing(true)
@@ -221,11 +237,15 @@ export const RepositoryProgressPage = () => {
     setManualComparison(null)
 
     try {
-      const comparison = await snapshotApi.compareSnapshots(firstId, secondId)
+      const comparison = await snapshotApi.compareSnapshots(pair.fromSnapshotId, pair.toSnapshotId)
       if (requestId !== compareRequestRef.current) return
       setManualComparison(comparison)
       if (comparison.comparisonStatus === 'incompatible_snapshot_versions') {
-        setError('Không thể so sánh snapshot khác phiên bản')
+        setError('Hai mốc sử dụng phiên bản phân tích khác nhau nên không thể so sánh kỹ năng trực tiếp.')
+      } else {
+        requestAnimationFrame(() => {
+          comparisonResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        })
       }
     } catch (requestError) {
       if (requestId !== compareRequestRef.current) return
@@ -239,6 +259,7 @@ export const RepositoryProgressPage = () => {
     try {
       const detail = await snapshotApi.getSnapshot(snapshotId)
       setSnapshots((current) => current.map((snapshot) => snapshot.id === snapshotId ? detail : snapshot))
+      setSelectedSnapshotDetail(detail)
     } catch (requestError) {
       setError(getApiErrorMessage(requestError))
     }
@@ -251,17 +272,18 @@ export const RepositoryProgressPage = () => {
     setError(null)
   }, [firstId, secondId])
 
-  const activeComparison = manualComparison?.comparisonStatus === 'comparable'
-    ? manualComparison
+  const activeComparison = manualComparison
+    ? manualComparison.comparisonStatus === 'comparable' ? manualComparison : null
     : baselineComparison?.comparisonStatus === 'comparable'
       ? baselineComparison.data
       : null
   const insufficientComparison = baselineComparison?.comparisonStatus === 'insufficient_compatible_snapshots'
   const selectedRepository = repositories.find((repository) => repository.id === repositoryId)
   const firstSnapshot = activeComparison?.firstSnapshot ?? null
-  const latestSnapshot = activeComparison?.latestSnapshot ?? snapshots.find((snapshot) => snapshot.isCurrentVersion) ?? null
+  const latestSnapshot = activeComparison?.latestSnapshot ?? snapshots[0] ?? null
   const contributionScope = latestSnapshot?.analysisScope
   const overallChange = activeComparison?.overallChange ?? 0
+  const readinessDelta = activeComparison?.delta?.userReadinessScore ?? activeComparison?.overallChange
   const repoTitle = activeComparison?.fullName || latestSnapshot?.fullName || selectedRepository?.fullName || selectedRepository?.name || 'Dự án'
   const topSkills = latestSnapshot?.topSkills?.length ? latestSnapshot.topSkills : latestSnapshot?.skillVector ?? []
   const skillGroups = getSkillGroups(activeComparison)
@@ -269,16 +291,33 @@ export const RepositoryProgressPage = () => {
   const selectedSecondSnapshot = snapshots.find((snapshot) => snapshot.id === secondId)
   const pairIsComparable = Boolean(
     firstId && secondId && firstId !== secondId
-    && selectedFirstSnapshot?.isComparableWithCurrent !== false
-    && selectedSecondSnapshot?.isComparableWithCurrent !== false
-    && selectedFirstSnapshot?.isCompatible !== false
-    && selectedSecondSnapshot?.isCompatible !== false
-    && sameSnapshotGeneration(selectedFirstSnapshot, selectedSecondSnapshot)
   )
-  const chartData = useMemo(() => snapshots.map((snapshot, index) => ({
-    label: snapshot.createdAt ? formatDate(snapshot.createdAt) : `Mốc ${index + 1}`,
+  const pairHint = !firstId || !secondId
+    ? snapshots.length > 1 && selectedSecondSnapshot
+      ? 'Snapshot mới đã được ghi nhận. Các snapshot trước đó khác phiên bản pipeline nên chưa thể dùng làm mốc gốc.'
+      : 'Chọn đủ mốc gốc và mốc mới để bắt đầu.'
+    : firstId === secondId
+      ? 'Hai mốc phải khác nhau.'
+    : 'Cặp mốc hợp lệ. Bấm “So sánh thay đổi” để xem kết quả.'
+  const chartData = useMemo(() => [...snapshots].reverse().map((snapshot, index) => ({
+    label: snapshot.analyzedAt || snapshot.createdAt ? formatDate(snapshot.analyzedAt || snapshot.createdAt) : `Mốc ${index + 1}`,
     score: toScore(snapshot.overallScore)
   })), [snapshots])
+  const compatibleSnapshotCount = snapshots.filter((snapshot) =>
+    snapshot.isComparableWithCurrent !== false
+    && snapshot.isCompatible !== false
+    && sameSnapshotGeneration(snapshot, selectedSecondSnapshot ?? snapshots.find((item) => item.isCurrentVersion))
+  ).length
+  const hasProvenNonSkillRegression = Boolean(
+    activeComparison
+    && readinessDelta !== undefined
+    && readinessDelta < 0
+    && activeComparison.skillComparisonSummary.improvedCount > 0
+    && activeComparison.skillComparisonSummary.regressedCount === 0
+    && activeComparison.scoreChanges.some((change) =>
+      change.change < 0 && !change.key.toLowerCase().includes('skill')
+    )
+  )
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -414,21 +453,26 @@ export const RepositoryProgressPage = () => {
                 <CardTitle className="flex items-center gap-2"><History className="h-5 w-5" />Lịch sử mốc</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                <div className="space-y-3">
                   {snapshots.map((snapshot, index) => (
                     <div key={snapshot.id} className="rounded-md border border-slate-200 px-3 py-2 dark:border-slate-800">
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Mốc {index + 1}</p>
-                          <p className="truncate text-xs text-slate-500">{snapshot.createdAt ? formatDate(snapshot.createdAt) : 'Chưa có thời gian'}</p>
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Mốc {Math.max(1, snapshotTotal - index)}</p>
+                          <p className="text-xs text-slate-500">{snapshot.analyzedAt || snapshot.createdAt ? formatDate(snapshot.analyzedAt || snapshot.createdAt) : 'Chưa có thời gian'}</p>
                         </div>
                         <Badge variant="info">{toScore(snapshot.overallScore)}</Badge>
                       </div>
                       <p className="mt-2 text-xs text-slate-500">Trình độ: {levelLabel(snapshot.userLevel)}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {snapshot.analysisScope?.userCommits ?? 0} commit · {snapshot.analysisScope?.activeDays ?? 0} ngày hoạt động
+                      </p>
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {snapshot.pipelineVersion && <Badge variant="info">Pipeline {snapshot.pipelineVersion}</Badge>}
-                        {snapshot.isCurrentVersion ? <Badge variant="success">Phiên bản hiện tại</Badge> : <Badge>Phiên bản cũ</Badge>}
-                        {snapshot.isComparableWithCurrent === false && <Badge variant="warning">Không thể so sánh</Badge>}
+                        {snapshot.pipelineVersion && <Badge variant="info" className="h-auto max-w-full whitespace-normal break-words">Pipeline {snapshot.pipelineVersion}</Badge>}
+                        {snapshot.modelVersion && <Badge className="h-auto max-w-full whitespace-normal break-words">Model {snapshot.modelVersion}</Badge>}
+                        {snapshot.scoringMethod && <Badge>{snapshot.scoringMethod}</Badge>}
+                        {index === 0 ? <Badge variant="success">Mốc hiện tại</Badge> : <Badge>Phiên bản cũ</Badge>}
+                        {snapshot.scoringMethod && latestSnapshot?.scoringMethod && snapshot.scoringMethod !== latestSnapshot.scoringMethod && <Badge variant="warning">Không thể so sánh kỹ năng</Badge>}
                         <Button size="sm" variant="ghost" onClick={() => openSnapshot(snapshot.id)}>Xem chi tiết</Button>
                       </div>
                     </div>
@@ -437,6 +481,54 @@ export const RepositoryProgressPage = () => {
               </CardContent>
             </Card>
           </div>
+
+          {selectedSnapshotDetail && (
+            <Card className="border-indigo-200 dark:border-indigo-900">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <CardTitle>Chi tiết snapshot</CardTitle>
+                    <CardDescription>{selectedSnapshotDetail.analyzedAt || selectedSnapshotDetail.createdAt ? formatDate(selectedSnapshotDetail.analyzedAt || selectedSnapshotDetail.createdAt) : selectedSnapshotDetail.id}</CardDescription>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedSnapshotDetail(null)}>Đóng</Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    ['Điểm sẵn sàng', toScore(selectedSnapshotDetail.overallScore)],
+                    ['Trình độ', levelLabel(selectedSnapshotDetail.userLevel)],
+                    ['Commit', selectedSnapshotDetail.analysisScope?.userCommits ?? '—'],
+                    ['Ngày hoạt động', selectedSnapshotDetail.analysisScope?.activeDays ?? '—'],
+                    ['Pipeline', selectedSnapshotDetail.pipelineVersion ?? '—'],
+                    ['Model', selectedSnapshotDetail.modelVersion ?? '—'],
+                    ['Cách tính điểm', selectedSnapshotDetail.scoringMethod ?? '—'],
+                    ['Hướng nghề nghiệp', selectedSnapshotDetail.careerDirection ?? '—']
+                  ].map(([label, value]) => (
+                    <div key={String(label)} className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900/60">
+                      <p className="text-xs text-slate-500">{label}</p>
+                      <p className="mt-1 break-words font-medium text-slate-900 dark:text-slate-100">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {[
+                    ['Kỹ năng đã khớp', selectedSnapshotDetail.matchedSkillNames ?? []],
+                    ['Kỹ năng yếu', selectedSnapshotDetail.weakSkillNames ?? []],
+                    ['Kỹ năng còn thiếu', selectedSnapshotDetail.missingSkillNames?.length ? selectedSnapshotDetail.missingSkillNames : selectedSnapshotDetail.missingSkills],
+                    ['Kỹ năng nên học tiếp', selectedSnapshotDetail.recommendedNextSkills ?? []]
+                  ].map(([label, values]) => (
+                    <div key={String(label)}>
+                      <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">{label}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(values as string[]).length ? (values as string[]).map((value) => <Badge key={value}>{value}</Badge>) : <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="grid gap-4 lg:grid-cols-3">
             <Card>
@@ -486,48 +578,93 @@ export const RepositoryProgressPage = () => {
           </div>
 
           {snapshots.length > 1 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><GitCompareArrows className="h-5 w-5" />So sánh snapshot</CardTitle>
-                <CardDescription>Chọn hai mốc phân tích để xem điểm, cấp độ và kỹ năng thay đổi thế nào.</CardDescription>
+            <Card className="overflow-hidden border-indigo-200 dark:border-indigo-900">
+              <CardHeader className="border-b border-slate-100 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/40">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2"><GitCompareArrows className="h-5 w-5 text-indigo-600" />So sánh hai mốc phân tích</CardTitle>
+                    <CardDescription className="mt-1">Chọn mốc gốc, chọn mốc mới, rồi bấm so sánh. Kết quả sẽ xuất hiện ngay bên dưới.</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 font-semibold text-white">1</span>
+                    Chọn mốc
+                    <span className="h-px w-5 bg-slate-300 dark:bg-slate-700" />
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 font-semibold text-white">2</span>
+                    Xem thay đổi
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-5">
-                <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                  <select
-                    value={firstId}
-                    onChange={(event) => setFirstId(event.target.value)}
-                    className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-                  >
-                    {snapshots.map((snapshot, index) => (
-                      <option key={snapshot.id} value={snapshot.id} disabled={snapshot.isComparableWithCurrent === false || snapshot.isCompatible === false || snapshot.id === secondId}>
-                        {snapshotLabel(snapshot, index)}{snapshot.pipelineVersion ? ` · Pipeline ${snapshot.pipelineVersion}` : ''}{snapshot.isCurrentVersion ? ' · Phiên bản hiện tại' : snapshot.isCompatible === false ? ' · Phiên bản cũ' : ''}{snapshot.isComparableWithCurrent === false ? ' · Không thể so sánh' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={secondId}
-                    onChange={(event) => setSecondId(event.target.value)}
-                    className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-                  >
-                    {snapshots.map((snapshot, index) => (
-                      <option key={snapshot.id} value={snapshot.id} disabled={snapshot.isComparableWithCurrent === false || snapshot.isCompatible === false || snapshot.id === firstId || !sameSnapshotGeneration(selectedFirstSnapshot, snapshot)}>
-                        {snapshotLabel(snapshot, index)}{snapshot.pipelineVersion ? ` · Pipeline ${snapshot.pipelineVersion}` : ''}{snapshot.isCurrentVersion ? ' · Phiên bản hiện tại' : snapshot.isCompatible === false ? ' · Phiên bản cũ' : ''}{snapshot.isComparableWithCurrent === false ? ' · Không thể so sánh' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <Button onClick={compareSnapshots} isLoading={isComparing} disabled={!pairIsComparable || isComparing}>
-                    <GitCompareArrows className="mr-2 h-4 w-4" />So sánh
-                  </Button>
+                <div className="rounded-xl bg-indigo-50/70 p-4 dark:bg-indigo-950/20">
+                  <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-end">
+                    <label className="space-y-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mốc gốc</span>
+                      <select
+                        value={firstId}
+                        onChange={(event) => setFirstId(event.target.value)}
+                        className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-indigo-900"
+                      >
+                        <option value="">Chọn mốc gốc</option>
+                        {snapshots.map((snapshot, index) => (
+                          <option key={snapshot.id} value={snapshot.id} disabled={snapshot.id === secondId}>
+                            {snapshotLabel(snapshot, Math.max(0, snapshotTotal - index - 1))}{snapshot.pipelineVersion ? ` · Pipeline ${snapshot.pipelineVersion}` : ''}{index === 0 ? ' · Phiên bản hiện tại' : ' · Phiên bản cũ'}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="hidden h-11 items-center text-slate-400 md:flex">→</div>
+                    <label className="space-y-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mốc mới</span>
+                      <select
+                        value={secondId}
+                        onChange={(event) => setSecondId(event.target.value)}
+                        className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-indigo-900"
+                      >
+                        <option value="">Chọn mốc mới</option>
+                        {snapshots.map((snapshot, index) => (
+                          <option key={snapshot.id} value={snapshot.id} disabled={snapshot.id === firstId}>
+                            {snapshotLabel(snapshot, Math.max(0, snapshotTotal - index - 1))}{snapshot.pipelineVersion ? ` · Pipeline ${snapshot.pipelineVersion}` : ''}{index === 0 ? ' · Phiên bản hiện tại' : ' · Phiên bản cũ'}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-4 flex flex-col gap-3 border-t border-indigo-100 pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-indigo-900/60">
+                    <p className={`text-sm ${pairIsComparable ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                      {pairHint}
+                    </p>
+                    <Button className="min-w-48 shadow-sm" onClick={compareSnapshots} isLoading={isComparing} disabled={!pairIsComparable || isComparing}>
+                      <GitCompareArrows className="mr-2 h-4 w-4" />So sánh thay đổi
+                    </Button>
+                  </div>
                 </div>
 
                 {activeComparison ? <>
-                <div className="grid gap-3 md:grid-cols-4">
+                <div ref={comparisonResultRef} className="scroll-mt-24 border-t border-slate-200 pt-5 dark:border-slate-800">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">Kết quả so sánh</p>
+                      <p className="text-xs text-slate-500">Thay đổi được tính từ mốc gốc đến mốc mới.</p>
+                    </div>
+                    <Badge variant={manualComparison ? 'success' : 'info'}>{manualComparison ? 'Vừa cập nhật' : 'So sánh gần nhất'}</Badge>
+                  </div>
+                <div className={`grid gap-3 ${activeComparison.comparableSkillScores === false ? 'md:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-5'}`}>
+                  <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                    <p className="text-xs text-slate-500">Điểm từ mốc gốc → mốc mới</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+                      {formatReadinessScore(activeComparison.firstSnapshot?.overallScore)} → {formatReadinessScore(activeComparison.latestSnapshot?.overallScore)}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {levelLabel(activeComparison.delta?.fromLevel || activeComparison.firstSnapshot?.userLevel)} → {levelLabel(activeComparison.delta?.toLevel || activeComparison.latestSnapshot?.userLevel)}
+                    </p>
+                  </div>
                   <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                     <p className="text-xs text-slate-500">Điểm thay đổi</p>
                     <p className={`mt-2 text-2xl font-semibold ${overallChange > 0 ? 'text-emerald-600' : overallChange < 0 ? 'text-red-600' : 'text-slate-800 dark:text-slate-100'}`}>
-                      {signedPoint(overallChange)}
+                      {formatReadinessDelta(readinessDelta)} điểm
                     </p>
                   </div>
+                  {activeComparison.comparableSkillScores !== false && <>
                   <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                     <p className="text-xs text-slate-500">Kỹ năng tăng</p>
                     <p className="mt-2 text-2xl font-semibold text-emerald-600">{activeComparison?.skillComparisonSummary.improvedCount ?? skillGroups.improved.length}</p>
@@ -540,19 +677,33 @@ export const RepositoryProgressPage = () => {
                     <p className="text-xs text-slate-500">Kỹ năng giảm</p>
                     <p className="mt-2 text-2xl font-semibold text-red-600">{activeComparison?.skillComparisonSummary.regressedCount ?? skillGroups.weaker.length}</p>
                   </div>
+                  </>}
                 </div>
+                </div>
+
+                {(activeComparison.comparisonMode === 'score_only' || activeComparison.warnings.length > 0) && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    <p className="font-medium">Chỉ có thể so sánh điểm và trình độ</p>
+                    <p className="mt-1">{activeComparison.warnings[0] || 'Hai snapshot sử dụng cách tính điểm khác nhau, nên thay đổi ở cấp kỹ năng không đủ tin cậy để hiển thị.'}</p>
+                  </div>
+                )}
 
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300">
                   {activeComparison?.summary || activeComparison?.skillComparisonText || changeAssessment(overallChange)}
+                  {hasProvenNonSkillRegression && (
+                    <p className="mt-2 text-amber-700 dark:text-amber-300">
+                      Điểm tổng còn chịu ảnh hưởng bởi các thành phần khác ngoài kỹ năng; breakdown ghi nhận ít nhất một thành phần đang giảm.
+                    </p>
+                  )}
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-3">
+                {activeComparison.comparableSkillScores !== false && <div className="grid gap-4 lg:grid-cols-3">
                   <div>
                     <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Tăng</p>
                     <div className="space-y-2">
                       {skillGroups.improved.length ? skillGroups.improved.map((skill) => (
                         <div key={skillName(skill)} className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
-                          {skillName(skill)} {skill.delta !== undefined && <span className="font-medium">(+{toPercent(skill.delta)}%)</span>}
+                          {skillName(skill)} {skill.delta !== undefined && <span className="font-medium">({formatReadinessDelta(skill.delta)} điểm)</span>}
                         </div>
                       )) : <p className="text-sm text-slate-500">Chưa có kỹ năng tăng rõ.</p>}
                     </div>
@@ -572,14 +723,25 @@ export const RepositoryProgressPage = () => {
                     <div className="space-y-2">
                       {skillGroups.weaker.length ? skillGroups.weaker.map((skill) => (
                         <div key={skillName(skill)} className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/30 dark:text-red-200">
-                          {skillName(skill)} {skill.delta !== undefined && <span className="font-medium">({toPercent(skill.delta)}%)</span>}
+                          {skillName(skill)} {skill.delta !== undefined && <span className="font-medium">({formatReadinessDelta(skill.delta)} điểm)</span>}
                         </div>
                       )) : <p className="text-sm text-slate-500">Chưa có kỹ năng giảm rõ.</p>}
                     </div>
                   </div>
-                </div>
+                </div>}
 
-                {(activeComparison?.resolvedMissingSkills.length || activeComparison?.newMissingSkills.length) ? (
+                {activeComparison.comparableSkillScores !== false && activeComparison.newSkills.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Kỹ năng mới</p>
+                    <div className="flex flex-wrap gap-2">
+                      {activeComparison.newSkills.map((skill) => (
+                        <Badge key={skillName(skill)} variant="success">{skillName(skill)}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {activeComparison.comparableSkillScores !== false && (activeComparison?.resolvedMissingSkills.length || activeComparison?.newMissingSkills.length) ? (
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
                       <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Đã bổ sung</p>
@@ -592,7 +754,7 @@ export const RepositoryProgressPage = () => {
                   </div>
                 ) : null}
 
-                {activeComparison?.skillChanges.length ? (
+                {activeComparison.comparableSkillScores !== false && activeComparison?.skillChanges.length ? (
                   <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                     <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Chi tiết kỹ năng thay đổi</p>
                     <div className="mt-3 grid gap-2 md:grid-cols-2">
@@ -606,7 +768,8 @@ export const RepositoryProgressPage = () => {
                             <Badge variant={trendVariant(skill.trend || skill.status)}>{trendLabel(skill.trend || skill.status)}</Badge>
                           </div>
                           <p className="mt-2 text-xs text-slate-500">
-                            {toPercent(skill.fromScore ?? skill.beforePercent)}% {'->'} {toPercent(skill.toScore ?? skill.afterPercent)}%
+                            {formatReadinessScore(skill.fromScore ?? skill.beforePercent)} → {formatReadinessScore(skill.toScore ?? skill.afterPercent)}
+                            {skill.delta !== undefined && ` (${formatReadinessDelta(skill.delta)})`}
                           </p>
                         </div>
                       ))}
@@ -619,9 +782,13 @@ export const RepositoryProgressPage = () => {
                 </> : (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
                     {manualComparison?.comparisonStatus === 'incompatible_snapshot_versions'
-                      ? 'Không thể so sánh snapshot khác phiên bản'
+                      ? 'Hai mốc sử dụng phiên bản phân tích khác nhau nên không thể so sánh kỹ năng trực tiếp.'
                       : insufficientComparison
-                        ? baselineComparison.message || 'Cần ít nhất hai snapshot tương thích để so sánh tiến độ.'
+                        ? snapshotTotal >= 2
+                          ? 'Có nhiều mốc phân tích nhưng chưa có đủ hai mốc tương thích để so sánh tự động. Bạn vẫn có thể xem chi tiết từng mốc hoặc thử so sánh thủ công.'
+                          : compatibleSnapshotCount === 1
+                          ? 'Snapshot mới đã được ghi nhận ở ô “Mốc mới”. Hiện chỉ có 1 snapshot cùng phiên bản pipeline; cần phân tích lại thêm một lần sau khi repository có thay đổi để tạo mốc gốc tương thích.'
+                          : baselineComparison.message || 'Cần ít nhất hai snapshot tương thích để so sánh tiến độ.'
                         : 'Chọn hai snapshot tương thích để so sánh.'}
                     {insufficientComparison && <div className="mt-3"><Link to={`/repositories/${repositoryId}`}><Button size="sm" variant="outline">Phân tích lại repository</Button></Link></div>}
                   </div>

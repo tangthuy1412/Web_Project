@@ -25,6 +25,19 @@ export type AnalysisSnapshot = {
   projectType?: string
   confidence?: string | number
   careerDirection?: string
+  analysisScopeType?: string
+  scoringMethod?: string
+  matchedSkillNames?: string[]
+  weakSkillNames?: string[]
+  missingSkillNames?: string[]
+  recommendedNextSkills?: string[]
+  rolePredictions?: unknown[]
+  roleMatches?: unknown[]
+  skillGapSummary?: Record<string, unknown>
+  vectorSources?: unknown
+  sourceStats?: Record<string, unknown>
+  scoreBreakdown?: Record<string, unknown>
+  recommendations?: unknown[]
   missingSkills: string[]
   topSkills?: SkillVectorItem[]
   skillVector?: SkillVectorItem[]
@@ -104,6 +117,9 @@ export type SkillComparisonSummary = {
 
 export type SnapshotComparison = {
   comparisonStatus: 'comparable'
+  comparisonMode?: 'full' | 'score_only' | string
+  comparableSkillScores?: boolean
+  warnings: string[]
   comparisonVersion?: {
     modelVersion?: string
     pipelineVersion?: string
@@ -161,6 +177,53 @@ type SnapshotQueryParams = {
   includeSkillDetails?: boolean
 }
 
+type SnapshotHistoryParams = {
+  page?: number
+  limit?: number
+  view?: 'summary' | 'detail'
+  includeEvidence?: boolean
+}
+
+export type SnapshotHistory = {
+  snapshots: AnalysisSnapshot[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+export const selectDefaultSnapshotPair = (snapshots: AnalysisSnapshot[]) => ({
+  fromSnapshotId: snapshots[1]?.id ?? '',
+  toSnapshotId: snapshots[0]?.id ?? ''
+})
+
+export const normalizeSnapshotPair = (left?: AnalysisSnapshot, right?: AnalysisSnapshot) => {
+  if (!left || !right || left.id === right.id) return null
+  const leftTime = new Date(left.analyzedAt || left.createdAt).getTime()
+  const rightTime = new Date(right.analyzedAt || right.createdAt).getTime()
+  return leftTime <= rightTime
+    ? { fromSnapshotId: left.id, toSnapshotId: right.id }
+    : { fromSnapshotId: right.id, toSnapshotId: left.id }
+}
+
+const finiteNumber = (value: unknown) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null
+
+export const formatReadinessScore = (value: unknown) => {
+  const score = finiteNumber(value)
+  if (score === null) return '—'
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2, useGrouping: false }).format(score)
+}
+
+export const formatReadinessDelta = (value: unknown) => {
+  const delta = finiteNumber(value)
+  if (delta === null) return '—'
+  const formatted = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2, useGrouping: false }).format(Math.abs(delta))
+  return `${delta > 0 ? '+' : delta < 0 ? '-' : ''}${formatted}`
+}
+
 const getScore = (source: UnknownRecord, ...keys: string[]) => {
   const scores = asRecord(source.scores ?? source.score)
   for (const key of keys) {
@@ -170,13 +233,15 @@ const getScore = (source: UnknownRecord, ...keys: string[]) => {
   return 0
 }
 
-const normalizeSnapshot = (payload: unknown): AnalysisSnapshot => {
+export const mapSnapshotDetail = (payload: unknown): AnalysisSnapshot => {
   const sourcePayload = asRecord(payload)
   const source = asRecord(sourcePayload.snapshot ?? payload)
   const repository = asRecord(source.repository)
   const analysisScope = asRecord(source.analysisScope)
   const summary = asRecord(source.summary)
   const skillVectorSummary = asRecord(source.skillVectorSummary)
+  const debug = asRecord(source.debug)
+  const dev2vec = asRecord(debug.dev2vec ?? source.dev2vec)
   const normalizeSkill = (item: unknown): SkillVectorItem => {
     const record = asRecord(item)
     return {
@@ -205,12 +270,25 @@ const normalizeSnapshot = (payload: unknown): AnalysisSnapshot => {
       firstCommitDate: asString(analysisScope.firstCommitDate),
       lastCommitDate: asString(analysisScope.lastCommitDate)
     } : undefined,
+    analysisScopeType: asString(source.analysisScopeType) ?? asString(analysisScope.type),
     createdAt: String(source.createdAt ?? source.analyzedAt ?? source.timestamp ?? source.generatedAt ?? ''),
     analyzedAt: asString(source.analyzedAt),
     userLevel: asString(source.userLevel) ?? asString(summary.userLevel),
     projectType: asString(source.projectType) ?? asString(summary.projectType),
     confidence: asString(source.confidence) ?? asString(summary.confidence) ?? (typeof summary.confidence === 'number' ? summary.confidence : undefined),
     careerDirection: asString(source.careerDirection) ?? asString(summary.careerDirection),
+    scoringMethod: asString(source.scoringMethod) ?? asString(summary.scoringMethod),
+    matchedSkillNames: asArray(source.matchedSkillNames).map(String),
+    weakSkillNames: asArray(source.weakSkillNames).map(String),
+    missingSkillNames: asArray(source.missingSkillNames).map(String),
+    recommendedNextSkills: asArray(source.recommendedNextSkills).map(String),
+    rolePredictions: asArray(source.rolePredictions ?? dev2vec.rolePredictions),
+    roleMatches: asArray(source.roleMatches ?? dev2vec.roleMatches),
+    skillGapSummary: Object.keys(asRecord(source.skillGapSummary ?? dev2vec.skillGaps)).length ? asRecord(source.skillGapSummary ?? dev2vec.skillGaps) : undefined,
+    vectorSources: source.vectorSources ?? dev2vec.vectorSources,
+    sourceStats: Object.keys(asRecord(source.sourceStats ?? dev2vec.sourceStats)).length ? asRecord(source.sourceStats ?? dev2vec.sourceStats) : undefined,
+    scoreBreakdown: Object.keys(asRecord(source.scoreBreakdown)).length ? asRecord(source.scoreBreakdown) : undefined,
+    recommendations: asArray(source.recommendations),
     missingSkills: asArray(source.missingSkills).map((item) => {
       const record = asRecord(item)
       return String(record.skillName ?? record.canonicalSkillName ?? record.name ?? item)
@@ -232,7 +310,7 @@ const normalizeSnapshot = (payload: unknown): AnalysisSnapshot => {
     testingScore: getScore(source, 'testingScore'),
     deploymentScore: getScore(source, 'deploymentScore'),
     portfolioReadinessScore: getScore(source, 'portfolioReadinessScore'),
-    modelVersion: asString(source.modelVersion),
+    modelVersion: asString(source.modelVersion) ?? asString(dev2vec.modelVersion),
     pipelineVersion: asString(source.pipelineVersion),
     repoDocumentVersion: asString(source.repoDocumentVersion),
     issueDocumentVersion: asString(source.issueDocumentVersion),
@@ -243,20 +321,36 @@ const normalizeSnapshot = (payload: unknown): AnalysisSnapshot => {
   }
 }
 
-const getSnapshotList = (payload: unknown): AnalysisSnapshot[] => {
-  const data = asRecord(unwrapResponse<unknown>(payload))
+const getSnapshotList = (payload: unknown): SnapshotHistory => {
+  const unwrapped = unwrapResponse<unknown>(payload)
+  const data = asRecord(unwrapped)
+  const pagination = asRecord(data.pagination)
   const source = Array.isArray(data.snapshots)
     ? data.snapshots
     : Array.isArray(data.items)
       ? data.items
-      : Array.isArray(payload)
-        ? payload
+      : Array.isArray(unwrapped)
+        ? unwrapped
+        : Array.isArray(payload)
+          ? payload
         : []
 
-  return source.map(normalizeSnapshot).filter((snapshot) => snapshot.id)
+  const snapshots = source.map(mapSnapshotDetail).filter((snapshot) => snapshot.id)
+  const page = asNumber(pagination.page) || 1
+  const limit = asNumber(pagination.limit) || Math.max(snapshots.length, 1)
+  const total = asNumber(pagination.total) || snapshots.length
+  return {
+    snapshots,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: asNumber(pagination.totalPages) || Math.max(1, Math.ceil(total / limit))
+    }
+  }
 }
 
-const normalizeComparison = (payload: unknown): SnapshotComparison => {
+export const mapSnapshotComparison = (payload: unknown): SnapshotComparison => {
   const data = asRecord(unwrapResponse<unknown>(payload))
   const delta = asRecord(data.delta)
   const scoreChanges = asArray(data.scoreChanges).map((item) => {
@@ -273,19 +367,19 @@ const normalizeComparison = (payload: unknown): SnapshotComparison => {
   const scoreValue = (key: string, side: 'before' | 'after') => scoreChanges.find((item) => item.key === key)?.[side] ?? 0
   const first = data.firstSnapshot ?? data.baseSnapshot ?? data.beforeSnapshot ?? data.oldSnapshot ?? data.fromSnapshot
   const latest = data.latestSnapshot ?? data.currentSnapshot ?? data.afterSnapshot ?? data.newSnapshot ?? data.toSnapshot
-  const firstSnapshot = first ? normalizeSnapshot(first) : data.fromSnapshotId ? {
+  const firstSnapshot = first ? mapSnapshotDetail(first) : data.fromSnapshotId ? {
     id: String(data.fromSnapshotId), repositoryId: String(data.repositoryId ?? ''), createdAt: String(data.fromDate ?? ''), missingSkills: [],
     overallScore: asNumber(data.overallBefore ?? data.fromUserReadinessScore), techStackScore: scoreValue('techStackScore', 'before'), documentationScore: scoreValue('documentationScore', 'before'),
     commitQualityScore: scoreValue('commitQualityScore', 'before'), deploymentScore: scoreValue('deploymentScore', 'before'),
     testingScore: scoreValue('testingScore', 'before'), portfolioReadinessScore: scoreValue('portfolioReadinessScore', 'before')
   } : null
-  const latestSnapshot = latest ? normalizeSnapshot(latest) : data.toSnapshotId ? {
+  const latestSnapshot = latest ? mapSnapshotDetail(latest) : data.toSnapshotId ? {
     id: String(data.toSnapshotId), repositoryId: String(data.repositoryId ?? ''), createdAt: String(data.toDate ?? ''), missingSkills: [],
     overallScore: asNumber(data.overallAfter ?? data.toUserReadinessScore), techStackScore: scoreValue('techStackScore', 'after'), documentationScore: scoreValue('documentationScore', 'after'),
     commitQualityScore: scoreValue('commitQualityScore', 'after'), deploymentScore: scoreValue('deploymentScore', 'after'),
     testingScore: scoreValue('testingScore', 'after'), portfolioReadinessScore: scoreValue('portfolioReadinessScore', 'after')
   } : null
-  const explicitChange = data.overallChange ?? data.overallScoreChange ?? delta.userReadinessScore ?? asRecord(data.changes).overallScore
+  const explicitChange = delta.userReadinessScore ?? data.overallChange ?? data.overallScoreChange ?? asRecord(data.changes).overallScore
   const skillVectorComparison = asRecord(data.skillVectorComparison)
   const skillSummary = asRecord(skillVectorComparison.skillSummary)
   const toSkillComparison = (item: unknown): SkillComparisonItem => {
@@ -302,9 +396,9 @@ const normalizeComparison = (payload: unknown): SnapshotComparison => {
       toScore,
       delta: rawDelta,
       trend: asString(source.trend),
-      beforePercent: source.beforePercent !== undefined ? asNumber(source.beforePercent) : fromScore !== undefined ? fromScore * 100 : undefined,
-      afterPercent: source.afterPercent !== undefined ? asNumber(source.afterPercent) : toScore !== undefined ? toScore * 100 : undefined,
-      changePercent: source.changePercent !== undefined ? asNumber(source.changePercent) : rawDelta !== undefined ? rawDelta * 100 : undefined,
+      beforePercent: source.beforePercent !== undefined ? asNumber(source.beforePercent) : fromScore,
+      afterPercent: source.afterPercent !== undefined ? asNumber(source.afterPercent) : toScore,
+      changePercent: source.changePercent !== undefined ? asNumber(source.changePercent) : rawDelta,
       status: String(source.status ?? source.trend ?? '')
     }
   }
@@ -323,6 +417,9 @@ const normalizeComparison = (payload: unknown): SnapshotComparison => {
 
   return {
     comparisonStatus: 'comparable',
+    comparisonMode: asString(data.comparisonMode) ?? 'full',
+    comparableSkillScores: typeof data.comparableSkillScores === 'boolean' ? data.comparableSkillScores : true,
+    warnings: asArray(data.warnings).map(String),
     comparisonVersion: Object.keys(asRecord(data.comparisonVersion)).length ? {
       modelVersion: asString(asRecord(data.comparisonVersion).modelVersion),
       pipelineVersion: asString(asRecord(data.comparisonVersion).pipelineVersion)
@@ -386,7 +483,7 @@ export const snapshotApi = {
       if (data.comparisonStatus === 'insufficient_compatible_snapshots') {
         return { comparisonStatus: 'insufficient_compatible_snapshots', message: asString(data.message) }
       }
-      return { comparisonStatus: 'comparable', data: normalizeComparison(response.data) }
+      return { comparisonStatus: 'comparable', data: mapSnapshotComparison(response.data) }
     } catch (error) {
       const data = asRecord(axios.isAxiosError(error) ? error.response?.data : undefined)
       const details = asRecord(data.data)
@@ -397,20 +494,29 @@ export const snapshotApi = {
     }
   },
 
-  async getSnapshots(repositoryId: string) {
-    const response = await apiClient.get(`/repositories/${repositoryId}/snapshots`)
+  async getSnapshots(repositoryId: string, params: SnapshotHistoryParams = {}) {
+    const view = params.view ?? 'summary'
+    const response = await apiClient.get(`/repositories/${repositoryId}/snapshots`, {
+      params: {
+        page: params.page,
+        limit: params.limit,
+        view,
+        ...(view === 'detail' ? { includeEvidence: params.includeEvidence ?? false } : {})
+      },
+      headers: { 'Cache-Control': 'no-cache' }
+    })
     return getSnapshotList(response.data)
   },
 
-  async getSnapshot(snapshotId: string, params: SnapshotQueryParams = { includeEvidence: true }) {
+  async getSnapshot(snapshotId: string, params: SnapshotQueryParams & { view?: 'summary' | 'detail' } = { view: 'detail', includeEvidence: true }) {
     const response = await apiClient.get(`/snapshots/${snapshotId}`, { params })
-    return normalizeSnapshot(unwrapResponse(response.data))
+    return mapSnapshotDetail(unwrapResponse(response.data))
   },
 
   async compareSnapshots(fromSnapshotId: string, toSnapshotId: string, params: SnapshotQueryParams = { includeSkillDetails: true }): Promise<SnapshotComparisonState> {
     try {
       const response = await apiClient.post('/snapshots/compare', { fromSnapshotId, toSnapshotId }, { params })
-      return normalizeComparison(response.data)
+      return mapSnapshotComparison(response.data)
     } catch (error) {
       const responseData = asRecord(axios.isAxiosError(error) ? error.response?.data : undefined)
       const data = asRecord(responseData.data)

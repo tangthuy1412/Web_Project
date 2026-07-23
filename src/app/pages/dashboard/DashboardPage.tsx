@@ -9,10 +9,11 @@ import { useAuthStore } from '../../stores/authStore'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatRelativeTime, getScoreColor } from '../../lib/utils'
 import type { DashboardResponse } from '../../types'
+import { buildRepositoryAnalysisOverview } from '../../services/analysis/analysisOverview'
 
 export const DashboardPage = () => {
   const user = useAuthStore(state => state.user)
-  const { analyses, fetchRepositories, fetchMyAnalyses } = useRepositoryStore()
+  const { repositories, analyses, fetchRepositories, fetchMyAnalyses } = useRepositoryStore()
   const [dashboardPayload, setDashboardPayload] = useState<DashboardResponse | null>(null)
   const [isDashboardLoading, setIsDashboardLoading] = useState(true)
   const [error, setError] = useState('')
@@ -27,24 +28,38 @@ export const DashboardPage = () => {
     fetchMyAnalyses().catch(() => undefined)
   }, [fetchMyAnalyses, fetchRepositories])
 
+  const localOverview = useMemo(() => buildRepositoryAnalysisOverview(analyses), [analyses])
+  const locallyAnalyzedCount = useMemo(() => {
+    const repositoryIds = new Set(analyses.map((analysis) => analysis.repositoryId).filter(Boolean))
+    return Math.max(repositoryIds.size, repositories.filter((repository) => repository.analyzed).length)
+  }, [analyses, repositories])
+
   const stats = useMemo(() => {
+    const backendTotal = dashboardPayload?.totalRepositories
+    const backendAnalyzed = dashboardPayload?.analyzedRepositories
+    const backendScore = dashboardPayload?.overallScore ?? dashboardPayload?.currentSnapshot?.overallScore
+
     return {
-      totalRepositories: dashboardPayload?.totalRepositories ?? 0,
-      analyzedRepositories: dashboardPayload?.analyzedRepositories ?? 0,
+      totalRepositories: backendTotal && backendTotal > 0 ? backendTotal : repositories.length,
+      analyzedRepositories: backendAnalyzed && backendAnalyzed > 0 ? backendAnalyzed : locallyAnalyzedCount,
       githubConnected: dashboardPayload?.githubConnected ?? Boolean(user?.githubConnected),
-      overallScore: dashboardPayload?.dev2vecStatus === 'current' ? dashboardPayload.overallScore ?? dashboardPayload.currentSnapshot?.overallScore ?? 0 : 0
+      overallScore: dashboardPayload?.dev2vecStatus === 'current'
+        ? backendScore && backendScore > 0 ? backendScore : localOverview?.averageOverallScore ?? 0
+        : localOverview?.averageOverallScore ?? 0
     }
-  }, [dashboardPayload, user?.githubConnected])
+  }, [dashboardPayload, localOverview?.averageOverallScore, locallyAnalyzedCount, repositories.length, user?.githubConnected])
   const analysisOverview = dashboardPayload?.dev2vecStatus === 'current' ? {
     summary: dashboardPayload.message || 'Trạng thái Dev2Vec hiện tại do backend xác nhận.',
-    repositoriesCount: dashboardPayload.analyzedRepositories ?? 0,
-    averageOverallScore: dashboardPayload.overallScore ?? dashboardPayload.currentSnapshot?.overallScore ?? 0,
+    repositoriesCount: stats.analyzedRepositories,
+    averageOverallScore: stats.overallScore,
     averageTestingScore: dashboardPayload.modelVersion || '—',
     averageDeploymentScore: dashboardPayload.pipelineVersion || '—',
-    topCareerDirections: (dashboardPayload.topRoles ?? []).map((role) => ({ label: role.roleName, count: role.matchScore ? Math.round(role.matchScore * 100) : 1 })),
-    topLanguages: [] as Array<{ label: string; count: number }>,
-    topFrameworks: [] as Array<{ label: string; count: number }>,
-    missingSkills: [] as Array<{ label: string; count: number }>
+    topCareerDirections: dashboardPayload.topRoles?.length
+      ? dashboardPayload.topRoles.map((role) => ({ label: role.roleName, count: role.matchScore ? Math.round(role.matchScore * 100) : 1 }))
+      : localOverview?.topCareerDirections ?? [],
+    topLanguages: localOverview?.topLanguages ?? [],
+    topFrameworks: localOverview?.topFrameworks ?? [],
+    missingSkills: localOverview?.missingSkills ?? []
   } : null
 
   return (
@@ -155,10 +170,6 @@ export const DashboardPage = () => {
                 <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
                   <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{analysisOverview.averageTestingScore}</p>
                   <p className="text-sm text-slate-500 dark:text-slate-400">model hiện tại</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                  <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{analysisOverview.averageDeploymentScore}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">pipeline hiện tại</p>
                 </div>
               </div>
               <div className="grid gap-4 lg:grid-cols-3">
