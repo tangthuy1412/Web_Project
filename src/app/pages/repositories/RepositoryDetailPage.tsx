@@ -352,26 +352,6 @@ export const RepositoryDetailPage = () => {
               </div>
             </div>
 
-            {(latestAnalysis.strengths.length > 0 || latestAnalysis.recommendations.length > 0) && (
-              <div className="grid gap-4 border-t border-slate-200 pt-4 dark:border-slate-800 lg:grid-cols-2">
-                <div>
-                  <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Điểm mạnh đáng chú ý</p>
-                  {latestAnalysis.strengths.length ? (
-                    <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
-                      {latestAnalysis.strengths.slice(0, 3).map((item) => <li key={item}>- {item}</li>)}
-                    </ul>
-                  ) : <p className="text-sm text-slate-500">Chưa có dữ liệu điểm mạnh.</p>}
-                </div>
-                <div>
-                  <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Ưu tiên cải thiện</p>
-                  {latestAnalysis.recommendations.length ? (
-                    <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
-                      {latestAnalysis.recommendations.slice(0, 3).map((item) => <li key={item.id}>- {item.title}</li>)}
-                    </ul>
-                  ) : <p className="text-sm text-slate-500">Chưa có gợi ý cải thiện.</p>}
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
       )}

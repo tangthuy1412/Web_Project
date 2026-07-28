@@ -457,6 +457,14 @@ export const RoadmapsPage = () => {
             Quản lý các lộ trình học được tạo từ hồ sơ GitHub và mục tiêu nghề nghiệp của bạn.
           </p>
         </div>
+        <Button
+          size="lg"
+          className="w-full shadow-lg shadow-indigo-500/20 sm:w-auto"
+          onClick={() => document.getElementById('roadmap-builder')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        >
+          <Sparkles className="mr-2 h-4 w-4" />
+          Tạo lộ trình mới
+        </Button>
       </motion.div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -495,7 +503,7 @@ export const RoadmapsPage = () => {
         </Card>
       </div>
 
-      <Card className="overflow-hidden">
+      <Card id="roadmap-builder" className="scroll-mt-24 overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-cyan-500 to-emerald-500" />
         <CardContent className="space-y-5 p-5">
           <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">

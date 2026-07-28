@@ -128,12 +128,53 @@ const messageKey = (message: ChatMessage) => {
   return message._id || message.id || `${message.senderType}-${message.createdAt}-${message.content}`
 }
 
+const normalizeMessageContent = (content: string) => content.trim().replace(/\s+/g, ' ')
+
+const getMessageTime = (message: ChatMessage) => {
+  const timestamp = message.createdAt ?? message.timestamp
+  const time = timestamp ? new Date(timestamp).getTime() : Number.NaN
+  return Number.isFinite(time) ? time : undefined
+}
+
+const isOptimisticMessage = (message: ChatMessage) => {
+  return String(message.id ?? message._id ?? '').startsWith('local-')
+}
+
+const isEquivalentMessage = (left: ChatMessage, right: ChatMessage) => {
+  if (left.senderType !== right.senderType) return false
+  if (normalizeMessageContent(left.content) !== normalizeMessageContent(right.content)) return false
+
+  const leftTime = getMessageTime(left)
+  const rightTime = getMessageTime(right)
+  return leftTime !== undefined && rightTime !== undefined && Math.abs(leftTime - rightTime) <= 15_000
+}
+
 const mergeMessages = (messages: ChatMessage[]) => {
-  const mergedById = new Map<string, ChatMessage>()
+  const merged: ChatMessage[] = []
+
   for (const message of messages) {
-    if (message.content) mergedById.set(messageKey(message), message)
+    if (!message.content) continue
+
+    const existingIndex = merged.findIndex((existing) =>
+      messageKey(existing) === messageKey(message) || isEquivalentMessage(existing, message)
+    )
+
+    if (existingIndex === -1) {
+      merged.push(message)
+      continue
+    }
+
+    const existing = merged[existingIndex]
+    if (isOptimisticMessage(existing) && !isOptimisticMessage(message)) {
+      merged[existingIndex] = { ...existing, ...message }
+    } else if (!isOptimisticMessage(existing) && isOptimisticMessage(message)) {
+      merged[existingIndex] = existing
+    } else {
+      merged[existingIndex] = { ...existing, ...message }
+    }
   }
-  return Array.from(mergedById.values())
+
+  return merged
 }
 
 const mergeSession = (base: ChatSession, next: ChatSession) => {

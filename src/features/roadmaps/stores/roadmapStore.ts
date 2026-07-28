@@ -153,14 +153,24 @@ const updateRoadmapNode = (
 })
 
 const normalizeRoadmapProgress = (roadmap: Roadmap): Roadmap => {
+  let hasAvailableNode = false
+
   return {
     ...roadmap,
     modules: roadmap.modules.map((module) => ({
       ...module,
       nodes: module.nodes.map((node) => {
         if (node.status === 'completed') return node
-        if (node.status === 'in-progress') return node
-        return { ...node, status: 'unlocked' }
+
+        if (!hasAvailableNode) {
+          hasAvailableNode = true
+          return {
+            ...node,
+            status: node.status === 'in-progress' ? 'in-progress' : 'unlocked'
+          }
+        }
+
+        return { ...node, status: 'locked' }
       })
     }))
   }

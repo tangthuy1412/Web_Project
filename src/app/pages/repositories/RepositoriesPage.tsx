@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { AlertCircle, ArrowRight, ChevronLeft, ChevronRight, ExternalLink, GitFork, Loader2, MessageSquare, Play, RefreshCw, Search, Star } from 'lucide-react'
+import { AlertCircle, ArrowRight, ArrowUpDown, ChevronLeft, ChevronRight, ExternalLink, GitFork, Loader2, MessageSquare, Play, RefreshCw, Search, Star } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
@@ -10,7 +10,7 @@ import { formatRelativeTime } from '../../lib/utils'
 
 const REPOSITORIES_PER_PAGE = 10
 type AnalysisFilter = 'all' | 'analyzed' | 'pending'
-type RepositorySort = 'updated' | 'name' | 'readiness'
+type RepositorySort = 'updated' | 'name' | 'language' | 'stars' | 'readiness'
 
 export const RepositoriesPage = () => {
   const navigate = useNavigate()
@@ -18,6 +18,7 @@ export const RepositoriesPage = () => {
   const createSession = useChatStore(state => state.createSession)
   const [search, setSearch] = useState('')
   const [analysisFilter, setAnalysisFilter] = useState<AnalysisFilter>('all')
+  const [languageFilter, setLanguageFilter] = useState('all')
   const [sortBy, setSortBy] = useState<RepositorySort>('updated')
   const [analyzingRepoId, setAnalyzingRepoId] = useState<string | null>(null)
   const [creatingChatRepoId, setCreatingChatRepoId] = useState<string | null>(null)
@@ -38,6 +39,11 @@ export const RepositoriesPage = () => {
     )
   }, [analyses])
 
+  const languageOptions = useMemo(() => {
+    return Array.from(new Set(repositories.map((repo) => repo.language).filter(Boolean)))
+      .sort((left, right) => left.localeCompare(right, 'vi'))
+  }, [repositories])
+
   const filteredRepositories = useMemo(() => {
     const keyword = search.toLowerCase().trim()
     const filtered = repositories.filter((repo) => {
@@ -46,11 +52,14 @@ export const RepositoriesPage = () => {
         value?.toLowerCase().includes(keyword)
       )
       const matchesStatus = analysisFilter === 'all' || (analysisFilter === 'analyzed' ? hasAnalysis : !hasAnalysis)
-      return matchesSearch && matchesStatus
+      const matchesLanguage = languageFilter === 'all' || repo.language === languageFilter
+      return matchesSearch && matchesStatus && matchesLanguage
     })
 
     return [...filtered].sort((left, right) => {
       if (sortBy === 'name') return left.name.localeCompare(right.name, 'vi')
+      if (sortBy === 'language') return (left.language || 'Khác').localeCompare(right.language || 'Khác', 'vi')
+      if (sortBy === 'stars') return right.stars - left.stars || right.forks - left.forks
       if (sortBy === 'readiness') {
         const leftScore = analysisByRepoId[left.id]?.summary?.userReadinessScore ?? -1
         const rightScore = analysisByRepoId[right.id]?.summary?.userReadinessScore ?? -1
@@ -58,13 +67,13 @@ export const RepositoriesPage = () => {
       }
       return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
     })
-  }, [analysisByRepoId, analysisFilter, repositories, search, sortBy])
+  }, [analysisByRepoId, analysisFilter, languageFilter, repositories, search, sortBy])
   const totalPages = Math.max(1, Math.ceil(filteredRepositories.length / REPOSITORIES_PER_PAGE))
   const visibleRepositories = filteredRepositories.slice((page - 1) * REPOSITORIES_PER_PAGE, page * REPOSITORIES_PER_PAGE)
 
   useEffect(() => {
     setPage(1)
-  }, [analysisFilter, repositories.length, search, sortBy])
+  }, [analysisFilter, languageFilter, repositories.length, search, sortBy])
 
   useEffect(() => {
     setPage((current) => Math.min(current, totalPages))
@@ -118,7 +127,7 @@ export const RepositoriesPage = () => {
       )}
 
       <Card className="p-4 lg:p-6">
-        <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(240px,1fr)_auto_auto] lg:items-center">
+        <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(240px,1fr)_auto_auto_auto] lg:items-center">
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -130,6 +139,15 @@ export const RepositoriesPage = () => {
             />
           </div>
           <select
+            aria-label="Lọc theo ngôn ngữ"
+            value={languageFilter}
+            onChange={(event) => setLanguageFilter(event.target.value)}
+            className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900"
+          >
+            <option value="all">Tất cả ngôn ngữ</option>
+            {languageOptions.map((language) => <option key={language} value={language}>{language}</option>)}
+          </select>
+          <select
             aria-label="Sắp xếp dự án"
             value={sortBy}
             onChange={(event) => setSortBy(event.target.value as RepositorySort)}
@@ -137,6 +155,8 @@ export const RepositoriesPage = () => {
           >
             <option value="updated">Cập nhật gần nhất</option>
             <option value="name">Tên A-Z</option>
+            <option value="language">Ngôn ngữ A-Z</option>
+            <option value="stars">Nhiều lượt đánh dấu nhất</option>
             <option value="readiness">Mức sẵn sàng cao nhất</option>
           </select>
           <p className="whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">{filteredRepositories.length} dự án</p>
@@ -248,11 +268,25 @@ export const RepositoriesPage = () => {
               </colgroup>
               <thead>
                 <tr className="border-b border-slate-200 text-left text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
-                  <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Dự án</th>
-                  <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Ngôn ngữ</th>
-                  <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Thống kê</th>
-                  <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Phân tích</th>
-                  <th className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">Cập nhật</th>
+                  {([
+                    ['Dự án', 'name'],
+                    ['Ngôn ngữ', 'language'],
+                    ['Thống kê', 'stars'],
+                    ['Phân tích', 'readiness'],
+                    ['Cập nhật', 'updated']
+                  ] as Array<[string, RepositorySort]>).map(([label, value]) => (
+                    <th key={value} className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">
+                      <button
+                        type="button"
+                        onClick={() => setSortBy(value)}
+                        className="inline-flex items-center gap-1.5 transition hover:text-indigo-600 dark:hover:text-indigo-400"
+                        aria-label={`Sắp xếp theo ${label.toLowerCase()}`}
+                      >
+                        {label}
+                        <ArrowUpDown className={`h-3.5 w-3.5 ${sortBy === value ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
+                      </button>
+                    </th>
+                  ))}
                   <th className="whitespace-nowrap px-2 py-3 text-right font-medium lg:px-4">Hành động</th>
                 </tr>
               </thead>

@@ -60,7 +60,6 @@ const navItems = [
   { label: 'Lộ trình học', href: '#roadmap' },
   { label: 'AI Mentor', href: '#mentor' },
   { label: 'Theo dõi tiến độ', href: '#progress' },
-  { label: 'Bảng giá', href: '#pricing' },
   { label: 'FAQ', href: '#faq' }
 ]
 
@@ -154,28 +153,6 @@ const testimonials = [
     company: 'HCM University',
     quote: 'AI Mentor giúp tôi chuyển portfolio từ bài tập rời rạc thành một kế hoạch nghề nghiệp rõ ràng.',
     avatar: 'LP'
-  }
-]
-
-const pricingPlans = [
-  {
-    name: 'Free',
-    price: '0đ',
-    description: 'Dành cho lập trình viên muốn kiểm tra portfolio ban đầu.',
-    features: ['3 repository scans', '1 roadmap cá nhân', 'Skill summary cơ bản', 'Community support']
-  },
-  {
-    name: 'Premium',
-    price: '199Kđ',
-    description: 'Dành cho người đang chuẩn bị phỏng vấn hoặc nâng cấp career path.',
-    features: ['Quét không giới hạn', 'AI Mentor không giới hạn', 'Điểm sẵn sàng nghề nghiệp', 'Phân tích tiến độ', 'Xuất báo cáo'],
-    highlighted: true
-  },
-  {
-    name: 'Team',
-    price: 'Liên hệ',
-    description: 'Dành cho mentor, bootcamp và đội ngũ kỹ thuật.',
-    features: ['Dashboard đội nhóm', 'Nhóm học tập', 'Phân tích cho admin', 'Workspace riêng tư', 'Hỗ trợ ưu tiên']
   }
 ]
 
@@ -983,49 +960,6 @@ export const TestimonialsSection = () => (
   </section>
 )
 
-export const PricingSection = () => (
-  <section id="pricing" className="px-4 py-20 sm:px-6 lg:px-8">
-    <div className="mx-auto max-w-7xl">
-      <SectionHeader
-        eyebrow="Pricing"
-        title="Bắt đầu miễn phí, nâng cấp khi portfolio cần nhiều insight hơn"
-        description="Các gói được thiết kế cho cá nhân, người đang phỏng vấn và đội ngũ đào tạo developer."
-      />
-      <div className="mt-12 grid gap-6 lg:grid-cols-3">
-        {pricingPlans.map((plan) => (
-          <div
-            key={plan.name}
-            className={cn(
-              'rounded-lg border bg-white p-6 shadow-sm dark:bg-slate-950/70',
-              plan.highlighted
-                ? 'border-indigo-300 shadow-2xl shadow-indigo-500/15 ring-2 ring-indigo-500/20 dark:border-indigo-400/50'
-                : 'border-slate-200 dark:border-white/10'
-            )}
-          >
-            {plan.highlighted && <Badge variant="info" className="mb-4">Phổ biến nhất</Badge>}
-            <h3 className="text-2xl font-bold text-slate-950 dark:text-white">{plan.name}</h3>
-            <p className="mt-2 min-h-12 text-sm leading-6 text-slate-600 dark:text-slate-300">{plan.description}</p>
-            <p className="mt-6 text-4xl font-bold text-slate-950 dark:text-white">{plan.price}</p>
-            <Link to={plan.name === 'Free' ? '/github/connect' : '/register'} className="mt-6 block">
-              <Button className="w-full" variant={plan.highlighted ? 'default' : 'outline'}>
-                {plan.name === 'Team' ? 'Liên hệ tư vấn' : 'Bắt đầu'}
-              </Button>
-            </Link>
-            <div className="mt-6 space-y-3">
-              {plan.features.map((feature) => (
-                <div key={feature} className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200">
-                  <Check className="h-4 w-4 text-emerald-500" />
-                  <span>{feature}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
-)
-
 export const FAQSection = () => (
   <section id="faq" className="bg-slate-50/80 px-4 py-20 dark:bg-slate-900/40 sm:px-6 lg:px-8">
     <div className="mx-auto max-w-4xl">
@@ -1109,7 +1043,7 @@ export const FooterSection = () => (
       {[
         ['Tính năng', 'Phân tích repository', 'Skill Gap', 'AI Mentor', 'Theo dõi tiến độ'],
         ['Roadmap', 'Frontend', 'Backend', 'Fullstack', 'DevOps'],
-        ['Company', 'Pricing', 'Documentation', 'Chính sách bảo mật', 'Điều khoản sử dụng']
+        ['Company', 'Documentation', 'Chính sách bảo mật', 'Điều khoản sử dụng']
       ].map(([title, ...links]) => (
         <div key={title}>
           <h3 className="font-bold text-slate-950 dark:text-white">{title}</h3>
@@ -1141,7 +1075,6 @@ export const LandingPage = () => {
         <AIMentorSection />
         <CareerInsightsSection />
         <TestimonialsSection />
-        <PricingSection />
         <FAQSection />
         <FinalCTASection />
       </main>

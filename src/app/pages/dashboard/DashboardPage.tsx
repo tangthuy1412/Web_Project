@@ -11,6 +11,16 @@ import { formatRelativeTime, getScoreColor } from '../../lib/utils'
 import type { DashboardResponse } from '../../types'
 import { buildRepositoryAnalysisOverview } from '../../services/analysis/analysisOverview'
 
+const normalizePercentage = (value?: number) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
+  return Math.max(0, Math.min(100, value <= 1 ? value * 100 : value))
+}
+
+const formatPercentage = (value?: number) => {
+  const normalized = normalizePercentage(value)
+  return normalized === undefined ? '—' : `${Math.round(normalized * 10) / 10}%`
+}
+
 export const DashboardPage = () => {
   const user = useAuthStore(state => state.user)
   const { repositories, analyses, fetchRepositories, fetchMyAnalyses } = useRepositoryStore()
@@ -38,29 +48,31 @@ export const DashboardPage = () => {
     const backendTotal = dashboardPayload?.totalRepositories
     const backendAnalyzed = dashboardPayload?.analyzedRepositories
     const backendScore = dashboardPayload?.overallScore ?? dashboardPayload?.currentSnapshot?.overallScore
+    const githubConnected = dashboardPayload?.githubConnected ?? Boolean(user?.githubConnected)
 
     return {
-      totalRepositories: backendTotal && backendTotal > 0 ? backendTotal : repositories.length,
-      analyzedRepositories: backendAnalyzed && backendAnalyzed > 0 ? backendAnalyzed : locallyAnalyzedCount,
-      githubConnected: dashboardPayload?.githubConnected ?? Boolean(user?.githubConnected),
-      overallScore: dashboardPayload?.dev2vecStatus === 'current'
+      totalRepositories: githubConnected ? backendTotal && backendTotal > 0 ? backendTotal : repositories.length : 0,
+      analyzedRepositories: githubConnected ? backendAnalyzed && backendAnalyzed > 0 ? backendAnalyzed : locallyAnalyzedCount : 0,
+      githubConnected,
+      overallScore: githubConnected && dashboardPayload?.dev2vecStatus === 'current'
         ? backendScore && backendScore > 0 ? backendScore : localOverview?.averageOverallScore ?? 0
-        : localOverview?.averageOverallScore ?? 0
+        : githubConnected ? localOverview?.averageOverallScore ?? 0 : 0
     }
   }, [dashboardPayload, localOverview?.averageOverallScore, locallyAnalyzedCount, repositories.length, user?.githubConnected])
-  const analysisOverview = dashboardPayload?.dev2vecStatus === 'current' ? {
+  const analysisOverview = stats.githubConnected && dashboardPayload?.dev2vecStatus === 'current' ? {
     summary: dashboardPayload.message || 'Trạng thái Dev2Vec hiện tại do backend xác nhận.',
     repositoriesCount: stats.analyzedRepositories,
     averageOverallScore: stats.overallScore,
     averageTestingScore: dashboardPayload.modelVersion || '—',
     averageDeploymentScore: dashboardPayload.pipelineVersion || '—',
     topCareerDirections: dashboardPayload.topRoles?.length
-      ? dashboardPayload.topRoles.map((role) => ({ label: role.roleName, count: role.matchScore ? Math.round(role.matchScore * 100) : 1 }))
+      ? dashboardPayload.topRoles.map((role) => ({ label: role.roleName, count: Math.round(normalizePercentage(role.matchScore) ?? 0) }))
       : localOverview?.topCareerDirections ?? [],
     topLanguages: localOverview?.topLanguages ?? [],
     topFrameworks: localOverview?.topFrameworks ?? [],
     missingSkills: localOverview?.missingSkills ?? []
   } : null
+  const hasBackendRoleMatches = Boolean(dashboardPayload?.topRoles?.length)
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -79,7 +91,24 @@ export const DashboardPage = () => {
         </div>
       )}
 
-      {!isDashboardLoading && dashboardPayload?.dev2vecStatus === 'analysis_required' && (
+      {!isDashboardLoading && !stats.githubConnected && (
+        <div className="flex flex-col gap-4 rounded-lg border border-indigo-200 bg-indigo-50 p-5 text-indigo-950 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-semibold">Kết nối GitHub để bắt đầu</p>
+            <p className="mt-1 text-sm text-indigo-800 dark:text-indigo-200">
+              Tài khoản của bạn chưa kết nối GitHub. Hãy kết nối trước để đồng bộ repository và nhận phân tích phù hợp.
+            </p>
+          </div>
+          <Link to="/github/connect">
+            <Button className="shrink-0">
+              <Github className="mr-2 h-4 w-4" />
+              Kết nối GitHub
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {!isDashboardLoading && stats.githubConnected && dashboardPayload?.dev2vecStatus === 'analysis_required' && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
           <p>{dashboardPayload.message || 'Cần phân tích repository bằng pipeline hiện tại để cập nhật dashboard.'}</p>
           <Link to="/repositories"><Button className="mt-3" size="sm">Phân tích repository</Button></Link>
@@ -135,7 +164,7 @@ export const DashboardPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-500">Điểm tổng quan</p>
-                <p className={`mt-2 text-3xl font-bold ${getScoreColor(stats.overallScore)}`}>{stats.overallScore || '-'}</p>
+                <p className={`mt-2 text-3xl font-bold ${getScoreColor(stats.overallScore)}`}>{stats.overallScore ? formatPercentage(stats.overallScore) : '—'}</p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-950">
                 <TrendingUp className="h-6 w-6 text-purple-600" />
@@ -164,7 +193,7 @@ export const DashboardPage = () => {
                   <p className="text-sm text-slate-500 dark:text-slate-400">repo đã phân tích</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                  <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{analysisOverview.averageOverallScore}</p>
+                  <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{formatPercentage(analysisOverview.averageOverallScore)}</p>
                   <p className="text-sm text-slate-500 dark:text-slate-400">điểm trung bình</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
@@ -177,7 +206,7 @@ export const DashboardPage = () => {
                   <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Hướng nghề nghiệp nổi bật</p>
                   <div className="flex flex-wrap gap-2">
                     {analysisOverview.topCareerDirections.length ? analysisOverview.topCareerDirections.map((item) => (
-                      <Badge key={item.label} variant="success">{item.label} · {item.count}</Badge>
+                      <Badge key={item.label} variant="success">{item.label} · {item.count}{hasBackendRoleMatches ? '%' : ''}</Badge>
                     )) : <span className="text-sm text-slate-500">Chưa có dữ liệu.</span>}
                   </div>
                 </div>
@@ -222,9 +251,11 @@ export const DashboardPage = () => {
             </div>
           </CardHeader>
           <CardContent>
-            {analyses.length === 0 ? (
+            {!stats.githubConnected || analyses.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
-                Chưa có phân tích. Hãy đồng bộ repository và chạy phân tích.
+                {stats.githubConnected
+                  ? 'Chưa có phân tích. Hãy đồng bộ repository và chạy phân tích.'
+                  : 'Kết nối GitHub để đồng bộ repository và bắt đầu phân tích.'}
               </div>
             ) : (
               <div className="space-y-3">
@@ -235,7 +266,9 @@ export const DashboardPage = () => {
                         <p className="font-semibold text-slate-900 dark:text-slate-100">{analysis.repositoryName}</p>
                         <p className="mt-1 text-sm text-slate-500">{formatRelativeTime(analysis.createdAt)}</p>
                       </div>
-                      <p className={`text-2xl font-bold ${getScoreColor(analysis.scores.overall)}`}>{analysis.scores.overall}</p>
+                      <p className={`text-2xl font-bold ${getScoreColor(analysis.summary?.overallScore ?? analysis.scores.overallScore ?? analysis.scores.overall)}`}>
+                        {formatPercentage(analysis.summary?.overallScore ?? analysis.scores.overallScore ?? analysis.scores.overall)}
+                      </p>
                     </div>
                   </Link>
                 ))}
@@ -251,17 +284,21 @@ export const DashboardPage = () => {
           </CardHeader>
           <CardContent className="space-y-2">
             <Link to="/github/connect">
-              <Button variant="outline" className="w-full justify-start"><Github className="mr-2 h-4 w-4" />Kết nối GitHub</Button>
+              <Button variant={stats.githubConnected ? 'outline' : 'default'} className="w-full justify-start"><Github className="mr-2 h-4 w-4" />{stats.githubConnected ? 'Quản lý kết nối GitHub' : 'Kết nối GitHub'}</Button>
             </Link>
-            <Link to="/repositories">
-              <Button variant="outline" className="w-full justify-start"><Code2 className="mr-2 h-4 w-4" />Đồng bộ / phân tích repository</Button>
-            </Link>
-            <Link to="/roadmaps">
-              <Button variant="outline" className="w-full justify-start"><TrendingUp className="mr-2 h-4 w-4" />Xem roadmap đề xuất</Button>
-            </Link>
-            <Link to="/chat">
-              <Button variant="outline" className="w-full justify-start"><MessageSquare className="mr-2 h-4 w-4" />Hỏi AI Mentor</Button>
-            </Link>
+            {stats.githubConnected && (
+              <>
+                <Link to="/repositories">
+                  <Button variant="outline" className="w-full justify-start"><Code2 className="mr-2 h-4 w-4" />Đồng bộ / phân tích repository</Button>
+                </Link>
+                <Link to="/roadmaps">
+                  <Button variant="outline" className="w-full justify-start"><TrendingUp className="mr-2 h-4 w-4" />Xem roadmap đề xuất</Button>
+                </Link>
+                <Link to="/chat">
+                  <Button variant="outline" className="w-full justify-start"><MessageSquare className="mr-2 h-4 w-4" />Hỏi AI Mentor</Button>
+                </Link>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

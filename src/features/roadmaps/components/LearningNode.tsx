@@ -104,9 +104,10 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
         </div>
         <button
           type="button"
-          className="flex flex-1 items-start justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          className="flex flex-1 items-start justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed"
           onClick={() => setExpanded((value) => !value)}
-          aria-expanded={expanded}
+          disabled={isLocked}
+          aria-expanded={!isLocked && expanded}
         >
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -158,9 +159,14 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
         {!hasBackendItemId && roadmapId && (
           <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">{missingItemIdMessage}</p>
         )}
+        {isLocked && (
+          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+            Hoàn thành bài học trước để mở khóa nội dung này.
+          </p>
+        )}
       </div>
 
-      {expanded && (
+      {expanded && !isLocked && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
@@ -187,7 +193,7 @@ export const LearningNode = ({ node, roadmapId, onStatusChange, onBookmarkToggle
               <ul className="divide-y divide-slate-200 overflow-hidden rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
                 {node.skills.slice(0, 4).map((skill) => (
                   <li key={skill}>
-                    {roadmapId && hasBackendItemId ? (
+                    {roadmapId && hasBackendItemId && !isLocked ? (
                       <Link
                         to={learningPath}
                         className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:text-slate-200 dark:hover:bg-slate-800/70 dark:hover:text-indigo-300"
