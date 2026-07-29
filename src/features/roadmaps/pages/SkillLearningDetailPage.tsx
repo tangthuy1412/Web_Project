@@ -576,7 +576,10 @@ export const SkillLearningDetailPage = () => {
               return (
                 <article
                   key={resource.id ?? resource._id ?? resource.url ?? index}
-                  className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50 transition hover:border-indigo-300 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700 dark:hover:bg-slate-950"
+                  className={cn(
+                    'group overflow-hidden rounded-lg border border-slate-200 bg-slate-50 transition hover:border-indigo-300 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700 dark:hover:bg-slate-950',
+                    canPlayInline && 'md:col-span-2'
+                  )}
                 >
                   <div className="relative aspect-video bg-black">
                     {youtubeEmbedUrl ? (
