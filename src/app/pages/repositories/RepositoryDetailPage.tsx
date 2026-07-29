@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { AlertCircle, ArrowLeft, BookOpen, Bot, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, FileJson, Flag, GitCommit, GitFork, Lightbulb, MessageSquare, Play, RefreshCw, Send, Star, Target } from 'lucide-react'
+import { AlertCircle, ArrowLeft, BookOpen, Bot, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, FileJson, Flag, GitCommit, GitFork, Info, Lightbulb, MessageSquare, Play, RefreshCw, Send, Star, Target } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip'
 import { RoleMatchPanel } from '../../components/analysis/RoleMatchPanel'
 import { useChatStore } from '../../stores/chatStore'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import { formatRelativeTime } from '../../lib/utils'
 import { getApiErrorMessage } from '../../services/apis/core'
 import { reportApi } from '../../services/apis/repositories'
-import type { RoleOption } from '../../types'
+import type { AnalysisScopeSummary, RoleOption } from '../../types'
 
 const reportReasons = [
   'Nội dung không phù hợp',
@@ -32,6 +33,11 @@ const textOf = (...values: unknown[]) => {
   const found = values.find((value) => typeof value === 'string' && value.trim())
   return typeof found === 'string' ? found : ''
 }
+
+const normalizeFailedBranchNames = (failedBranches: NonNullable<AnalysisScopeSummary['failedBranches']>) =>
+  failedBranches
+    .map((item) => typeof item === 'string' ? item : item.branch || 'Branch không xác định')
+    .filter((branch) => Boolean(branch.trim()))
 
 const getPackageAnalysis = (items: unknown[]) => {
   const first = asRecord(items[0])
@@ -119,6 +125,15 @@ export const RepositoryDetailPage = () => {
   const analysisRequestError = analysisErrorsByRepoId[id]
   const latestSummary = latestAnalysis?.summary
   const latestScope = latestAnalysis?.analysisScope
+  const userCommits = latestScope?.userCommits ?? 0
+  const totalRepoCommits = latestScope?.totalRepoCommits ?? 0
+  const activeDays = latestScope?.activeDays ?? 0
+  const analyzedSampleCommits = latestScope?.analyzedSampleCommits ?? null
+  const isSamplingApplied = analyzedSampleCommits != null && userCommits > analyzedSampleCommits
+  const isCommitFetchIncomplete = latestScope?.fetchComplete === false || latestScope?.fetchTruncated === true
+  const failedBranchNames = normalizeFailedBranchNames(latestScope?.failedBranches ?? [])
+  const hasBranchProgress = latestScope?.branchesAnalyzed !== undefined || latestScope?.branchesDiscovered !== undefined
+  const hasActiveDayDetails = Boolean(latestScope?.activeDayDateSource || latestScope?.activeDayTimezone)
   const latestScoreValue = latestSummary?.userReadinessScore ?? latestSummary?.overallScore ?? latestAnalysis?.scores.overallScore ?? latestAnalysis?.scores.overall
   const latestScore = typeof latestScoreValue === 'number' && Number.isFinite(latestScoreValue) ? Math.round(latestScoreValue) : undefined
   const latestScoreLabel = latestSummary?.userReadinessScore !== undefined ? 'Mức sẵn sàng' : 'Điểm tổng quan'
@@ -290,7 +305,10 @@ export const RepositoryDetailPage = () => {
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
-              <CardTitle>Tổng quan năng lực</CardTitle>
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle>Tổng quan năng lực</CardTitle>
+                {latestScope?.commitScope === 'all_branches' && <Badge variant="info">Tất cả branch</Badge>}
+              </div>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Kết quả mới nhất từ dữ liệu đã đồng bộ của dự án.</p>
             </div>
             <Button size="sm" onClick={handleAnalyze} isLoading={isAnalyzing}>
@@ -299,7 +317,7 @@ export const RepositoryDetailPage = () => {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
                 <p className="text-xs text-slate-500">Định hướng</p>
                 <p className="mt-1 truncate font-semibold text-slate-900 dark:text-slate-100">
@@ -312,19 +330,98 @@ export const RepositoryDetailPage = () => {
                   {latestScore !== undefined ? `${latestScore}%` : 'Chưa có dữ liệu'}
                 </p>
               </div>
-              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                <p className="text-xs text-slate-500">Đóng góp của bạn / toàn dự án</p>
-                <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
-                  {latestScope?.userCommits ?? latestAnalysis.commitSummary?.totalCommits ?? '—'} / {latestScope?.totalRepoCommits ?? latestAnalysis.commitSummary?.totalCommits ?? '—'}
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                <p className="text-xs text-slate-500">Ngày hoạt động</p>
-                <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
-                  {latestScope?.activeDays ?? latestAnalysis.commitSummary?.activeDays ?? 'Chưa có dữ liệu'}
-                </p>
-              </div>
             </div>
+
+            {latestScope ? (
+              <section aria-labelledby="commit-analysis-summary" className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 id="commit-analysis-summary" className="text-sm font-semibold text-slate-900 dark:text-slate-100">Phạm vi phân tích commit</h3>
+                  {hasBranchProgress && (
+                    <p className="text-xs text-slate-500">
+                      Đã phân tích {latestScope.branchesAnalyzed ?? '—'} / {latestScope.branchesDiscovered ?? '—'} branch
+                    </p>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950/60">
+                    <p className="text-xs text-slate-500">Commit của bạn</p>
+                    <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">{userCommits}</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950/60">
+                    <p className="text-xs text-slate-500">Tổng commit đã ghi nhận</p>
+                    <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">{totalRepoCommits}</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950/60">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs text-slate-500">Ngày hoạt động</p>
+                      {hasActiveDayDetails && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button type="button" className="rounded text-slate-400 outline-none transition hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500" aria-label="Cách tính ngày hoạt động">
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-64">
+                            Tính theo {latestScope.activeDayDateSource || 'nguồn ngày commit'}, timezone {latestScope.activeDayTimezone || 'chưa xác định'}.
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">{activeDays}</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950/60">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs text-slate-500">Commit dùng để phân tích</p>
+                      {isSamplingApplied && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button type="button" className="rounded text-slate-400 outline-none transition hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500" aria-label="Giải thích cách chọn commit phân tích">
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-72">
+                            Hệ thống ghi nhận toàn bộ commit của bạn nhưng chọn tối đa 400 commit đại diện theo dòng thời gian để phân tích kỹ năng.
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                      {analyzedSampleCommits == null ? '—' : `${analyzedSampleCommits} / ${userCommits}`}
+                    </p>
+                  </div>
+                </div>
+
+                {userCommits === 0 && (
+                  <p className="text-sm text-slate-500">Chưa ghi nhận commit của bạn trong phạm vi repository đã đồng bộ.</p>
+                )}
+                {isCommitFetchIncomplete && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p>Dữ liệu commit có thể chưa đầy đủ do giới hạn đồng bộ từ GitHub.</p>
+                  </div>
+                )}
+                {failedBranchNames.length > 0 && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+                    <p className="font-medium">Không thể đồng bộ {failedBranchNames.length} branch</p>
+                    <p className="mt-1 break-words">
+                      {failedBranchNames.slice(0, 3).join(', ')}
+                      {failedBranchNames.length > 3 ? ` và ${failedBranchNames.length - 3} branch khác` : ''}
+                    </p>
+                  </div>
+                )}
+              </section>
+            ) : (
+              <div className="flex flex-col items-start justify-between gap-3 rounded-lg border border-dashed border-slate-300 p-4 dark:border-slate-700 sm:flex-row sm:items-center">
+                <div>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">Thông tin commit chưa có</p>
+                  <p className="mt-1 text-sm text-slate-500">Phân tích lại repository để tải phạm vi commit mới nhất.</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={handleAnalyze} isLoading={isAnalyzing}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Phân tích repository
+                </Button>
+              </div>
+            )}
 
             <div className="grid gap-4 lg:grid-cols-2">
               <div>

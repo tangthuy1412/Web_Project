@@ -6,6 +6,19 @@ const optionalNumber = (value: unknown) => {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
+const optionalBoolean = (value: unknown) => typeof value === 'boolean' ? value : undefined
+
+const normalizeFailedBranches = (value: unknown) => asArray(value).flatMap((item) => {
+  if (typeof item === 'string') return [item]
+  const branch = asRecord(item)
+  if (!Object.keys(branch).length) return []
+  return [{
+    branch: firstString(branch.branch) || undefined,
+    errorCode: firstString(branch.errorCode) || undefined,
+    message: firstString(branch.message) || undefined
+  }]
+})
+
 export const normalizeAnalysis = (payload: unknown): AnalysisResult => {
   const envelope = asRecord(payload)
   const source = asRecord(extractObject(payload, ['analysis', 'result', 'snapshot']))
@@ -44,15 +57,32 @@ export const normalizeAnalysis = (payload: unknown): AnalysisResult => {
     createdAt: firstString(source.createdAt, source.analyzedAt, new Date().toISOString()),
     analyzedAt: firstString(source.analyzedAt) || undefined,
     projectType: cleanAnalysisText(firstString(summary.projectType, source.projectType, source.type, 'Unknown')),
-    analysisScope: {
+    analysisScope: Object.keys(analysisScope).length ? {
       type: firstString(analysisScope.type) || undefined,
       githubUsername: firstString(analysisScope.githubUsername) || undefined,
-      totalRepoCommits: asNumber(analysisScope.totalRepoCommits),
-      userCommits: asNumber(analysisScope.userCommits),
-      activeDays: asNumber(analysisScope.activeDays),
-      firstCommitDate: firstString(analysisScope.firstCommitDate) || undefined,
-      lastCommitDate: firstString(analysisScope.lastCommitDate) || undefined
-    },
+      totalRepoCommits: optionalNumber(analysisScope.totalRepoCommits),
+      userCommits: optionalNumber(analysisScope.userCommits),
+      activeDays: optionalNumber(analysisScope.activeDays),
+      firstCommitDate: firstString(analysisScope.firstCommitDate) || null,
+      lastCommitDate: firstString(analysisScope.lastCommitDate) || null,
+      analyzedCommitShas: Array.isArray(analysisScope.analyzedCommitShas)
+        ? analysisScope.analyzedCommitShas.map(String)
+        : undefined,
+      analyzedSampleCommits: optionalNumber(analysisScope.analyzedSampleCommits),
+      commitScope: firstString(analysisScope.commitScope) || undefined,
+      branchesDiscovered: optionalNumber(analysisScope.branchesDiscovered),
+      branchesAnalyzed: optionalNumber(analysisScope.branchesAnalyzed),
+      failedBranches: Array.isArray(analysisScope.failedBranches)
+        ? normalizeFailedBranches(analysisScope.failedBranches)
+        : undefined,
+      fetchComplete: optionalBoolean(analysisScope.fetchComplete),
+      fetchTruncated: optionalBoolean(analysisScope.fetchTruncated),
+      analysisLimit: optionalNumber(analysisScope.analysisLimit),
+      selectionStrategy: firstString(analysisScope.selectionStrategy) || undefined,
+      activeDayDateSource: firstString(analysisScope.activeDayDateSource) || undefined,
+      activeDayTimezone: firstString(analysisScope.activeDayTimezone) || undefined,
+      source: firstString(analysisScope.source) || undefined
+    } : undefined,
     summary: {
       careerDirection: cleanAnalysisText(firstString(summary.careerDirection)),
       userLevel: firstString(summary.userLevel) || undefined,

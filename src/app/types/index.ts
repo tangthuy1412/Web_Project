@@ -111,8 +111,25 @@ export interface AnalysisScopeSummary {
   totalRepoCommits?: number;
   userCommits?: number;
   activeDays?: number;
-  firstCommitDate?: string;
-  lastCommitDate?: string;
+  firstCommitDate?: string | null;
+  lastCommitDate?: string | null;
+  analyzedCommitShas?: string[];
+  analyzedSampleCommits?: number;
+  commitScope?: 'all_branches' | string;
+  branchesDiscovered?: number;
+  branchesAnalyzed?: number;
+  failedBranches?: Array<string | {
+    branch?: string;
+    errorCode?: string;
+    message?: string;
+  }>;
+  fetchComplete?: boolean;
+  fetchTruncated?: boolean;
+  analysisLimit?: number;
+  selectionStrategy?: string;
+  activeDayDateSource?: string;
+  activeDayTimezone?: string;
+  source?: string;
 }
 
 export interface AnalysisCompactSkill {

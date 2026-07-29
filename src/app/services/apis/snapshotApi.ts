@@ -1,5 +1,5 @@
 import { apiClient, unwrapResponse } from './apiClient'
-import type { SkillVectorItem } from '../../types'
+import type { AnalysisScopeSummary, SkillVectorItem } from '../../types'
 import axios from 'axios'
 
 type UnknownRecord = Record<string, unknown>
@@ -10,15 +10,7 @@ export type AnalysisSnapshot = {
   repoName?: string
   fullName?: string
   analysisId?: string
-  analysisScope?: {
-    type?: string
-    githubUsername?: string
-    totalRepoCommits?: number
-    userCommits?: number
-    activeDays?: number
-    firstCommitDate?: string
-    lastCommitDate?: string
-  }
+  analysisScope?: AnalysisScopeSummary
   createdAt: string
   analyzedAt?: string
   userLevel?: string
@@ -82,8 +74,8 @@ export type SnapshotDelta = {
   levelChanged: boolean
   fromLevel?: string
   toLevel?: string
-  userCommitsDelta: number
-  activeDaysDelta: number
+  userCommitsDelta?: number
+  activeDaysDelta?: number
 }
 
 export type SkillComparisonItem = {
@@ -168,6 +160,7 @@ export type RepositoryProgressComparisonState =
 
 const asRecord = (value: unknown): UnknownRecord => value && typeof value === 'object' ? value as UnknownRecord : {}
 const asNumber = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : Number(value) || 0
+const asOptionalNumber = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : undefined
 const asArray = (value: unknown) => Array.isArray(value) ? value : []
 const asString = (value: unknown) => typeof value === 'string' && value.trim() ? value : undefined
 const asOptionalBoolean = (value: unknown) => typeof value === 'boolean' ? value : undefined
@@ -264,11 +257,34 @@ export const mapSnapshotDetail = (payload: unknown): AnalysisSnapshot => {
     analysisScope: Object.keys(analysisScope).length ? {
       type: asString(analysisScope.type),
       githubUsername: asString(analysisScope.githubUsername),
-      totalRepoCommits: asNumber(analysisScope.totalRepoCommits),
-      userCommits: asNumber(analysisScope.userCommits),
-      activeDays: asNumber(analysisScope.activeDays),
-      firstCommitDate: asString(analysisScope.firstCommitDate),
-      lastCommitDate: asString(analysisScope.lastCommitDate)
+      totalRepoCommits: asOptionalNumber(analysisScope.totalRepoCommits),
+      userCommits: asOptionalNumber(analysisScope.userCommits),
+      activeDays: asOptionalNumber(analysisScope.activeDays),
+      firstCommitDate: asString(analysisScope.firstCommitDate) ?? null,
+      lastCommitDate: asString(analysisScope.lastCommitDate) ?? null,
+      analyzedCommitShas: Array.isArray(analysisScope.analyzedCommitShas) ? analysisScope.analyzedCommitShas.map(String) : undefined,
+      analyzedSampleCommits: asOptionalNumber(analysisScope.analyzedSampleCommits),
+      commitScope: asString(analysisScope.commitScope),
+      branchesDiscovered: asOptionalNumber(analysisScope.branchesDiscovered),
+      branchesAnalyzed: asOptionalNumber(analysisScope.branchesAnalyzed),
+      failedBranches: Array.isArray(analysisScope.failedBranches)
+        ? analysisScope.failedBranches.flatMap((item) => {
+          if (typeof item === 'string') return [item]
+          const branch = asRecord(item)
+          return Object.keys(branch).length ? [{
+            branch: asString(branch.branch),
+            errorCode: asString(branch.errorCode),
+            message: asString(branch.message)
+          }] : []
+        })
+        : undefined,
+      fetchComplete: asOptionalBoolean(analysisScope.fetchComplete),
+      fetchTruncated: asOptionalBoolean(analysisScope.fetchTruncated),
+      analysisLimit: asOptionalNumber(analysisScope.analysisLimit),
+      selectionStrategy: asString(analysisScope.selectionStrategy),
+      activeDayDateSource: asString(analysisScope.activeDayDateSource),
+      activeDayTimezone: asString(analysisScope.activeDayTimezone),
+      source: asString(analysisScope.source)
     } : undefined,
     analysisScopeType: asString(source.analysisScopeType) ?? asString(analysisScope.type),
     createdAt: String(source.createdAt ?? source.analyzedAt ?? source.timestamp ?? source.generatedAt ?? ''),
@@ -436,8 +452,8 @@ export const mapSnapshotComparison = (payload: unknown): SnapshotComparison => {
       levelChanged: Boolean(delta.levelChanged),
       fromLevel: asString(delta.fromLevel),
       toLevel: asString(delta.toLevel),
-      userCommitsDelta: asNumber(delta.userCommitsDelta),
-      activeDaysDelta: asNumber(delta.activeDaysDelta)
+      userCommitsDelta: asOptionalNumber(delta.userCommitsDelta),
+      activeDaysDelta: asOptionalNumber(delta.activeDaysDelta)
     } : undefined,
     skillChanges,
     overallChange: explicitChange === undefined

@@ -18,12 +18,11 @@ import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card'
 import { formatDate } from '../../lib/utils'
 import { getApiErrorMessage } from '../../services/apis/core'
-import { type AnalysisSnapshot, formatReadinessDelta, formatReadinessScore, normalizeSnapshotPair, selectDefaultSnapshotPair, snapshotApi, type RepositoryProgressComparisonState, type SkillComparisonItem, type SnapshotComparison, type SnapshotComparisonState } from '../../services/apis/progress'
+import { type AnalysisSnapshot, formatReadinessDelta, formatReadinessScore, normalizeSnapshotPair, selectDefaultSnapshotPair, snapshotApi, type RepositoryProgressComparisonState, type SnapshotComparisonState } from '../../services/apis/progress'
 import { useRepositoryStore } from '../../stores/repositoryStore'
 import type { SkillVectorItem } from '../../types'
 
 const MAX_SKILLS = 6
-const MAX_SKILL_CHANGES = 10
 
 const toScore = (value?: number) => Math.max(0, Math.min(100, Math.round(value ?? 0)))
 
@@ -55,22 +54,6 @@ const scopeLabel = (type?: string) => {
   return 'Toàn bộ dự án'
 }
 
-const skillName = (skill: SkillComparisonItem) =>
-  skill.skillName || skill.canonicalSkillName || skill.skill || 'Kỹ năng'
-
-const trendLabel = (trend?: string) => {
-  if (trend === 'improved') return 'Tăng'
-  if (trend === 'weaker' || trend === 'regressed') return 'Giảm'
-  if (trend === 'new') return 'Mới'
-  return 'Ổn định'
-}
-
-const trendVariant = (trend?: string): 'success' | 'warning' | 'danger' | 'default' | 'info' => {
-  if (trend === 'improved' || trend === 'new') return 'success'
-  if (trend === 'weaker' || trend === 'regressed') return 'danger'
-  return 'default'
-}
-
 const snapshotLabel = (snapshot: AnalysisSnapshot, index: number) =>
   `Mốc ${index + 1} - ${snapshot.createdAt ? formatDate(snapshot.createdAt) : snapshot.id}`
 
@@ -90,27 +73,13 @@ const currentAssessment = (snapshot?: AnalysisSnapshot | null) => {
 }
 
 const changeAssessment = (change: number) => {
-  if (change > 0) return 'Mốc phân tích mới ghi nhận tiến bộ so với mốc trước.'
-  if (change < 0) return 'Một số chỉ số đang giảm, nên xem lại các kỹ năng hoặc dữ liệu còn thiếu.'
-  return 'Điểm tổng quan chưa đổi. Dự án có thể chưa có thay đổi đủ lớn giữa hai mốc.'
+  if (change > 0) return 'Điểm đánh giá đã tăng so với mốc trước.'
+  if (change < 0) return 'Điểm đánh giá đã giảm so với mốc trước.'
+  return 'Điểm đánh giá chưa có thay đổi đáng kể.'
 }
 
-const getSkillGroups = (comparison?: SnapshotComparison | null) => {
-  const skillChanges = comparison?.skillChanges ?? []
-  return {
-    improved: (comparison?.topImprovedSkills.length
-      ? comparison.topImprovedSkills
-      : skillChanges.filter((item) => item.trend === 'improved' || (item.delta ?? 0) > 0)
-    ).slice(0, MAX_SKILLS),
-    unchanged: skillChanges
-      .filter((item) => item.trend === 'unchanged' || item.status === 'unchanged' || (item.delta ?? 0) === 0)
-      .slice(0, MAX_SKILLS),
-    weaker: (comparison?.topRegressedSkills.length
-      ? comparison.topRegressedSkills
-      : skillChanges.filter((item) => item.trend === 'weaker' || item.trend === 'regressed' || (item.delta ?? 0) < 0)
-    ).slice(0, MAX_SKILLS)
-  }
-}
+const formatActivityDelta = (value: number | null) =>
+  value === null ? '—' : `${value > 0 ? '+' : ''}${value}`
 
 const SkillList = ({ items }: { items: SkillVectorItem[] }) => {
   if (!items.length) return <p className="text-sm text-slate-500">Chưa có kỹ năng nổi bật trong mốc phân tích này.</p>
@@ -286,7 +255,8 @@ export const RepositoryProgressPage = () => {
   const readinessDelta = activeComparison?.delta?.userReadinessScore ?? activeComparison?.overallChange
   const repoTitle = activeComparison?.fullName || latestSnapshot?.fullName || selectedRepository?.fullName || selectedRepository?.name || 'Dự án'
   const topSkills = latestSnapshot?.topSkills?.length ? latestSnapshot.topSkills : latestSnapshot?.skillVector ?? []
-  const skillGroups = getSkillGroups(activeComparison)
+  const commitDelta = activeComparison?.delta?.userCommitsDelta ?? null
+  const activeDaysDelta = activeComparison?.delta?.activeDaysDelta ?? null
   const selectedFirstSnapshot = snapshots.find((snapshot) => snapshot.id === firstId)
   const selectedSecondSnapshot = snapshots.find((snapshot) => snapshot.id === secondId)
   const pairIsComparable = Boolean(
@@ -308,17 +278,6 @@ export const RepositoryProgressPage = () => {
     && snapshot.isCompatible !== false
     && sameSnapshotGeneration(snapshot, selectedSecondSnapshot ?? snapshots.find((item) => item.isCurrentVersion))
   ).length
-  const hasProvenNonSkillRegression = Boolean(
-    activeComparison
-    && readinessDelta !== undefined
-    && readinessDelta < 0
-    && activeComparison.skillComparisonSummary.improvedCount > 0
-    && activeComparison.skillComparisonSummary.regressedCount === 0
-    && activeComparison.scoreChanges.some((change) =>
-      change.change < 0 && !change.key.toLowerCase().includes('skill')
-    )
-  )
-
   return (
     <div className="max-w-7xl space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -359,8 +318,8 @@ export const RepositoryProgressPage = () => {
           </CardContent>
         </Card>
       ) : (
-        <>
-          <Card>
+        <div className="flex flex-col gap-6">
+          <Card className="order-1">
             <CardHeader>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -413,19 +372,19 @@ export const RepositoryProgressPage = () => {
                     <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
                       {contributionScope?.userCommits ?? 0}/{contributionScope?.totalRepoCommits ?? 0}
                     </p>
-                    <p className="mt-2 text-xs text-slate-500">Thay đổi: {activeComparison?.delta ? signedPoint(activeComparison.delta.userCommitsDelta).replace(' điểm', '') : '0'}</p>
+                    <p className="mt-2 text-xs text-slate-500">Thay đổi: {formatActivityDelta(commitDelta)}</p>
                   </div>
                   <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                     <p className="text-xs text-slate-500">Ngày hoạt động</p>
                     <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{contributionScope?.activeDays ?? 0}</p>
-                    <p className="mt-2 text-xs text-slate-500">Thay đổi: {activeComparison?.delta ? signedPoint(activeComparison.delta.activeDaysDelta).replace(' điểm', '') : '0'}</p>
+                    <p className="mt-2 text-xs text-slate-500">Thay đổi: {formatActivityDelta(activeDaysDelta)}</p>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="order-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />Diễn biến điểm</CardTitle>
@@ -483,7 +442,7 @@ export const RepositoryProgressPage = () => {
           </div>
 
           {selectedSnapshotDetail && (
-            <Card className="border-indigo-200 dark:border-indigo-900">
+            <Card className="order-4 border-indigo-200 dark:border-indigo-900">
               <CardHeader>
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -530,7 +489,7 @@ export const RepositoryProgressPage = () => {
             </Card>
           )}
 
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="order-5 grid gap-4 lg:grid-cols-3">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" />Kỹ năng nổi bật</CardTitle>
@@ -578,7 +537,7 @@ export const RepositoryProgressPage = () => {
           </div>
 
           {snapshots.length > 1 ? (
-            <Card className="overflow-hidden border-indigo-200 dark:border-indigo-900">
+            <Card className="order-2 overflow-hidden border-indigo-200 dark:border-indigo-900">
               <CardHeader className="border-b border-slate-100 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/40">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
@@ -648,141 +607,54 @@ export const RepositoryProgressPage = () => {
                     </div>
                     <Badge variant={manualComparison ? 'success' : 'info'}>{manualComparison ? 'Vừa cập nhật' : 'So sánh gần nhất'}</Badge>
                   </div>
-                <div className={`grid gap-3 ${activeComparison.comparableSkillScores === false ? 'md:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-5'}`}>
-                  <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                  <div className="min-w-0 rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                     <p className="text-xs text-slate-500">Điểm từ mốc gốc → mốc mới</p>
-                    <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+                    <p className="mt-2 whitespace-nowrap text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
                       {formatReadinessScore(activeComparison.firstSnapshot?.overallScore)} → {formatReadinessScore(activeComparison.latestSnapshot?.overallScore)}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {levelLabel(activeComparison.delta?.fromLevel || activeComparison.firstSnapshot?.userLevel)} → {levelLabel(activeComparison.delta?.toLevel || activeComparison.latestSnapshot?.userLevel)}
-                    </p>
                   </div>
-                  <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                  <div className="min-w-0 rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                     <p className="text-xs text-slate-500">Điểm thay đổi</p>
-                    <p className={`mt-2 text-2xl font-semibold ${overallChange > 0 ? 'text-emerald-600' : overallChange < 0 ? 'text-red-600' : 'text-slate-800 dark:text-slate-100'}`}>
+                    <p className={`mt-2 whitespace-nowrap text-2xl font-semibold tabular-nums ${overallChange > 0 ? 'text-emerald-600' : overallChange < 0 ? 'text-red-600' : 'text-slate-800 dark:text-slate-100'}`}>
                       {formatReadinessDelta(readinessDelta)} điểm
                     </p>
                   </div>
-                  {activeComparison.comparableSkillScores !== false && <>
-                  <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                    <p className="text-xs text-slate-500">Kỹ năng tăng</p>
-                    <p className="mt-2 text-2xl font-semibold text-emerald-600">{activeComparison?.skillComparisonSummary.improvedCount ?? skillGroups.improved.length}</p>
+                  <div className="min-w-0 rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                    <p className="text-xs text-slate-500">Trình độ</p>
+                    <p className="mt-2 text-lg font-semibold leading-snug text-slate-900 dark:text-slate-100">
+                      {levelLabel(activeComparison.delta?.fromLevel || activeComparison.firstSnapshot?.userLevel)} → {levelLabel(activeComparison.delta?.toLevel || activeComparison.latestSnapshot?.userLevel)}
+                    </p>
                   </div>
-                  <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                    <p className="text-xs text-slate-500">Kỹ năng ổn định</p>
-                    <p className="mt-2 text-2xl font-semibold text-slate-800 dark:text-slate-100">{activeComparison?.skillComparisonSummary.unchangedCount ?? skillGroups.unchanged.length}</p>
+                  <div className="min-w-0 rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                    <p className="text-xs text-slate-500">Commit thay đổi</p>
+                    <p className="mt-2 text-2xl font-semibold tabular-nums text-slate-800 dark:text-slate-100">{formatActivityDelta(commitDelta)}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">Chênh lệch giữa mốc mới và mốc gốc.</p>
                   </div>
-                  <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                    <p className="text-xs text-slate-500">Kỹ năng giảm</p>
-                    <p className="mt-2 text-2xl font-semibold text-red-600">{activeComparison?.skillComparisonSummary.regressedCount ?? skillGroups.weaker.length}</p>
+                  <div className="min-w-0 rounded-lg border border-slate-200 p-4 dark:border-slate-800 sm:col-span-2 xl:col-span-1">
+                    <p className="text-xs text-slate-500">Ngày hoạt động thay đổi</p>
+                    <p className="mt-2 text-2xl font-semibold tabular-nums text-slate-800 dark:text-slate-100">{formatActivityDelta(activeDaysDelta)}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">Chênh lệch giữa mốc mới và mốc gốc.</p>
                   </div>
-                  </>}
                 </div>
                 </div>
 
                 {(activeComparison.comparisonMode === 'score_only' || activeComparison.warnings.length > 0) && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-                    <p className="font-medium">Chỉ có thể so sánh điểm và trình độ</p>
-                    <p className="mt-1">{activeComparison.warnings[0] || 'Hai snapshot sử dụng cách tính điểm khác nhau, nên thay đổi ở cấp kỹ năng không đủ tin cậy để hiển thị.'}</p>
+                    <p className="font-medium">Dữ liệu so sánh có giới hạn</p>
+                    <p className="mt-1">{activeComparison.warnings[0] || 'Hai mốc sử dụng cách tính điểm khác nhau. Hãy đối chiếu thêm dữ liệu phân tích của từng mốc.'}</p>
                   </div>
                 )}
 
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300">
-                  {activeComparison?.summary || activeComparison?.skillComparisonText || changeAssessment(overallChange)}
-                  {hasProvenNonSkillRegression && (
-                    <p className="mt-2 text-amber-700 dark:text-amber-300">
-                      Điểm tổng còn chịu ảnh hưởng bởi các thành phần khác ngoài kỹ năng; breakdown ghi nhận ít nhất một thành phần đang giảm.
-                    </p>
-                  )}
+                  <p className="font-medium text-slate-800 dark:text-slate-100">{changeAssessment(overallChange)}</p>
+                  <p className="mt-1">Hãy xem thêm số commit, ngày hoạt động và dữ liệu phân tích của từng mốc để hiểu nguyên nhân.</p>
                 </div>
 
-                {activeComparison.comparableSkillScores !== false && <div className="grid gap-4 lg:grid-cols-3">
-                  <div>
-                    <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Tăng</p>
-                    <div className="space-y-2">
-                      {skillGroups.improved.length ? skillGroups.improved.map((skill) => (
-                        <div key={skillName(skill)} className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
-                          {skillName(skill)} {skill.delta !== undefined && <span className="font-medium">({formatReadinessDelta(skill.delta)} điểm)</span>}
-                        </div>
-                      )) : <p className="text-sm text-slate-500">Chưa có kỹ năng tăng rõ.</p>}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Ổn định</p>
-                    <div className="space-y-2">
-                      {skillGroups.unchanged.length ? skillGroups.unchanged.map((skill) => (
-                        <div key={skillName(skill)} className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                          {skillName(skill)}
-                        </div>
-                      )) : <p className="text-sm text-slate-500">Chưa có kỹ năng ổn định nổi bật.</p>}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Giảm</p>
-                    <div className="space-y-2">
-                      {skillGroups.weaker.length ? skillGroups.weaker.map((skill) => (
-                        <div key={skillName(skill)} className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/30 dark:text-red-200">
-                          {skillName(skill)} {skill.delta !== undefined && <span className="font-medium">({formatReadinessDelta(skill.delta)} điểm)</span>}
-                        </div>
-                      )) : <p className="text-sm text-slate-500">Chưa có kỹ năng giảm rõ.</p>}
-                    </div>
-                  </div>
-                </div>}
-
-                {activeComparison.comparableSkillScores !== false && activeComparison.newSkills.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Kỹ năng mới</p>
-                    <div className="flex flex-wrap gap-2">
-                      {activeComparison.newSkills.map((skill) => (
-                        <Badge key={skillName(skill)} variant="success">{skillName(skill)}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {activeComparison.comparableSkillScores !== false && (activeComparison?.resolvedMissingSkills.length || activeComparison?.newMissingSkills.length) ? (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Đã bổ sung</p>
-                      <MissingSkillList items={activeComparison.resolvedMissingSkills} />
-                    </div>
-                    <div>
-                      <p className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Mới còn thiếu</p>
-                      <MissingSkillList items={activeComparison.newMissingSkills} />
-                    </div>
-                  </div>
-                ) : null}
-
-                {activeComparison.comparableSkillScores !== false && activeComparison?.skillChanges.length ? (
-                  <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Chi tiết kỹ năng thay đổi</p>
-                    <div className="mt-3 grid gap-2 md:grid-cols-2">
-                      {activeComparison.skillChanges.slice(0, MAX_SKILL_CHANGES).map((skill) => (
-                        <div key={`${skillName(skill)}-${skill.category}`} className="rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate font-medium text-slate-900 dark:text-slate-100">{skillName(skill)}</p>
-                              <p className="truncate text-xs text-slate-500">{skill.category || 'Kỹ năng'}</p>
-                            </div>
-                            <Badge variant={trendVariant(skill.trend || skill.status)}>{trendLabel(skill.trend || skill.status)}</Badge>
-                          </div>
-                          <p className="mt-2 text-xs text-slate-500">
-                            {formatReadinessScore(skill.fromScore ?? skill.beforePercent)} → {formatReadinessScore(skill.toScore ?? skill.afterPercent)}
-                            {skill.delta !== undefined && ` (${formatReadinessDelta(skill.delta)})`}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                    {activeComparison.skillChanges.length > MAX_SKILL_CHANGES && (
-                      <p className="mt-3 text-xs text-slate-500">Còn {activeComparison.skillChanges.length - MAX_SKILL_CHANGES} kỹ năng khác trong dữ liệu so sánh.</p>
-                    )}
-                  </div>
-                ) : null}
                 </> : (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
                     {manualComparison?.comparisonStatus === 'incompatible_snapshot_versions'
-                      ? 'Hai mốc sử dụng phiên bản phân tích khác nhau nên không thể so sánh kỹ năng trực tiếp.'
+                      ? 'Hai mốc sử dụng phiên bản phân tích khác nhau nên chưa thể đối chiếu trực tiếp.'
                       : insufficientComparison
                         ? snapshotTotal >= 2
                           ? 'Có nhiều mốc phân tích nhưng chưa có đủ hai mốc tương thích để so sánh tự động. Bạn vẫn có thể xem chi tiết từng mốc hoặc thử so sánh thủ công.'
@@ -796,16 +668,16 @@ export const RepositoryProgressPage = () => {
               </CardContent>
             </Card>
           ) : (
-            <Card>
+            <Card className="order-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5" />Cần thêm mốc phân tích</CardTitle>
                 <CardDescription>
-                  Hiện chỉ có một snapshot. Sau lần phân tích tiếp theo, trang này sẽ hiển thị thay đổi điểm và kỹ năng giữa hai mốc.
+                  Hiện chỉ có một snapshot. Sau lần phân tích tiếp theo, trang này sẽ hiển thị thay đổi điểm và hoạt động giữa hai mốc.
                 </CardDescription>
               </CardHeader>
             </Card>
           )}
-        </>
+        </div>
       )}
     </div>
   )

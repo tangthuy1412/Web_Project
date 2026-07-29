@@ -163,3 +163,25 @@ test('maps the current compare contract without scaling or rounding raw scores',
   assert.equal(comparison.skillChanges[0].beforePercent, 8.75)
   assert.equal(comparison.skillChanges[0].afterPercent, 21.25)
 })
+
+test('preserves zero activity deltas and does not invent missing deltas', () => {
+  const withZeroDeltas = mapSnapshotComparison({
+    data: {
+      fromSnapshot: { snapshotId: 'from', userReadinessScore: 70 },
+      toSnapshot: { snapshotId: 'to', userReadinessScore: 70 },
+      delta: { userReadinessScore: 0, userCommitsDelta: 0, activeDaysDelta: 0 }
+    }
+  })
+  assert.equal(withZeroDeltas.delta.userCommitsDelta, 0)
+  assert.equal(withZeroDeltas.delta.activeDaysDelta, 0)
+
+  const withoutActivityDeltas = mapSnapshotComparison({
+    data: {
+      fromSnapshot: { snapshotId: 'from', userReadinessScore: 70 },
+      toSnapshot: { snapshotId: 'to', userReadinessScore: 70 },
+      delta: { userReadinessScore: 0 }
+    }
+  })
+  assert.equal(withoutActivityDeltas.delta.userCommitsDelta, undefined)
+  assert.equal(withoutActivityDeltas.delta.activeDaysDelta, undefined)
+})

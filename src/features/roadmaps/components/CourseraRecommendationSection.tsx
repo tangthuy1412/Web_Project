@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { BookOpen, ExternalLink, RefreshCw } from 'lucide-react'
+import courseraLogo from '../../../assets/Coursera-Logo.png'
 import { Badge } from '../../../app/components/ui/Badge'
 import { Button } from '../../../app/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../app/components/ui/Card'
@@ -18,25 +19,13 @@ const readableLabel = (value: string) => value
   .join(' ')
 
 const CourseThumbnail = ({ course }: { course: CourseraCourseRecommendation }) => {
-  const [hasImageError, setHasImageError] = useState(false)
-  const thumbnailUrl = typeof course.thumbnailUrl === 'string' ? course.thumbnailUrl.trim() : ''
-  const fallbackUrl = '/coursera-fallback.svg'
-  const imageUrl = thumbnailUrl && !hasImageError ? thumbnailUrl : fallbackUrl
-
-  useEffect(() => {
-    setHasImageError(false)
-  }, [thumbnailUrl])
-
   return (
-    <div className="aspect-[16/9] overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
+    <div className="flex aspect-[16/9] items-center justify-center overflow-hidden rounded-lg bg-white p-8 ring-1 ring-inset ring-slate-100 dark:bg-slate-900 dark:ring-slate-800">
       <img
-        src={imageUrl}
-        alt={thumbnailUrl && !hasImageError ? `Ảnh khóa học ${course.title}` : 'Coursera'}
+        src={courseraLogo}
+        alt={`Coursera — ${course.title}`}
         loading="lazy"
-        onError={() => {
-          if (imageUrl !== fallbackUrl) setHasImageError(true)
-        }}
-        className="h-full w-full object-cover"
+        className="max-h-24 w-auto max-w-[75%] object-contain"
       />
     </div>
   )

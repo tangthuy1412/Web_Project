@@ -14,7 +14,6 @@ import { roleMatchApi } from '../../../app/services/apis/analysis'
 import { getApiErrorMessage } from '../../../app/services/apis/core'
 import { useRoadmapStore } from '../stores/roadmapStore'
 import type { Roadmap, RoadmapCategory, RoadmapDifficulty } from '../types'
-import type { RoadmapSourceMode } from '../services/roadmapService'
 import type { RoleMatch, RoleOption } from '../../../app/types'
 import { filterRoadmaps, formatCategoryFilter, formatDifficultyFilter, formatDurationFilter, formatUserLevel } from '../utils/roadmapUtils'
 
@@ -59,18 +58,6 @@ const skillLabel = (value: unknown) => {
 }
 
 const skillList = (value: unknown) => Array.isArray(value) ? value.map(skillLabel).filter(Boolean) : []
-
-const sourceModeLabel = (sourceMode: RoadmapSourceMode) => {
-  switch (sourceMode) {
-    case 'single_repo':
-      return 'Một dự án đã phân tích'
-    case 'selected_repos':
-      return 'Vai trò nổi bật từ các repository đã chọn'
-    case 'all_analyzed_repos':
-      return 'Vai trò nổi bật từ repository đã phân tích'
-  }
-}
-
 
 interface RoleSuggestionCardProps {
   match: RoleMatch
@@ -178,8 +165,7 @@ export const RoadmapsPage = () => {
     setFilters
   } = useRoadmapStore()
   const { analyses, fetchMyAnalyses, selectedRoleOption, setSelectedRoleOption } = useRepositoryStore()
-  const [sourceMode, setSourceMode] = useState<RoadmapSourceMode>('single_repo')
-  const [selectedRepoIds, setSelectedRepoIds] = useState<string[]>([])
+  const [repositoryId, setRepositoryId] = useState('')
   const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner')
   const [durationWeeks, setDurationWeeks] = useState(6)
   const useRoleMatching = true
@@ -208,7 +194,7 @@ export const RoadmapsPage = () => {
   const [roadmapToDelete, setRoadmapToDelete] = useState<Roadmap | null>(null)
   const [page, setPage] = useState(1)
   const analyzedRepos = useMemo(() => {
-    const repos = new Map<string, { id: string; name: string; level?: string; commits?: number; readiness?: number; updatedAt?: number }>()
+    const repos = new Map<string, { id: string; analysisId?: string; name: string; analyzedAt?: string; level?: string; commits?: number; readiness?: number; updatedAt?: number }>()
 
     analyses.forEach((analysis) => {
       if (!analysis.repositoryId) return
@@ -218,7 +204,9 @@ export const RoadmapsPage = () => {
 
       repos.set(analysis.repositoryId, {
         id: analysis.repositoryId,
+        analysisId: analysis.id,
         name: analysis.repositoryName || analysis.repoName || analysis.fullName || analysis.repositoryId,
+        analyzedAt: analysis.analyzedAt || analysis.createdAt,
         level: analysis.summary?.userLevel,
         commits: analysis.analysisScope?.userCommits ?? analysis.commitSummary?.totalCommits,
         readiness: analysis.summary?.userReadinessScore ?? analysis.summary?.overallScore ?? analysis.scores.overallScore ?? analysis.scores.overall,
@@ -228,44 +216,23 @@ export const RoadmapsPage = () => {
 
     return Array.from(repos.values())
   }, [analyses])
-  const repositoryId = selectedRepoIds[0]
-  const canConfirmSource = sourceMode === 'all_analyzed_repos'
-    ? analyzedRepos.length > 0
-    : sourceMode === 'single_repo'
-      ? Boolean(repositoryId)
-      : selectedRepoIds.length > 0
+  const selectedRepository = analyzedRepos.find((repo) => repo.id === repositoryId)
+  const canConfirmSource = Boolean(repositoryId)
   const canGenerate = Boolean(repositoryId && selectedRoleOption?.roleId && selectedRoleOption?.roleName)
-  const sourceSelectionKey = `${sourceMode}:${sourceMode === 'all_analyzed_repos' ? analyzedRepos.map((repo) => repo.id).sort().join(',') : selectedRepoIds.slice().sort().join(',')}`
+  const sourceSelectionKey = `single_repo:${repositoryId}`
   const sourceSelectionKeyRef = useRef(sourceSelectionKey)
   const isRoleMatchesLoading = isMatchingRoles
   const selectedSourceStats = useMemo(() => {
-    const selectedIds = sourceMode === 'all_analyzed_repos'
-      ? analyzedRepos.map((repo) => repo.id)
-      : sourceMode === 'selected_repos'
-        ? selectedRepoIds
-        : repositoryId
-          ? [repositoryId]
-          : []
-    const selectedRepos = analyzedRepos.filter((repo) => selectedIds.includes(repo.id))
-    const totalUserCommits = selectedRepos.reduce((sum, repo) => sum + (repo.commits ?? 0), 0)
-    const readinessValues = selectedRepos.map((repo) => repo.readiness).filter((value): value is number => typeof value === 'number')
-    const userReadinessScore = readinessValues.length
-      ? Math.round(readinessValues.reduce((sum, value) => sum + value, 0) / readinessValues.length)
-      : undefined
-    const userLevel = sourceMode === 'single_repo'
-      ? selectedRepos[0]?.level
-      : roleMatchSource?.userLevel
-
     return {
-      totalRepositories: selectedRepos.length,
-      totalUserCommits,
-      userReadinessScore,
-      userLevel,
-      repositoryNames: selectedRepos.map((repo) => repo.name)
+      totalRepositories: selectedRepository ? 1 : 0,
+      totalUserCommits: selectedRepository?.commits ?? 0,
+      userReadinessScore: selectedRepository?.readiness,
+      userLevel: selectedRepository?.level,
+      repositoryNames: selectedRepository ? [selectedRepository.name] : []
     }
-  }, [analyzedRepos, repositoryId, roleMatchSource?.userLevel, selectedRepoIds, sourceMode])
+  }, [selectedRepository])
   const sourceDisplay = {
-    totalRepositories: roleMatchSource?.totalRepositories || selectedSourceStats.totalRepositories || selectedRepoIds.length,
+    totalRepositories: 1,
     totalUserCommits: roleMatchSource?.totalUserCommits || selectedSourceStats.totalUserCommits,
     userReadinessScore: roleMatchSource?.userReadinessScore ?? selectedSourceStats.userReadinessScore,
     userLevel: roleMatchSource?.userLevel || selectedSourceStats.userLevel,
@@ -276,9 +243,7 @@ export const RoadmapsPage = () => {
     const preferredRepositoryId = selectedRoleOption?.selectionType === 'current_repository_primary'
       ? selectedRoleOption.sourceRepositoryId
       : undefined
-    setSelectedRepoIds((current) => current.length
-      ? current
-      : [preferredRepositoryId ?? analyzedRepos[0]?.id].filter((id): id is string => Boolean(id)))
+    setRepositoryId((current) => current || preferredRepositoryId || analyzedRepos[0]?.id || '')
   }, [analyzedRepos, selectedRoleOption])
 
   useEffect(() => {
@@ -296,8 +261,7 @@ export const RoadmapsPage = () => {
     setSelectedRoleOption(navigationOption)
     setAuthoritativeRoleOptions((current) => [navigationOption, ...current.filter((item) => item.roleId !== navigationOption.roleId)])
     if (navigationState?.currentRepositoryId) {
-      setSourceMode('single_repo')
-      setSelectedRepoIds([navigationState.currentRepositoryId])
+      setRepositoryId(navigationState.currentRepositoryId)
     }
   }, [location.state, setSelectedRoleOption])
 
@@ -330,9 +294,8 @@ export const RoadmapsPage = () => {
 
     try {
       const response = await roleMatchApi.calculateRoleMatches({
-        sourceMode,
-        ...(sourceMode === 'single_repo' ? { repoId: repositoryId } : {}),
-        ...(sourceMode === 'selected_repos' ? { repoIds: selectedRepoIds } : {}),
+        sourceMode: 'single_repo',
+        repoId: repositoryId,
         limit: 3,
         includeDetails: true
       })
@@ -343,9 +306,16 @@ export const RoadmapsPage = () => {
         response.primaryRole,
         ...(response.additionalRoleOptions ?? []),
         ...(response.roleSelection?.additionalRoleOptions ?? [])
-      ].filter((option): option is RoleOption => Boolean(option?.roleId))
+      ]
+        .filter((option): option is RoleOption => Boolean(option?.roleId))
+        .map((option) => ({
+          ...option,
+          sourceRepositoryId: option.sourceRepositoryId || repositoryId,
+          sourceRepositoryName: option.sourceRepositoryName || selectedRepository?.name,
+          sourceAnalysisId: option.sourceAnalysisId || selectedRepository?.analysisId
+        }))
       setAuthoritativeRoleOptions(options.filter((option, index, list) => list.findIndex((item) => item.roleId === option.roleId) === index))
-      const primaryOption = response.primaryRole ?? response.roleSelection?.primaryRole ?? options[0]
+      const primaryOption = options[0]
       if (primaryOption) {
         setSelectedRoleOption(primaryOption)
       }
@@ -362,10 +332,20 @@ export const RoadmapsPage = () => {
   }
 
   const handleGenerate = async (roleOption?: RoleOption, key = 'manual') => {
-    const fullRoleOption = roleOption ?? selectedRoleOption
-    if (!fullRoleOption || !repositoryId) {
+    const selectedOption = roleOption ?? selectedRoleOption
+    if (!selectedOption || !repositoryId) {
       setRoleMatchError('Chưa có vai trò hợp lệ từ kết quả phân tích. Vui lòng tải lại vai trò hoặc quay lại repository.')
       return
+    }
+    if (selectedOption.sourceRepositoryId && selectedOption.sourceRepositoryId !== repositoryId) {
+      setRoleMatchError('Vai trò đã chọn không thuộc repository hiện tại. Hãy chọn lại nguồn phân tích.')
+      return
+    }
+    const fullRoleOption: RoleOption = {
+      ...selectedOption,
+      sourceRepositoryId: selectedOption.sourceRepositoryId || repositoryId,
+      sourceRepositoryName: selectedOption.sourceRepositoryName || selectedRepository?.name,
+      sourceAnalysisId: selectedOption.sourceAnalysisId || selectedRepository?.analysisId
     }
     if (isGenerating) return
     setSelectedRoleOption(fullRoleOption)
@@ -423,30 +403,23 @@ export const RoadmapsPage = () => {
     setPage((current) => Math.min(current, totalPages))
   }, [totalPages])
 
-  const handleSourceModeClick = (nextMode: RoadmapSourceMode) => {
-    if (sourceMode !== nextMode) {
-      setSourceMode(nextMode)
-      return
-    }
-
-    if (nextMode === 'single_repo') setSelectedRepoIds([])
-    if (nextMode === 'selected_repos') setSelectedRepoIds([])
+  const selectRepository = (repoId: string) => {
+    if (selectedRoleOption) return
+    setRepositoryId(repoId)
   }
 
-  const toggleSingleRepo = (repoId: string) => {
-    setSelectedRepoIds((current) => current[0] === repoId ? [] : [repoId])
-  }
-
-  const toggleSelectedRepo = (repoId: string) => {
-    setSelectedRepoIds((current) =>
-      current.includes(repoId) ? current.filter((id) => id !== repoId) : [...current, repoId]
-    )
+  const resetAnalysisSource = () => {
+    setSelectedRoleOption(null)
+    setAuthoritativeRoleOptions([])
+    setConfirmedSourceKey('')
+    setRoleMatches([])
+    setRoleMatchSource(null)
   }
 
   return (
     <>
-    <div className="mx-auto w-full max-w-[1500px] space-y-6">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+    <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6">
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="order-[-3] grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <Badge variant="info" className="mb-3">
             <Sparkles className="mr-1 h-3 w-3" />
@@ -467,7 +440,7 @@ export const RoadmapsPage = () => {
         </Button>
       </motion.div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="order-[-1] grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
             <div className="rounded-lg bg-indigo-50 p-3 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300">
@@ -503,14 +476,14 @@ export const RoadmapsPage = () => {
         </Card>
       </div>
 
-      <Card id="roadmap-builder" className="scroll-mt-24 overflow-hidden">
+      <Card id="roadmap-builder" className="order-[-2] scroll-mt-24 overflow-hidden">
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-cyan-500 to-emerald-500" />
         <CardContent className="space-y-5 p-5">
           <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
             <div>
-              <p className="font-semibold text-slate-950 dark:text-slate-50">Tạo lộ trình học theo vai trò mục tiêu</p>
+              <p className="font-semibold text-slate-950 dark:text-slate-50">Tạo lộ trình từ một repository</p>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Chọn dữ liệu học tập đã phân tích, hệ thống sẽ đề xuất các hướng nghề nghiệp phù hợp để bạn tạo lộ trình học.
+                Lộ trình dùng đúng kết quả phân tích và vai trò được dự đoán từ repository này.
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -538,42 +511,69 @@ export const RoadmapsPage = () => {
             </div>
           </div>
 
-          <div className="grid gap-2 md:grid-cols-3">
-            {[
-              { value: 'single_repo', label: 'Một dự án', description: 'Đề xuất vai trò từ một dự án cụ thể.' },
-              { value: 'selected_repos', label: 'Một vài dự án', description: 'Xem vai trò chính của từng repository đã chọn; không tạo inference gộp.' },
-              { value: 'all_analyzed_repos', label: 'Portfolio đã phân tích', description: 'Xem các vai trò chính nổi bật từ từng repository; không merge vector.' }
-            ].map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`min-h-[86px] rounded-lg border p-3 text-left transition ${sourceMode === option.value ? 'border-indigo-500 bg-indigo-50 text-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100' : 'border-slate-200 hover:border-indigo-300 dark:border-slate-800'}`}
-                onClick={() => handleSourceModeClick(option.value as RoadmapSourceMode)}
-              >
-                <span className="text-sm font-semibold">{option.label}</span>
-                <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{option.description}</span>
-              </button>
-            ))}
-          </div>
+          {authoritativeRoleOptions.length > 0 && (
+            <div className="space-y-3">
+              <RoleSuggestionCard
+                match={roleOptionAsMatch(authoritativeRoleOptions[0], roleMatches)}
+                roleOption={authoritativeRoleOptions[0]}
+                featured
+                isGenerating={isGenerating && generatingKey === `role:${authoritativeRoleOptions[0].roleId}`}
+                disabled={!canGenerate || isGenerating}
+                onCreate={(option) => handleGenerate(option, `role:${option.roleId}`)}
+              />
+              {authoritativeRoleOptions.length > 1 && (
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {authoritativeRoleOptions.slice(1, 3).map((option) => (
+                    <RoleSuggestionCard
+                      key={`${option.roleId}:${option.sourceRepositoryId ?? ''}`}
+                      match={roleOptionAsMatch(option, roleMatches)}
+                      roleOption={option}
+                      isGenerating={isGenerating && generatingKey === `role:${option.roleId}`}
+                      disabled={!canGenerate || isGenerating}
+                      onCreate={(selectedOption) => handleGenerate(selectedOption, `role:${selectedOption.roleId}`)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-          {sourceMode === 'single_repo' && (
-            <div className="h-44 overflow-auto rounded-lg border border-slate-200 p-2 dark:border-slate-800">
+          <section aria-labelledby="analysis-source-title" className="rounded-xl bg-slate-50 p-4 dark:bg-slate-950/60">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p id="analysis-source-title" className="text-sm font-semibold text-slate-950 dark:text-slate-50">Nguồn phân tích</p>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  Chọn duy nhất một repository đã phân tích. Sau khi chọn vai trò, nguồn này sẽ được khóa.
+                </p>
+              </div>
+              {selectedRoleOption && (
+                <Button type="button" variant="outline" size="sm" onClick={resetAnalysisSource}>
+                  Chọn phân tích khác
+                </Button>
+              )}
+            </div>
+            <div className="max-h-52 overflow-auto">
               <div className="grid auto-rows-fr gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {analyzedRepos.map((repo) => {
-                  const selected = repositoryId === repo.id && selectedRepoIds[0] === repo.id
+                  const selected = repositoryId === repo.id
 
                   return (
                     <button
                       key={repo.id}
                       type="button"
-                      className={`flex min-h-[72px] items-start justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm transition ${selected ? 'border-indigo-500 bg-indigo-50 text-indigo-950 dark:bg-indigo-950/30 dark:text-indigo-100' : 'border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900'}`}
-                      onClick={() => toggleSingleRepo(repo.id)}
+                      className={`flex min-h-[88px] items-start justify-between gap-3 rounded-lg border px-3.5 py-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${selected ? 'border-indigo-500 bg-white text-indigo-950 shadow-sm dark:bg-indigo-950/30 dark:text-indigo-100' : 'border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900'} ${selectedRoleOption && !selected ? 'cursor-not-allowed opacity-50' : ''}`}
+                      onClick={() => selectRepository(repo.id)}
                       aria-pressed={selected}
+                      disabled={Boolean(selectedRoleOption && !selected)}
                     >
                       <span className="min-w-0">
                         <span className="line-clamp-1 break-all font-medium">{repo.name}</span>
                         <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
                           {formatUserLevel(repo.level)} · {repo.commits ?? 0} đóng góp
+                        </span>
+                        <span className="mt-1 block text-xs text-slate-400">
+                          {repo.analyzedAt ? `Phân tích ${new Intl.DateTimeFormat('vi-VN').format(new Date(repo.analyzedAt))}` : 'Đã phân tích'}
+                          {repo.readiness !== undefined ? ` · Điểm ${Math.round(repo.readiness)}%` : ''}
                         </span>
                       </span>
                       <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
@@ -583,34 +583,11 @@ export const RoadmapsPage = () => {
                   )
                 })}
               </div>
+              {!analyzedRepos.length && (
+                <p className="py-6 text-center text-sm text-slate-500">Chưa có repository đã phân tích.</p>
+              )}
             </div>
-          )}
-
-          {sourceMode === 'selected_repos' && (
-            <div className="h-44 overflow-auto rounded-lg border border-slate-200 p-2 dark:border-slate-800">
-              <div className="grid auto-rows-fr gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {analyzedRepos.map((repo) => (
-                  <button
-                    key={repo.id}
-                    type="button"
-                    className={`flex min-h-[72px] items-start justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm transition ${selectedRepoIds.includes(repo.id) ? 'border-indigo-500 bg-indigo-50 text-indigo-950 dark:bg-indigo-950/30 dark:text-indigo-100' : 'border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900'}`}
-                    onClick={() => toggleSelectedRepo(repo.id)}
-                    aria-pressed={selectedRepoIds.includes(repo.id)}
-                  >
-                    <span className="min-w-0">
-                      <span className="line-clamp-1 break-all font-medium">{repo.name}</span>
-                      <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
-                        {formatUserLevel(repo.level)} · {repo.commits ?? 0} đóng góp
-                      </span>
-                    </span>
-                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
-                      {selectedRepoIds.includes(repo.id) ? <CheckCircle2 className="h-4 w-4 text-indigo-600" /> : <span className="h-4 w-4 rounded-full border border-slate-300" />}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          </section>
 
           <div className="flex flex-col gap-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-900 dark:bg-indigo-950/20 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -683,19 +660,21 @@ export const RoadmapsPage = () => {
             {(roleMatchSource || canConfirmSource) && (
               <div className="mt-4 grid gap-2 sm:grid-cols-4">
                 <div className="rounded-md bg-white/70 p-2 dark:bg-slate-900/70">
-                  <p className="text-xs text-slate-500">Nguồn dữ liệu</p>
-                  <p className="text-sm font-semibold">{sourceModeLabel(sourceMode)}</p>
+                  <p className="text-xs text-slate-500">Repository</p>
+                  <p className="truncate text-sm font-semibold">{selectedRepository?.name || 'Chưa chọn'}</p>
                 </div>
                 <div className="rounded-md bg-white/70 p-2 dark:bg-slate-900/70">
-                  <p className="text-xs text-slate-500">Dự án đã dùng</p>
-                  <p className="text-sm font-semibold">{sourceDisplay.totalRepositories}</p>
+                  <p className="text-xs text-slate-500">Ngày phân tích</p>
+                  <p className="text-sm font-semibold">
+                    {selectedRepository?.analyzedAt ? new Intl.DateTimeFormat('vi-VN').format(new Date(selectedRepository.analyzedAt)) : 'Chưa có dữ liệu'}
+                  </p>
                 </div>
                 <div className="rounded-md bg-white/70 p-2 dark:bg-slate-900/70">
-                  <p className="text-xs text-slate-500">Đóng góp của bạn</p>
-                  <p className="text-sm font-semibold">{sourceDisplay.totalUserCommits}</p>
+                  <p className="text-xs text-slate-500">Vai trò đã chọn</p>
+                  <p className="truncate text-sm font-semibold">{selectedRoleOption?.roleName || 'Chờ xác nhận'}</p>
                 </div>
                 <div className="rounded-md bg-white/70 p-2 dark:bg-slate-900/70">
-                  <p className="text-xs text-slate-500">Mức sẵn sàng</p>
+                  <p className="text-xs text-slate-500">Điểm phân tích</p>
                   <p className="text-sm font-semibold">
                     {sourceDisplay.userReadinessScore !== undefined ? `${Math.round(sourceDisplay.userReadinessScore)}% · ${formatUserLevel(sourceDisplay.userLevel)}` : 'Chưa có dữ liệu'}
                   </p>
@@ -710,32 +689,7 @@ export const RoadmapsPage = () => {
             </p>
           )}
 
-          {authoritativeRoleOptions.length > 0 ? (
-            <div className="space-y-3">
-              <RoleSuggestionCard
-                match={roleOptionAsMatch(authoritativeRoleOptions[0], roleMatches)}
-                roleOption={authoritativeRoleOptions[0]}
-                featured
-                isGenerating={isGenerating && generatingKey === `role:${authoritativeRoleOptions[0].roleId}`}
-                disabled={!canGenerate || isGenerating}
-                onCreate={(option) => handleGenerate(option, `role:${option.roleId}`)}
-              />
-              {authoritativeRoleOptions.length > 1 && (
-                <div className="grid gap-3 lg:grid-cols-2">
-                  {authoritativeRoleOptions.slice(1, 3).map((option) => (
-                    <RoleSuggestionCard
-                      key={`${option.roleId}:${option.sourceRepositoryId ?? ''}`}
-                      match={roleOptionAsMatch(option, roleMatches)}
-                      roleOption={option}
-                      isGenerating={isGenerating && generatingKey === `role:${option.roleId}`}
-                      disabled={!canGenerate || isGenerating}
-                      onCreate={(selectedOption) => handleGenerate(selectedOption, `role:${selectedOption.roleId}`)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : !isRoleMatchesLoading && (
+          {authoritativeRoleOptions.length === 0 && !isRoleMatchesLoading && (
             <div className="rounded-lg border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
               {canConfirmSource ? 'Nguồn dữ liệu chưa được xác nhận. Bấm Xác nhận và tiếp tục để tải vai trò từ kết quả phân tích.' : 'Hãy chọn ít nhất một dự án đã phân tích để tiếp tục.'}
             </div>
