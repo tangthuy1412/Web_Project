@@ -33,6 +33,34 @@ const stripInlineMarkdown = (value: string) =>
     .replace(/^\s*#{1,6}\s+/gm, '')
     .trim()
 
+const getYouTubeEmbedUrl = (value?: string) => {
+  if (!value) return ''
+
+  try {
+    const url = new URL(value)
+    const hostname = url.hostname.replace(/^www\./, '').toLowerCase()
+    let videoId = ''
+
+    if (hostname === 'youtu.be') {
+      videoId = url.pathname.split('/').filter(Boolean)[0] ?? ''
+    } else if (hostname === 'youtube.com' || hostname === 'm.youtube.com' || hostname === 'youtube-nocookie.com') {
+      videoId = url.searchParams.get('v') ?? ''
+      if (!videoId) {
+        const pathParts = url.pathname.split('/').filter(Boolean)
+        if (['embed', 'shorts', 'live'].includes(pathParts[0])) videoId = pathParts[1] ?? ''
+      }
+    }
+
+    return /^[a-zA-Z0-9_-]{11}$/.test(videoId)
+      ? `https://www.youtube-nocookie.com/embed/${videoId}`
+      : ''
+  } catch {
+    return ''
+  }
+}
+
+const isDirectVideoUrl = (value?: string) => Boolean(value && /\.(mp4|webm|ogg)(?:$|[?#])/i.test(value))
+
 const cleanListItem = (value: string) =>
   stripInlineMarkdown(value.replace(/^\s*[-*]\s+/, '').replace(/^\s*\d+[.)]\s+/, ''))
 
@@ -541,17 +569,36 @@ export const SkillLearningDetailPage = () => {
           <div className="grid gap-3 md:grid-cols-2">
             {currentResources.map((resource, index) => {
               const isVideo = resource.provider?.toLowerCase().includes('youtube') || resource.type === 'video'
+              const youtubeEmbedUrl = isVideo ? getYouTubeEmbedUrl(resource.url) : ''
+              const directVideo = isVideo && isDirectVideoUrl(resource.url)
+              const canPlayInline = Boolean(youtubeEmbedUrl || directVideo)
 
               return (
-                <a
+                <article
                   key={resource.id ?? resource._id ?? resource.url ?? index}
-                  href={resource.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group grid overflow-hidden rounded-lg border border-slate-200 bg-slate-50 transition hover:border-indigo-300 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700 dark:hover:bg-slate-950 sm:grid-cols-[150px_1fr]"
+                  className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50 transition hover:border-indigo-300 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700 dark:hover:bg-slate-950"
                 >
-                  <div className="relative aspect-video bg-slate-200 dark:bg-slate-800 sm:aspect-auto">
-                    {resource.thumbnailUrl ? (
+                  <div className="relative aspect-video bg-black">
+                    {youtubeEmbedUrl ? (
+                      <iframe
+                        src={youtubeEmbedUrl}
+                        title={stripInlineMarkdown(resource.title)}
+                        className="absolute inset-0 h-full w-full"
+                        loading="lazy"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    ) : directVideo ? (
+                      <video
+                        src={resource.url}
+                        title={stripInlineMarkdown(resource.title)}
+                        poster={resource.thumbnailUrl}
+                        className="h-full w-full"
+                        controls
+                        preload="metadata"
+                      />
+                    ) : resource.thumbnailUrl ? (
                       <img src={resource.thumbnailUrl} alt={resource.title} className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full min-h-28 items-center justify-center text-slate-400">
@@ -570,12 +617,19 @@ export const SkillLearningDetailPage = () => {
                         {stripInlineMarkdown(resource.title)}
                       </p>
                     </div>
-                    <span className="mt-3 inline-flex items-center text-sm font-medium text-indigo-600 dark:text-indigo-300">
-                      {isVideo ? 'Xem video' : 'Mở tài nguyên'}
-                      <ExternalLink className="ml-1 h-3.5 w-3.5" />
-                    </span>
+                    {!canPlayInline && (
+                      <a
+                        href={resource.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex items-center text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-300"
+                      >
+                        {isVideo ? 'Mở video nguồn' : 'Mở tài nguyên'}
+                        <ExternalLink className="ml-1 h-3.5 w-3.5" />
+                      </a>
+                    )}
                   </div>
-                </a>
+                </article>
               )
             })}
           </div>

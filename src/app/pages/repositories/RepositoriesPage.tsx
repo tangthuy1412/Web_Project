@@ -19,7 +19,7 @@ export const RepositoriesPage = () => {
   const [search, setSearch] = useState('')
   const [analysisFilter, setAnalysisFilter] = useState<AnalysisFilter>('all')
   const [languageFilter, setLanguageFilter] = useState('all')
-  const [sortBy, setSortBy] = useState<RepositorySort>('updated')
+  const [sortBy, setSortBy] = useState<RepositorySort | null>(null)
   const [analyzingRepoId, setAnalyzingRepoId] = useState<string | null>(null)
   const [creatingChatRepoId, setCreatingChatRepoId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
@@ -149,10 +149,11 @@ export const RepositoriesPage = () => {
           </select>
           <select
             aria-label="Sắp xếp dự án"
-            value={sortBy}
-            onChange={(event) => setSortBy(event.target.value as RepositorySort)}
+            value={sortBy ?? ''}
+            onChange={(event) => setSortBy(event.target.value ? event.target.value as RepositorySort : null)}
             className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900"
           >
+            <option value="">Thứ tự mặc định</option>
             <option value="updated">Cập nhật gần nhất</option>
             <option value="name">Tên A-Z</option>
             <option value="language">Ngôn ngữ A-Z</option>
@@ -171,7 +172,7 @@ export const RepositoriesPage = () => {
             <button
               key={value}
               type="button"
-              onClick={() => setAnalysisFilter(value)}
+              onClick={() => setAnalysisFilter((current) => value !== 'all' && current === value ? 'all' : value)}
               className={`h-8 rounded-md border px-3 text-sm font-medium transition ${analysisFilter === value ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'}`}
             >
               {label}
@@ -278,9 +279,10 @@ export const RepositoriesPage = () => {
                     <th key={value} className="whitespace-nowrap px-2 py-3 font-medium lg:px-4">
                       <button
                         type="button"
-                        onClick={() => setSortBy(value)}
+                        onClick={() => setSortBy((current) => current === value ? null : value)}
                         className="inline-flex items-center gap-1.5 transition hover:text-indigo-600 dark:hover:text-indigo-400"
-                        aria-label={`Sắp xếp theo ${label.toLowerCase()}`}
+                        aria-label={sortBy === value ? `Bỏ sắp xếp theo ${label.toLowerCase()}` : `Sắp xếp theo ${label.toLowerCase()}`}
+                        aria-pressed={sortBy === value}
                       >
                         {label}
                         <ArrowUpDown className={`h-3.5 w-3.5 ${sortBy === value ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />

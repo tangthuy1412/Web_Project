@@ -138,9 +138,6 @@ export const ChatPage = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [newSessionTitle, setNewSessionTitle] = useState('')
   const [selectedRepositoryId, setSelectedRepositoryId] = useState('')
-  const [isComparisonMode, setIsComparisonMode] = useState(false)
-  const [comparisonRepositoryIds, setComparisonRepositoryIds] = useState<string[]>([])
-  const [comparisonError, setComparisonError] = useState('')
   const [deleteSessionId, setDeleteSessionId] = useState('')
   const [createError, setCreateError] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -154,12 +151,6 @@ export const ChatPage = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [currentSession?.messages, isAiTyping])
-
-  useEffect(() => {
-    setIsComparisonMode(false)
-    setComparisonRepositoryIds([])
-    setComparisonError('')
-  }, [currentSession?.id])
 
   const handleRealtimeMessage = useCallback((event: ChatMessageCreatedEvent) => {
     applyRealtimeMessage(event.sessionId, normalizeChatMessage(event.message))
@@ -186,15 +177,9 @@ export const ChatPage = () => {
     event.preventDefault()
     if (!input.trim() || currentSession?.status === 'closed') return
 
-    const repositoryIds = Array.from(new Set(comparisonRepositoryIds.map((id) => id.trim()).filter(Boolean))).slice(0, 5)
-    if (isComparisonMode && repositoryIds.length < 2) {
-      setComparisonError('Chọn từ 2 đến 5 repository để so sánh.')
-      return
-    }
     const message = input
     setInput('')
-    setComparisonError('')
-    await sendMessage(message, isComparisonMode ? { repositoryIds } : undefined)
+    await sendMessage(message)
   }
 
   const handleInputChange = (value: string) => {
@@ -635,29 +620,6 @@ export const ChatPage = () => {
 
           <div className="flex-shrink-0 border-t border-slate-200 p-4 dark:border-slate-800">
             <div className="mb-3 space-y-2">
-              <label className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
-                <input type="checkbox" checked={isComparisonMode} onChange={(event) => { setIsComparisonMode(event.target.checked); setComparisonRepositoryIds([]); setComparisonError('') }} />
-                So sánh repository (2–5 repository, không phải merged vector inference)
-              </label>
-              {isComparisonMode && (
-                <div className="flex flex-wrap gap-2">
-                  {analyzedRepositoryOptions.map((repo) => {
-                    const checked = comparisonRepositoryIds.includes(repo.id)
-                    return (
-                      <label key={repo.id} className="flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs dark:border-slate-700">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={!checked && comparisonRepositoryIds.length >= 5}
-                          onChange={() => setComparisonRepositoryIds((current) => checked ? current.filter((id) => id !== repo.id) : Array.from(new Set([...current, repo.id])).slice(0, 5))}
-                        />
-                        {repo.label}
-                      </label>
-                    )
-                  })}
-                </div>
-              )}
-              {comparisonError && <p className="text-xs text-red-600">{comparisonError}</p>}
               {currentSession?.context?.contextSources?.length ? (
                 <div className="flex flex-wrap gap-1">
                   {currentSession.context.contextSources.includes('authoritative_dev2vec') && <Badge variant="info">Dựa trên kết quả Dev2Vec</Badge>}
